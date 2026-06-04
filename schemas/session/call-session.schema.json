@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/session/call-session.schema.json",
+  "title": "Call Session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "callId",
+    "sessionId",
+    "tenantId",
+    "currentState",
+    "intent",
+    "authenticated",
+    "sentiment",
+    "retryCount",
+    "escalationScore",
+    "facts",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "callId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "callerPhone": { "type": "string" },
+    "customerId": { "type": "string" },
+    "currentState": { "type": "string" },
+    "intent": { "type": ["string", "null"] },
+    "authenticated": { "type": "boolean" },
+    "sentiment": { "type": "string" },
+    "retryCount": { "type": "integer", "minimum": 0 },
+    "escalationScore": { "type": "number", "minimum": 0, "maximum": 1 },
+    "facts": { "type": "object" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}
+

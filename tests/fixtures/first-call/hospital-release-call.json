@@ -1,0 +1,22 @@
+{
+  "name": "hospital-release-call",
+  "transcript": "This is David Carter from Sunrise Hospital. The decedent is Helen Brooks and we are ready for release to Evergreen Funeral Home. Please call 555-333-1212.",
+  "expected": {
+    "intent": "first_call_intake",
+    "facts": {
+      "caller_name": "David Carter",
+      "caller_phone": "555-333-1212",
+      "decedent_name": "Helen Brooks",
+      "death_reported": true,
+      "place_of_death_type": "hospital",
+      "facility_name": "Sunrise Hospital",
+      "requested_funeral_home": "Evergreen Funeral Home",
+      "urgency": "urgent"
+    },
+    "decision": {
+      "step": "escalate",
+      "toolNames": ["crm.create_intake_lead", "dispatch.create_removal_request"]
+    }
+  }
+}
+

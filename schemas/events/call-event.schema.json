@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/events/call-event.schema.json",
+  "title": "Call Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "occurredAt",
+    "callId",
+    "sessionId",
+    "tenantId",
+    "correlationId",
+    "redactionStatus",
+    "payload"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "minLength": 1 },
+    "eventType": { "type": "string" },
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "callId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "redactionStatus": {
+      "type": "string",
+      "enum": ["not_required", "redacted", "contains_sensitive_data"]
+    },
+    "payload": { "type": "object" }
+  }
+}
+

@@ -1,0 +1,16 @@
+{
+  "name": "voice-ai-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test dist/tests/*.test.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3"
+  }
+}

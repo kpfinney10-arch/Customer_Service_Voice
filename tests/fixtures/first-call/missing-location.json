@@ -1,0 +1,20 @@
+{
+  "name": "missing-location",
+  "transcript": "My name is Mark Nelson. My mother Patricia Nelson passed away and I need help. My phone is 555-777-1010.",
+  "expected": {
+    "intent": "first_call_intake",
+    "facts": {
+      "caller_name": "Mark Nelson",
+      "caller_phone": "555-777-1010",
+      "caller_relationship_to_decedent": "mother",
+      "decedent_name": "Patricia Nelson",
+      "death_reported": true,
+      "urgency": "urgent"
+    },
+    "decision": {
+      "step": "collect_location",
+      "toolNames": ["crm.create_intake_lead"]
+    }
+  }
+}
+

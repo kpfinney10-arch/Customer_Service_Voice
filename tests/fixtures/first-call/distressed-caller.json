@@ -1,0 +1,22 @@
+{
+  "name": "distressed-caller",
+  "transcript": "I'm panicking. My husband Michael Adams just died at home and I don't know what to do. This is Laura Adams, 555-444-8899.",
+  "expected": {
+    "intent": "first_call_intake",
+    "sentiment": "angry",
+    "facts": {
+      "caller_name": "Laura Adams",
+      "caller_phone": "555-444-8899",
+      "caller_relationship_to_decedent": "husband",
+      "decedent_name": "Michael Adams",
+      "death_reported": true,
+      "place_of_death_type": "residence",
+      "urgency": "urgent"
+    },
+    "decision": {
+      "step": "collect_location",
+      "toolNames": ["crm.create_intake_lead"]
+    }
+  }
+}
+

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/tools/tool-request.schema.json",
+  "title": "Tool Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "toolCallId",
+    "toolName",
+    "tenantId",
+    "callId",
+    "sessionId",
+    "requestedBy",
+    "args",
+    "idempotencyKey"
+  ],
+  "properties": {
+    "toolCallId": { "type": "string", "minLength": 1 },
+    "toolName": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "callId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "requestedBy": {
+      "type": "string",
+      "enum": ["orchestrator", "state_handler", "llm"]
+    },
+    "args": { "type": "object" },
+    "idempotencyKey": { "type": "string", "minLength": 1 }
+  }
+}
+

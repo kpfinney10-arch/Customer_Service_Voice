@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/session/first-call-facts.schema.json",
+  "title": "First Call Death Report Facts",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "caller_name": { "type": "string" },
+    "caller_phone": { "type": "string" },
+    "caller_relationship_to_decedent": { "type": "string" },
+    "decedent_name": { "type": "string" },
+    "death_reported": { "type": "boolean" },
+    "place_of_death_type": {
+      "type": "string",
+      "enum": ["residence", "hospital", "hospice", "nursing_home", "medical_examiner", "other", "unknown"]
+    },
+    "pickup_address": { "type": "string" },
+    "pickup_contact_name": { "type": "string" },
+    "pickup_contact_phone": { "type": "string" },
+    "currently_with_decedent": { "type": "boolean" },
+    "requested_funeral_home": { "type": "string" },
+    "preferred_callback_number": { "type": "string" },
+    "urgency": { "type": "string", "enum": ["routine", "urgent", "emergency", "unknown"] },
+    "date_of_death": { "type": "string" },
+    "time_of_death": { "type": "string" },
+    "facility_name": { "type": "string" },
+    "facility_contact_role": { "type": "string" },
+    "dropoff_preference": { "type": "string" },
+    "special_handling_notes": { "type": "string" },
+    "religious_or_cultural_notes": { "type": "string" },
+    "caller_emotional_state": { "type": "string" },
+    "crm_existing_case_reference": { "type": "string" }
+  }
+}
+

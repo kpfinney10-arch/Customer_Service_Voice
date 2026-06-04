@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/tools/funeral-home-tools.schema.json",
+  "title": "Funeral Home Tool Arguments",
+  "oneOf": [
+    {
+      "title": "Create CRM Intake Lead",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reasonForCall", "urgency"],
+      "properties": {
+        "callerName": { "type": "string" },
+        "callerPhone": { "type": "string" },
+        "relationshipToDecedent": { "type": "string" },
+        "decedentName": { "type": "string" },
+        "placeOfDeathType": { "type": "string" },
+        "preferredCallbackNumber": { "type": "string" },
+        "reasonForCall": { "type": "string", "minLength": 1 },
+        "urgency": { "type": "string", "enum": ["routine", "urgent", "emergency"] }
+      }
+    },
+    {
+      "title": "Create Dispatch Removal Request",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pickupAddress"],
+      "properties": {
+        "decedentName": { "type": "string" },
+        "pickupAddress": { "type": "string", "minLength": 1 },
+        "facilityName": { "type": "string" },
+        "pickupContactName": { "type": "string" },
+        "pickupContactPhone": { "type": "string" },
+        "dropoffPreference": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    }
+  ]
+}

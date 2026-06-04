@@ -1,0 +1,23 @@
+{
+  "name": "hospice-nurse-report",
+  "transcript": "This is Emily Johnson from Gentle Care Hospice. The patient Margaret Lee was pronounced and we need Evergreen Funeral Home. We are at 88 Pine Road. My number is 555-220-9000.",
+  "expected": {
+    "intent": "first_call_intake",
+    "facts": {
+      "caller_name": "Emily Johnson",
+      "caller_phone": "555-220-9000",
+      "decedent_name": "Margaret Lee",
+      "death_reported": true,
+      "place_of_death_type": "hospice",
+      "facility_name": "Gentle Care Hospice",
+      "pickup_address": "88 Pine Road",
+      "requested_funeral_home": "Evergreen Funeral Home",
+      "urgency": "urgent"
+    },
+    "decision": {
+      "step": "escalate",
+      "toolNames": ["crm.create_intake_lead", "dispatch.create_removal_request"]
+    }
+  }
+}
+

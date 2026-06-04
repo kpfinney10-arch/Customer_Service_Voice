@@ -1,0 +1,20 @@
+{
+  "name": "pricing-during-death-report",
+  "transcript": "My name is Kevin Ross. My dad Thomas Ross died this morning and I need removal, but I also need to know the cost. Call me at 555-909-1122.",
+  "expected": {
+    "intent": "first_call_intake",
+    "facts": {
+      "caller_name": "Kevin Ross",
+      "caller_phone": "555-909-1122",
+      "caller_relationship_to_decedent": "father",
+      "decedent_name": "Thomas Ross",
+      "death_reported": true,
+      "urgency": "urgent"
+    },
+    "decision": {
+      "step": "collect_location",
+      "toolNames": ["crm.create_intake_lead"]
+    }
+  }
+}
+

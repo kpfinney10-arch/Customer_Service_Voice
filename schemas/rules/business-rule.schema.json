@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voice-ai-platform.local/schemas/rules/business-rule.schema.json",
+  "title": "Business Rule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ruleId", "name", "enabled", "priority", "conditions", "actions"],
+  "properties": {
+    "ruleId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "enabled": { "type": "boolean" },
+    "priority": { "type": "integer" },
+    "conditions": { "type": "array" },
+    "actions": { "type": "array" }
+  }
+}
+
