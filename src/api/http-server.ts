@@ -7,7 +7,11 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
-import { handleInboundTelephonyCall, handleTelephonySpeechTurn } from "../providers/telephony/inbound-call.js";
+import {
+  handleInboundTelephonyCall,
+  handleTelephonyCallEnd,
+  handleTelephonySpeechTurn,
+} from "../providers/telephony/inbound-call.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -115,6 +119,24 @@ export async function handleApiRequest(
       addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonySpeechTurn(service, input);
+      return jsonResponse(200, output);
+    }
+
+    const callEndMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/end$/,
+    );
+    if (request.method === "POST" && callEndMatch?.[1] && callEndMatch[2] && callEndMatch[3]) {
+      const tenantId = decodeURIComponent(callEndMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId,
+        provider: decodeURIComponent(callEndMatch[2]),
+        providerCallId: decodeURIComponent(callEndMatch[3]),
+      };
+      addIfPresent(input, "reason", optionalString(body.reason, "reason"));
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await handleTelephonyCallEnd(service, input);
       return jsonResponse(200, output);
     }
 
@@ -241,6 +263,25 @@ async function routeRequest(
     addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
     const output = await handleTelephonySpeechTurn(service, input);
+    sendJson(response, 200, output);
+    return;
+  }
+
+  const callEndMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/end$/,
+  );
+  if (method === "POST" && callEndMatch?.[1] && callEndMatch[2] && callEndMatch[3]) {
+    const tenantId = decodeURIComponent(callEndMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId,
+      provider: decodeURIComponent(callEndMatch[2]),
+      providerCallId: decodeURIComponent(callEndMatch[3]),
+    };
+    addIfPresent(input, "reason", optionalString(body.reason, "reason"));
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await handleTelephonyCallEnd(service, input);
     sendJson(response, 200, output);
     return;
   }

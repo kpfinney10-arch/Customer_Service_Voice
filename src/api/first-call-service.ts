@@ -26,6 +26,7 @@ export type IdFactory = () => string;
 export type FirstCallService = {
   startSession: (input: StartFirstCallSessionInput) => Promise<StartFirstCallSessionOutput>;
   handleTranscript: (input: HandleFirstCallTranscriptInput) => Promise<HandleFirstCallTranscriptOutput>;
+  endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
 };
@@ -58,6 +59,18 @@ export type HandleFirstCallTranscriptOutput = {
   events: CallEvent[];
   toolResults: ToolResult<object>[];
   handoff?: FirstCallHandoffSummary;
+};
+
+export type EndFirstCallSessionInput = {
+  tenantId: string;
+  sessionId: string;
+  reason?: string;
+  correlationId?: string;
+};
+
+export type EndFirstCallSessionOutput = {
+  session: CallSession;
+  events: CallEvent[];
 };
 
 export type ListFirstCallEventsInput = {
@@ -218,6 +231,35 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
       if (handoff) output.handoff = handoff;
       return output;
+    },
+
+    async endSession(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const session = updateSession(existingSession, {
+        currentState: "END_CALL",
+      });
+      const payload: Record<string, unknown> = {
+        from: existingSession.currentState,
+        to: session.currentState,
+      };
+      if (input.reason !== undefined) payload.reason = input.reason;
+      const events = [
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: "CALL_ENDED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId: input.correlationId ?? idFactory(),
+          payload,
+        }),
+      ];
+      await options.store.save(session);
+      await options.eventStore?.append(events);
+      return { session, events };
     },
 
     async listEvents(input) {

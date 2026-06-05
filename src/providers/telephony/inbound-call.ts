@@ -48,6 +48,22 @@ export type TelephonySpeechTurnOutput = {
   handoff?: FirstCallHandoffSummary;
 };
 
+export type TelephonyCallEndInput = {
+  tenantId: string;
+  provider: string;
+  providerCallId: string;
+  reason?: string;
+  correlationId?: string;
+};
+
+export type TelephonyCallEndOutput = {
+  session: CallSession;
+  events: CallEvent[];
+  provider: string;
+  providerCallId: string;
+  ended: true;
+};
+
 export async function handleInboundTelephonyCall(
   service: FirstCallService,
   input: InboundTelephonyCallInput,
@@ -97,6 +113,27 @@ export async function handleTelephonySpeechTurn(
   };
   if (output.handoff) response.handoff = output.handoff;
   return response;
+}
+
+export async function handleTelephonyCallEnd(
+  service: FirstCallService,
+  input: TelephonyCallEndInput,
+): Promise<TelephonyCallEndOutput> {
+  const endInput = {
+    tenantId: input.tenantId,
+    sessionId: input.providerCallId,
+  };
+  addIfPresent(endInput, "reason", input.reason);
+  addIfPresent(endInput, "correlationId", input.correlationId);
+  const output = await service.endSession(endInput);
+
+  return {
+    session: output.session,
+    events: output.events,
+    provider: input.provider,
+    providerCallId: input.providerCallId,
+    ended: true,
+  };
 }
 
 function addIfPresent<T extends object, K extends string, V>(

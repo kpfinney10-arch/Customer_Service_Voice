@@ -143,6 +143,22 @@ test("telephony inbound-call route starts first-call session", async () => {
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
   ]);
+
+  const ended = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/calls/provider-call-1/end", {
+    reason: "human_handoff_completed",
+    correlationId: "corr-provider-3",
+  });
+
+  assert.equal(ended.status, 200);
+  assert.equal(ended.body.ended, true);
+  assert.equal(ended.body.session.currentState, "END_CALL");
+  assert.equal(ended.body.events[0].eventType, "CALL_ENDED");
+
+  const completedReplay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/provider-call-1/replay");
+
+  assert.equal(completedReplay.status, 200);
+  assert.equal(completedReplay.body.snapshot.currentState, "END_CALL");
+  assert.equal(completedReplay.body.snapshot.latestEventType, "CALL_ENDED");
 });
 
 test("first-call transcript endpoint validates required transcript", async () => {
