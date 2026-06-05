@@ -1,5 +1,6 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { InMemoryEventStore } from "../events/in-memory-event-store.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
@@ -13,6 +14,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     options.service ??
     createFirstCallService({
       store: new InMemorySessionStore(),
+      eventStore: new InMemoryEventStore(),
     });
 
   return http.createServer(async (request, response) => {
@@ -81,6 +83,15 @@ export async function handleApiRequest(service: FirstCallService, request: Reque
       return jsonResponse(200, output);
     }
 
+    const eventsMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/events$/);
+    if (request.method === "GET" && eventsMatch?.[1] && eventsMatch[2]) {
+      const output = await service.listEvents({
+        tenantId: decodeURIComponent(eventsMatch[1]),
+        sessionId: decodeURIComponent(eventsMatch[2]),
+      });
+      return jsonResponse(200, output);
+    }
+
     return jsonResponse(404, {
       error: "ROUTE_NOT_FOUND",
       message: "No route matched the request.",
@@ -139,6 +150,16 @@ async function routeRequest(
     };
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
     const output = await service.handleTranscript(input);
+    sendJson(response, 200, output);
+    return;
+  }
+
+  const eventsMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/events$/);
+  if (method === "GET" && eventsMatch?.[1] && eventsMatch[2]) {
+    const output = await service.listEvents({
+      tenantId: decodeURIComponent(eventsMatch[1]),
+      sessionId: decodeURIComponent(eventsMatch[2]),
+    });
     sendJson(response, 200, output);
     return;
   }

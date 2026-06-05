@@ -1,5 +1,8 @@
 import type { CallEvent } from "../events/call-event.js";
+import { createCallEvent } from "../events/call-event.js";
+import type { EventStore } from "../events/in-memory-event-store.js";
 import type { StructuredFacts } from "../domain/call-types.js";
+import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
@@ -19,6 +22,7 @@ export type IdFactory = () => string;
 export type FirstCallService = {
   startSession: (input: StartFirstCallSessionInput) => Promise<StartFirstCallSessionOutput>;
   handleTranscript: (input: HandleFirstCallTranscriptInput) => Promise<HandleFirstCallTranscriptOutput>;
+  listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
 };
 
 export type StartFirstCallSessionInput = {
@@ -26,10 +30,12 @@ export type StartFirstCallSessionInput = {
   callId?: string;
   sessionId?: string;
   callerPhone?: string;
+  correlationId?: string;
 };
 
 export type StartFirstCallSessionOutput = {
   session: CallSession;
+  events: CallEvent[];
 };
 
 export type HandleFirstCallTranscriptInput = {
@@ -48,8 +54,18 @@ export type HandleFirstCallTranscriptOutput = {
   toolResults: ToolResult<object>[];
 };
 
+export type ListFirstCallEventsInput = {
+  tenantId: string;
+  sessionId: string;
+};
+
+export type ListFirstCallEventsOutput = {
+  events: CallEvent[];
+};
+
 export type CreateFirstCallServiceOptions = {
   store: SessionStore;
+  eventStore?: EventStore;
   idFactory?: IdFactory;
   extractor?: FirstCallExtractor;
   registry?: ToolRegistry;
@@ -69,8 +85,23 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
       if (input.callerPhone !== undefined) createInput.callerPhone = input.callerPhone;
       const session = createCallSession(createInput);
+      const events = [
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: "CALL_STARTED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId: input.correlationId ?? idFactory(),
+          payload: {
+            currentState: session.currentState,
+            callerPhoneProvided: Boolean(session.callerPhone),
+          },
+        }),
+      ];
       await options.store.save(session);
-      return { session };
+      await options.eventStore?.append(events);
+      return { session, events };
     },
 
     async handleTranscript(input) {
@@ -79,6 +110,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
       }
 
+      const redacted = redactText(input.transcript);
       const extraction = await extractor.extract(input.transcript);
       const facts: Partial<FirstCallFacts> = {
         ...existingSession.facts,
@@ -97,6 +129,49 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         escalationScore: decision.escalationReason ? 1 : existingSession.escalationScore,
       });
       const correlationId = input.correlationId ?? idFactory();
+      const decisionEvents = [
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: "TRANSCRIPT_RECEIVED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId,
+          redactionStatus: redacted.redacted ? "redacted" : "not_required",
+          payload: {
+            transcript: redacted.value,
+            redactionCategories: redacted.categories,
+          },
+        }),
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: "INTENT_DETECTED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId,
+          payload: {
+            intent: extraction.intent,
+            confidence: extraction.confidence,
+            warnings: extraction.warnings,
+          },
+        }),
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: decision.escalationReason ? "ESCALATION_TRIGGERED" : "STATE_TRANSITIONED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId,
+          payload: {
+            from: existingSession.currentState,
+            to: session.currentState,
+            step: decision.step,
+            missingTargetFacts: decision.missingTargetFacts,
+            escalationReason: decision.escalationReason,
+          },
+        }),
+      ];
       const toolOutput = await executeFirstCallTools({
         eventIdFactory: idFactory,
         toolCallIdFactory: idFactory,
@@ -107,14 +182,26 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         registry,
       });
       await options.store.save(session);
+      const events = [...decisionEvents, ...toolOutput.events];
+      await options.eventStore?.append(events);
 
       return {
         session,
         extraction,
         decision,
         responseText: firstCallPromptForStep(decision.step),
-        events: toolOutput.events,
+        events,
         toolResults: toolOutput.results,
+      };
+    },
+
+    async listEvents(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      return {
+        events: (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [],
       };
     },
   };

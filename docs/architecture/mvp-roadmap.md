@@ -14,6 +14,7 @@
 - Tool request/executed/failed event tests.
 - HTTP API boundary for first-call session and transcript turns.
 - In-memory session store for local development and API tests.
+- In-memory event timeline store and session events endpoint.
 - Scenario tests.
 
 ## Phase 2: Provider Adapters

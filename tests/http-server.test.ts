@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
+import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 
 test("health endpoint reports ready", async () => {
@@ -21,6 +22,7 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(started.status, 201);
   assert.equal(started.body.session.callId, "call-api-1");
   assert.equal(started.body.session.tenantId, "fh-demo");
+  assert.equal(started.body.events[0].eventType, "CALL_STARTED");
 
   const transcript =
     "My name is Sarah Miller, my father Robert Miller passed away at 123 Maple Street, Springfield. My number is 555-111-2222.";
@@ -39,7 +41,35 @@ test("first-call API starts a session and handles transcript turn", async () => 
     "dispatch.create_removal_request",
   ]);
   assert.equal(turn.body.toolResults.length, 2);
-  assert.equal(turn.body.events.length, 4);
+  assert.deepEqual(
+    turn.body.events.map((event: { eventType: string }) => event.eventType),
+    [
+      "TRANSCRIPT_RECEIVED",
+      "INTENT_DETECTED",
+      "ESCALATION_TRIGGERED",
+      "TOOL_REQUESTED",
+      "TOOL_EXECUTED",
+      "TOOL_REQUESTED",
+      "TOOL_EXECUTED",
+    ],
+  );
+
+  const timeline = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/session-api-1/events");
+
+  assert.equal(timeline.status, 200);
+  assert.deepEqual(
+    timeline.body.events.map((event: { eventType: string }) => event.eventType),
+    [
+      "CALL_STARTED",
+      "TRANSCRIPT_RECEIVED",
+      "INTENT_DETECTED",
+      "ESCALATION_TRIGGERED",
+      "TOOL_REQUESTED",
+      "TOOL_EXECUTED",
+      "TOOL_REQUESTED",
+      "TOOL_EXECUTED",
+    ],
+  );
 });
 
 test("first-call transcript endpoint validates required transcript", async () => {
@@ -59,7 +89,7 @@ async function fetchJson(method: string, path: string, body?: object): Promise<{
     init.headers = { "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
-  const service = createFirstCallService({ store: sharedStore });
+  const service = createFirstCallService({ store: sharedStore, eventStore: sharedEventStore });
   const response = await handleApiRequest(service, new Request(`http://localhost${path}`, init));
   return {
     status: response.status,
@@ -68,3 +98,4 @@ async function fetchJson(method: string, path: string, body?: object): Promise<{
 }
 
 const sharedStore = new InMemorySessionStore();
+const sharedEventStore = new InMemoryEventStore();

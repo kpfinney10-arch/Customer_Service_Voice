@@ -17,6 +17,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Deterministic first-call fact extraction before any LLM dependency.
 - Fake CRM/dispatch adapters for contract testing before real integrations.
 - HTTP API boundary for starting sessions and submitting transcript turns.
+- Session event timeline for debugging and future replay.
 
 ## Architecture Pillars
 
@@ -38,7 +39,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/tools`: typed tool registry and execution boundary.
 - `src/orchestrator`: first turn-level orchestration slice.
 - `src/security`: redaction utilities.
-- `src/events`: event construction helpers.
+- `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
 - `src/verticals/funeral-home`: funeral-home-specific intents and rules.
 - `docs/architecture/first-call-death-report-intake.md`: MVP call-flow definition.
@@ -66,5 +67,8 @@ Endpoints:
 - `GET /health`
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
+- `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
+
+Transcript text is redacted before it is stored in events. Fact extraction still runs against the original transcript so operational details like callback numbers are not lost before the system can safely route the call.
