@@ -18,6 +18,7 @@ export * from "./session/call-session.js";
 export * from "./session/in-memory-session-store.js";
 export * from "./state-machine/call-state-machine.js";
 export * from "./tenants/tenant-config.js";
+export * from "./tenants/tenant-readiness.js";
 export * from "./tools/tool-registry.js";
 export * from "./verticals/funeral-home/intents.js";
 export * from "./verticals/funeral-home/first-call-extractor.js";

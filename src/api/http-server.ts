@@ -13,6 +13,7 @@ import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
+import { evaluateTenantReadiness } from "../tenants/tenant-readiness.js";
 import {
   handleTelephonyAudioTurn,
   handleInboundTelephonyCall,
@@ -125,6 +126,22 @@ export async function handleApiRequest(
         throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
       }
       response = jsonResponse(200, { tenantConfig: config });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const tenantReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/readiness$/);
+    if (request.method === "GET" && tenantReadinessMatch?.[1]) {
+      const tenantId = decodeURIComponent(tenantReadinessMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      if (!tenantConfigStore) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      const config = await tenantConfigStore.get(tenantId);
+      if (!config) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      response = jsonResponse(200, { readiness: evaluateTenantReadiness(config) });
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -365,6 +382,18 @@ async function routeRequest(
       throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
     }
     sendJson(response, 200, { tenantConfig: config });
+    return;
+  }
+
+  const tenantReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/readiness$/);
+  if (method === "GET" && tenantReadinessMatch?.[1]) {
+    const tenantId = decodeURIComponent(tenantReadinessMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const config = await tenantConfigStore.get(tenantId);
+    if (!config) {
+      throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+    }
+    sendJson(response, 200, { readiness: evaluateTenantReadiness(config) });
     return;
   }
 

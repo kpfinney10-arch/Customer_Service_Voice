@@ -38,6 +38,24 @@ test("tenant config endpoint requires tenant API key and known config", async ()
   assert.equal(missingConfig.body.error, "TENANT_CONFIG_NOT_FOUND");
 });
 
+test("tenant readiness endpoint reports ready and blocked tenants", async () => {
+  const ready = await fetchJson("GET", "/v1/tenants/fh-demo/readiness");
+
+  assert.equal(ready.status, 200);
+  assert.equal(ready.body.readiness.tenantId, "fh-demo");
+  assert.equal(ready.body.readiness.ready, true);
+  assert.equal(ready.body.readiness.checks.every((check: { ok: boolean }) => check.ok), true);
+
+  const blocked = await fetchJson("GET", "/v1/tenants/fh-disabled/readiness");
+
+  assert.equal(blocked.status, 200);
+  assert.equal(blocked.body.readiness.ready, false);
+  assert.equal(
+    blocked.body.readiness.checks.find((check: { name: string }) => check.name === "voice_intake_enabled").ok,
+    false,
+  );
+});
+
 test("API request logging captures request metadata without request bodies", async () => {
   const logger = new TestLogger();
   const response = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {

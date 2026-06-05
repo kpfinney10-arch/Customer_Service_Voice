@@ -20,6 +20,7 @@
 - Tenant handoff routing for on-call phone, dispatch desk, queue, or manual review.
 - Environment-loadable tenant configuration for adding funeral home customers without code edits.
 - Tenant config lookup endpoint for deployment verification.
+- Tenant readiness endpoint for first-call traffic go/no-go checks.
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Structured API request logging with request ids and tenant context.
 - Session replay snapshot endpoint for debugging and future replay tooling.
