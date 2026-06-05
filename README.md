@@ -18,6 +18,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Fake CRM/dispatch adapters for contract testing before real integrations.
 - HTTP API boundary for starting sessions and submitting transcript turns.
 - Session event timeline for debugging and future replay.
+- Tenant API key enforcement for tenant-scoped routes.
 
 ## Architecture Pillars
 
@@ -38,7 +39,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/rules`: deterministic rule evaluation.
 - `src/tools`: typed tool registry and execution boundary.
 - `src/orchestrator`: first turn-level orchestration slice.
-- `src/security`: redaction utilities.
+- `src/security`: redaction utilities and tenant API key verification.
 - `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
 - `src/verticals/funeral-home`: funeral-home-specific intents and rules.
@@ -58,6 +59,7 @@ This scaffold is dependency-light on purpose. Provider-specific telephony, STT, 
 Build and run:
 
 ```bash
+export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
 npm run build
 npm start
 ```
@@ -68,6 +70,8 @@ Endpoints:
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
+
+All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

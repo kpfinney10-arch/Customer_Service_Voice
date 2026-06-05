@@ -6,6 +6,7 @@ export * from "./api/http-server.js";
 export * from "./orchestrator/orchestrator.js";
 export * from "./rules/rules-engine.js";
 export * from "./security/redaction.js";
+export * from "./security/tenant-auth.js";
 export * from "./session/call-session.js";
 export * from "./session/in-memory-session-store.js";
 export * from "./state-machine/call-state-machine.js";

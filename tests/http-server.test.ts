@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
+import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 
 test("health endpoint reports ready", async () => {
@@ -83,14 +84,35 @@ test("first-call transcript endpoint validates required transcript", async () =>
   assert.equal(response.body.error, "VALIDATION_ERROR");
 });
 
-async function fetchJson(method: string, path: string, body?: object): Promise<{ status: number; body: any }> {
+test("tenant routes require an API key", async () => {
+  const missing = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {}, { apiKey: null });
+
+  assert.equal(missing.status, 401);
+  assert.equal(missing.body.error, "API_KEY_REQUIRED");
+
+  const wrong = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {}, { apiKey: "wrong-key" });
+
+  assert.equal(wrong.status, 403);
+  assert.equal(wrong.body.error, "API_KEY_FORBIDDEN");
+});
+
+async function fetchJson(
+  method: string,
+  path: string,
+  body?: object,
+  options: { apiKey?: string | null } = {},
+): Promise<{ status: number; body: any }> {
   const init: RequestInit = { method };
+  const headers: Record<string, string> = {};
+  const apiKey = options.apiKey === undefined ? "demo-api-key" : options.apiKey;
+  if (apiKey) headers["x-api-key"] = apiKey;
   if (body) {
-    init.headers = { "content-type": "application/json" };
+    headers["content-type"] = "application/json";
     init.body = JSON.stringify(body);
   }
+  if (Object.keys(headers).length > 0) init.headers = headers;
   const service = createFirstCallService({ store: sharedStore, eventStore: sharedEventStore });
-  const response = await handleApiRequest(service, new Request(`http://localhost${path}`, init));
+  const response = await handleApiRequest(service, new Request(`http://localhost${path}`, init), apiKeyVerifier);
   return {
     status: response.status,
     body: await response.json(),
@@ -99,3 +121,6 @@ async function fetchJson(method: string, path: string, body?: object): Promise<{
 
 const sharedStore = new InMemorySessionStore();
 const sharedEventStore = new InMemoryEventStore();
+const apiKeyVerifier = new InMemoryTenantApiKeyVerifier({
+  "fh-demo": "demo-api-key",
+});

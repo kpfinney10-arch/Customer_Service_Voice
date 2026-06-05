@@ -1,12 +1,18 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { InMemoryEventStore } from "../events/in-memory-event-store.js";
+import {
+  createTenantApiKeyVerifierFromEnv,
+  extractApiKeyFromHeaders,
+} from "../security/tenant-auth.js";
+import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
 export type ApiServerOptions = {
   service?: FirstCallService;
+  apiKeyVerifier?: TenantApiKeyVerifier;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -16,10 +22,11 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
       store: new InMemorySessionStore(),
       eventStore: new InMemoryEventStore(),
     });
+  const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
 
   return http.createServer(async (request, response) => {
     try {
-      await routeRequest(service, request, response);
+      await routeRequest(service, apiKeyVerifier, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
         sendJson(response, error.statusCode, { error: error.code, message: error.message });
@@ -46,7 +53,11 @@ export async function listen(server: http.Server, port: number, host = "127.0.0.
   return `http://${address.address}:${address.port}`;
 }
 
-export async function handleApiRequest(service: FirstCallService, request: Request): Promise<Response> {
+export async function handleApiRequest(
+  service: FirstCallService,
+  request: Request,
+  apiKeyVerifier: TenantApiKeyVerifier,
+): Promise<Response> {
   try {
     const url = new URL(request.url);
 
@@ -56,9 +67,11 @@ export async function handleApiRequest(service: FirstCallService, request: Reque
 
     const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
     if (request.method === "POST" && startMatch?.[1]) {
+      const tenantId = decodeURIComponent(startMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
       const body = await readWebJsonObject(request);
       const input = {
-        tenantId: decodeURIComponent(startMatch[1]),
+        tenantId,
       };
       addIfPresent(input, "callId", optionalString(body.callId, "callId"));
       addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
@@ -71,10 +84,12 @@ export async function handleApiRequest(service: FirstCallService, request: Reque
       /^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/transcript$/,
     );
     if (request.method === "POST" && transcriptMatch?.[1] && transcriptMatch[2]) {
+      const tenantId = decodeURIComponent(transcriptMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
       const body = await readWebJsonObject(request);
       const transcript = requiredString(body.transcript, "transcript");
       const input = {
-        tenantId: decodeURIComponent(transcriptMatch[1]),
+        tenantId,
         sessionId: decodeURIComponent(transcriptMatch[2]),
         transcript,
       };
@@ -85,8 +100,10 @@ export async function handleApiRequest(service: FirstCallService, request: Reque
 
     const eventsMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/events$/);
     if (request.method === "GET" && eventsMatch?.[1] && eventsMatch[2]) {
+      const tenantId = decodeURIComponent(eventsMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
       const output = await service.listEvents({
-        tenantId: decodeURIComponent(eventsMatch[1]),
+        tenantId,
         sessionId: decodeURIComponent(eventsMatch[2]),
       });
       return jsonResponse(200, output);
@@ -112,6 +129,7 @@ export async function handleApiRequest(service: FirstCallService, request: Reque
 
 async function routeRequest(
   service: FirstCallService,
+  apiKeyVerifier: TenantApiKeyVerifier,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -125,9 +143,11 @@ async function routeRequest(
 
   const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
   if (method === "POST" && startMatch?.[1]) {
+    const tenantId = decodeURIComponent(startMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
     const body = await readJsonObject(request);
     const input = {
-      tenantId: decodeURIComponent(startMatch[1]),
+      tenantId,
     };
     addIfPresent(input, "callId", optionalString(body.callId, "callId"));
     addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
@@ -141,10 +161,12 @@ async function routeRequest(
     /^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/transcript$/,
   );
   if (method === "POST" && transcriptMatch?.[1] && transcriptMatch[2]) {
+    const tenantId = decodeURIComponent(transcriptMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
     const body = await readJsonObject(request);
     const transcript = requiredString(body.transcript, "transcript");
     const input = {
-      tenantId: decodeURIComponent(transcriptMatch[1]),
+      tenantId,
       sessionId: decodeURIComponent(transcriptMatch[2]),
       transcript,
     };
@@ -156,8 +178,10 @@ async function routeRequest(
 
   const eventsMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/events$/);
   if (method === "GET" && eventsMatch?.[1] && eventsMatch[2]) {
+    const tenantId = decodeURIComponent(eventsMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
     const output = await service.listEvents({
-      tenantId: decodeURIComponent(eventsMatch[1]),
+      tenantId,
       sessionId: decodeURIComponent(eventsMatch[2]),
     });
     sendJson(response, 200, output);
@@ -227,6 +251,34 @@ function addIfPresent<T extends object, K extends string, V>(
   if (value !== undefined) {
     Object.assign(target, { [key]: value });
   }
+}
+
+async function requireTenantApiKey(
+  verifier: TenantApiKeyVerifier,
+  tenantId: string,
+  apiKey: string | undefined,
+): Promise<void> {
+  if (!apiKey) {
+    throw new ApiError(401, "API_KEY_REQUIRED", "A tenant API key is required.");
+  }
+  const valid = await verifier.verify(tenantId, apiKey);
+  if (!valid) {
+    throw new ApiError(403, "API_KEY_FORBIDDEN", "The tenant API key is not valid for this tenant.");
+  }
+}
+
+function extractApiKeyFromIncomingMessage(request: http.IncomingMessage): string | undefined {
+  const direct = headerValue(request.headers["x-api-key"]);
+  if (direct?.trim()) return direct.trim();
+
+  const authorization = headerValue(request.headers.authorization);
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  return bearer || undefined;
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
 }
 
 function sendJson(response: http.ServerResponse, statusCode: number, body: object): void {
