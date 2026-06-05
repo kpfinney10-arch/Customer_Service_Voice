@@ -21,6 +21,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Tenant API key enforcement for tenant-scoped routes.
 - Human handoff summaries for escalated first-call death reports.
 - Session replay snapshots for debugging current call state from stored events.
+- Generic telephony inbound-call boundary for future provider adapters.
 
 ## Architecture Pillars
 
@@ -42,6 +43,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/rules`: deterministic rule evaluation.
 - `src/tools`: typed tool registry and execution boundary.
 - `src/orchestrator`: first turn-level orchestration slice.
+- `src/providers`: provider-facing adapters for telephony and future speech/model services.
 - `src/security`: redaction utilities and tenant API key verification.
 - `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
@@ -70,12 +72,15 @@ npm start
 Endpoints:
 
 - `GET /health`
+- `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
 All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
+
+The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

@@ -7,6 +7,7 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
+import { handleInboundTelephonyCall } from "../providers/telephony/inbound-call.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -77,6 +78,23 @@ export async function handleApiRequest(
       addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
       addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
       const output = await service.startSession(input);
+      return jsonResponse(201, output);
+    }
+
+    const inboundCallMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/inbound-call$/);
+    if (request.method === "POST" && inboundCallMatch?.[1] && inboundCallMatch[2]) {
+      const tenantId = decodeURIComponent(inboundCallMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId,
+        provider: decodeURIComponent(inboundCallMatch[2]),
+        providerCallId: requiredString(body.providerCallId, "providerCallId"),
+      };
+      addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
+      addIfPresent(input, "toPhone", optionalString(body.toPhone, "toPhone"));
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await handleInboundTelephonyCall(service, input);
       return jsonResponse(201, output);
     }
 
@@ -164,6 +182,24 @@ async function routeRequest(
     addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
     addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
     const output = await service.startSession(input);
+    sendJson(response, 201, output);
+    return;
+  }
+
+  const inboundCallMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/inbound-call$/);
+  if (method === "POST" && inboundCallMatch?.[1] && inboundCallMatch[2]) {
+    const tenantId = decodeURIComponent(inboundCallMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId,
+      provider: decodeURIComponent(inboundCallMatch[2]),
+      providerCallId: requiredString(body.providerCallId, "providerCallId"),
+    };
+    addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
+    addIfPresent(input, "toPhone", optionalString(body.toPhone, "toPhone"));
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await handleInboundTelephonyCall(service, input);
     sendJson(response, 201, output);
     return;
   }

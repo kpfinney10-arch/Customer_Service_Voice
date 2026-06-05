@@ -98,6 +98,32 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(replay.body.snapshot.handoff.caller.name, "Sarah Miller");
 });
 
+test("telephony inbound-call route starts first-call session", async () => {
+  const inbound = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
+    providerCallId: "provider-call-1",
+    fromPhone: "555-888-9999",
+    toPhone: "555-000-1111",
+    correlationId: "corr-provider-1",
+  });
+
+  assert.equal(inbound.status, 201);
+  assert.equal(inbound.body.provider, "generic");
+  assert.equal(inbound.body.providerCallId, "provider-call-1");
+  assert.equal(inbound.body.route, "first_call_intake");
+  assert.equal(inbound.body.nextExpectedInput, "caller_speech");
+  assert.equal(inbound.body.responseText, "I am sorry. I will help get this to the right person.");
+  assert.equal(inbound.body.session.callId, "provider-call-1");
+  assert.equal(inbound.body.session.sessionId, "provider-call-1");
+  assert.equal(inbound.body.session.callerPhone, "555-888-9999");
+  assert.equal(inbound.body.events[0].eventType, "CALL_STARTED");
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/provider-call-1/replay");
+
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.snapshot.eventCount, 1);
+  assert.equal(replay.body.snapshot.currentState, "GREETING");
+});
+
 test("first-call transcript endpoint validates required transcript", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-api-2",
