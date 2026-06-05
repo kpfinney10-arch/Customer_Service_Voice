@@ -172,6 +172,35 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(completedReplay.body.snapshot.latestEventType, "CALL_ENDED");
 });
 
+test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
+    providerCallId: "provider-call-audio-1",
+    fromPhone: "555-222-1010",
+  });
+
+  const audioTranscript =
+    "This is Daniel Stone. My father George Stone passed away at 789 Pine Road, Dallas. My number is 555-222-1010.";
+  const audioTurn = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/calls/provider-call-audio-1/audio-turn", {
+    audioContentType: "audio/wav",
+    audioBytesBase64: Buffer.from(audioTranscript, "utf8").toString("base64"),
+    languageCode: "en-US",
+    voice: "local-test",
+    correlationId: "corr-audio-1",
+  });
+
+  assert.equal(audioTurn.status, 200);
+  assert.equal(audioTurn.body.stt.provider, "fake-stt");
+  assert.equal(audioTurn.body.stt.transcript, audioTranscript);
+  assert.equal(audioTurn.body.tts.provider, "fake-tts");
+  assert.equal(
+    Buffer.from(audioTurn.body.tts.audio.bytesBase64, "base64").toString("utf8"),
+    "I am going to connect you with a funeral home team member now.",
+  );
+  assert.equal(audioTurn.body.nextExpectedInput, "human_handoff");
+  assert.equal(audioTurn.body.handoff.caller.name, "Daniel Stone");
+  assert.equal(audioTurn.body.handoff.decedent.name, "George Stone");
+});
+
 test("first-call transcript endpoint validates required transcript", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-api-2",

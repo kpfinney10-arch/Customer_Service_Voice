@@ -1,6 +1,8 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { InMemoryEventStore } from "../events/in-memory-event-store.js";
+import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
+import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
 import {
   createTenantApiKeyVerifierFromEnv,
   extractApiKeyFromHeaders,
@@ -8,6 +10,7 @@ import {
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import {
+  handleTelephonyAudioTurn,
   handleInboundTelephonyCall,
   handleTelephonyCallEnd,
   handleTelephonySpeechTurn,
@@ -18,6 +21,7 @@ import type { FirstCallService } from "./first-call-service.js";
 export type ApiServerOptions = {
   service?: FirstCallService;
   apiKeyVerifier?: TenantApiKeyVerifier;
+  speechAdapters?: SpeechAdapters;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -28,10 +32,11 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
       eventStore: new InMemoryEventStore(),
     });
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
+  const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
 
   return http.createServer(async (request, response) => {
     try {
-      await routeRequest(service, apiKeyVerifier, request, response);
+      await routeRequest(service, apiKeyVerifier, speechAdapters, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
         sendJson(response, error.statusCode, { error: error.code, message: error.message });
@@ -62,6 +67,7 @@ export async function handleApiRequest(
   service: FirstCallService,
   request: Request,
   apiKeyVerifier: TenantApiKeyVerifier,
+  speechAdapters: SpeechAdapters = createFakeSpeechAdapters(),
 ): Promise<Response> {
   try {
     const url = new URL(request.url);
@@ -119,6 +125,29 @@ export async function handleApiRequest(
       addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonySpeechTurn(service, input);
+      return jsonResponse(200, output);
+    }
+
+    const audioTurnMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/audio-turn$/,
+    );
+    if (request.method === "POST" && audioTurnMatch?.[1] && audioTurnMatch[2] && audioTurnMatch[3]) {
+      const tenantId = decodeURIComponent(audioTurnMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId,
+        provider: decodeURIComponent(audioTurnMatch[2]),
+        providerCallId: decodeURIComponent(audioTurnMatch[3]),
+        audio: {
+          contentType: requiredString(body.audioContentType, "audioContentType"),
+          bytesBase64: requiredString(body.audioBytesBase64, "audioBytesBase64"),
+        },
+      };
+      addIfPresent(input, "languageCode", optionalString(body.languageCode, "languageCode"));
+      addIfPresent(input, "voice", optionalString(body.voice, "voice"));
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
       return jsonResponse(200, output);
     }
 
@@ -201,6 +230,7 @@ export async function handleApiRequest(
 async function routeRequest(
   service: FirstCallService,
   apiKeyVerifier: TenantApiKeyVerifier,
+  speechAdapters: SpeechAdapters,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -263,6 +293,30 @@ async function routeRequest(
     addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
     const output = await handleTelephonySpeechTurn(service, input);
+    sendJson(response, 200, output);
+    return;
+  }
+
+  const audioTurnMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/audio-turn$/,
+  );
+  if (method === "POST" && audioTurnMatch?.[1] && audioTurnMatch[2] && audioTurnMatch[3]) {
+    const tenantId = decodeURIComponent(audioTurnMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId,
+      provider: decodeURIComponent(audioTurnMatch[2]),
+      providerCallId: decodeURIComponent(audioTurnMatch[3]),
+      audio: {
+        contentType: requiredString(body.audioContentType, "audioContentType"),
+        bytesBase64: requiredString(body.audioBytesBase64, "audioBytesBase64"),
+      },
+    };
+    addIfPresent(input, "languageCode", optionalString(body.languageCode, "languageCode"));
+    addIfPresent(input, "voice", optionalString(body.voice, "voice"));
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
     sendJson(response, 200, output);
     return;
   }

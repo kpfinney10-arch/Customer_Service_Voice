@@ -3,6 +3,7 @@ import type { CallSession } from "../../session/call-session.js";
 import type { FirstCallFlowDecision } from "../../verticals/funeral-home/first-call-flow.js";
 import { firstCallPromptForStep } from "../../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallService } from "../../api/first-call-service.js";
+import type { SpeechAdapters, SpeechToTextOutput, TextToSpeechOutput } from "../speech/speech-adapters.js";
 import type { FirstCallHandoffSummary } from "../../verticals/funeral-home/first-call-handoff.js";
 import type { ToolResult } from "../../tools/tool-registry.js";
 import {
@@ -54,6 +55,24 @@ export type TelephonySpeechTurnOutput = {
   toolResults: ToolResult<object>[];
   voiceResponse: VoiceResponse;
   handoff?: FirstCallHandoffSummary;
+};
+
+export type TelephonyAudioTurnInput = {
+  tenantId: string;
+  provider: string;
+  providerCallId: string;
+  audio: {
+    contentType: string;
+    bytesBase64: string;
+  };
+  languageCode?: string;
+  voice?: string;
+  correlationId?: string;
+};
+
+export type TelephonyAudioTurnOutput = TelephonySpeechTurnOutput & {
+  stt: SpeechToTextOutput;
+  tts: TextToSpeechOutput;
 };
 
 export type TelephonyCallEndInput = {
@@ -127,6 +146,46 @@ export async function handleTelephonySpeechTurn(
   };
   if (output.handoff) response.handoff = output.handoff;
   return response;
+}
+
+export async function handleTelephonyAudioTurn(
+  service: FirstCallService,
+  speechAdapters: SpeechAdapters,
+  input: TelephonyAudioTurnInput,
+): Promise<TelephonyAudioTurnOutput> {
+  const sttInput = {
+    tenantId: input.tenantId,
+    callId: input.providerCallId,
+    audio: input.audio,
+  };
+  addIfPresent(sttInput, "languageCode", input.languageCode);
+  addIfPresent(sttInput, "correlationId", input.correlationId);
+  const stt = await speechAdapters.stt.transcribe(sttInput);
+  const speechTurnInput = {
+    tenantId: input.tenantId,
+    provider: input.provider,
+    providerCallId: input.providerCallId,
+    transcript: stt.transcript,
+    confidence: stt.confidence,
+    isFinal: stt.isFinal,
+  };
+  addIfPresent(speechTurnInput, "correlationId", input.correlationId);
+  const speechTurn = await handleTelephonySpeechTurn(service, speechTurnInput);
+  const ttsInput = {
+    tenantId: input.tenantId,
+    callId: input.providerCallId,
+    text: speechTurn.responseText,
+  };
+  addIfPresent(ttsInput, "voice", input.voice);
+  addIfPresent(ttsInput, "languageCode", input.languageCode);
+  addIfPresent(ttsInput, "correlationId", input.correlationId);
+  const tts = await speechAdapters.tts.synthesize(ttsInput);
+
+  return {
+    ...speechTurn,
+    stt,
+    tts,
+  };
 }
 
 export async function handleTelephonyCallEnd(
