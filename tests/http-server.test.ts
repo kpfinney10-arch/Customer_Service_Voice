@@ -81,6 +81,21 @@ test("first-call API starts a session and handles transcript turn", async () => 
       "TOOL_EXECUTED",
     ],
   );
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/session-api-1/replay");
+
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.snapshot.currentState, "ESCALATE");
+  assert.equal(replay.body.snapshot.eventCount, 8);
+  assert.equal(replay.body.snapshot.latestEventType, "TOOL_EXECUTED");
+  assert.equal(replay.body.snapshot.escalated, true);
+  assert.equal(replay.body.snapshot.redactedTranscriptCount, 1);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+  assert.deepEqual(replay.body.snapshot.failedToolNames, []);
+  assert.equal(replay.body.snapshot.handoff.caller.name, "Sarah Miller");
 });
 
 test("first-call transcript endpoint validates required transcript", async () => {

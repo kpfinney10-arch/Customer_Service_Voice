@@ -2,6 +2,8 @@ import type { CallEvent } from "../events/call-event.js";
 import { createCallEvent } from "../events/call-event.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
 import type { StructuredFacts } from "../domain/call-types.js";
+import { createSessionReplaySnapshot } from "../debug/session-replay.js";
+import type { SessionReplaySnapshot } from "../debug/session-replay.js";
 import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
@@ -25,6 +27,7 @@ export type FirstCallService = {
   startSession: (input: StartFirstCallSessionInput) => Promise<StartFirstCallSessionOutput>;
   handleTranscript: (input: HandleFirstCallTranscriptInput) => Promise<HandleFirstCallTranscriptOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
+  replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
 };
 
 export type StartFirstCallSessionInput = {
@@ -64,6 +67,17 @@ export type ListFirstCallEventsInput = {
 
 export type ListFirstCallEventsOutput = {
   events: CallEvent[];
+};
+
+export type ReplayFirstCallSessionInput = {
+  tenantId: string;
+  sessionId: string;
+};
+
+export type ReplayFirstCallSessionOutput = {
+  session: CallSession;
+  events: CallEvent[];
+  snapshot: SessionReplaySnapshot;
 };
 
 export type CreateFirstCallServiceOptions = {
@@ -215,7 +229,64 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         events: (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [],
       };
     },
+
+    async replaySession(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const events = (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [];
+      const facts = existingSession.facts as Partial<FirstCallFacts>;
+      const decision = decideFirstCallNextStep(facts);
+      const toolResults = events
+        .filter((event) => event.eventType === "TOOL_EXECUTED" || event.eventType === "TOOL_FAILED")
+        .map((event): ToolResult<object> => {
+          const result: ToolResult<object> = {
+            toolCallId: String(event.payload.toolCallId ?? ""),
+            toolName: String(event.payload.toolName ?? ""),
+            ok: event.eventType === "TOOL_EXECUTED",
+          };
+          if (typeof event.payload.errorCode === "string") result.errorCode = event.payload.errorCode;
+          if (typeof event.payload.callerSafeSummary === "string") {
+            result.callerSafeSummary = event.payload.callerSafeSummary;
+          }
+          return result;
+        });
+      const handoff = createFirstCallHandoffSummary({
+        session: existingSession,
+        facts,
+        decision,
+        toolResults,
+      });
+      return {
+        session: existingSession,
+        events,
+        snapshot: createReplaySnapshot({
+          session: existingSession,
+          events,
+          handoff,
+        }),
+      };
+    },
   };
+}
+
+function createReplaySnapshot(input: {
+  session: CallSession;
+  events: CallEvent[];
+  handoff: FirstCallHandoffSummary | undefined;
+}): SessionReplaySnapshot {
+  if (input.handoff) {
+    return createSessionReplaySnapshot({
+      session: input.session,
+      events: input.events,
+      handoff: input.handoff,
+    });
+  }
+  return createSessionReplaySnapshot({
+    session: input.session,
+    events: input.events,
+  });
 }
 
 export class FirstCallServiceError extends Error {

@@ -109,6 +109,17 @@ export async function handleApiRequest(
       return jsonResponse(200, output);
     }
 
+    const replayMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/replay$/);
+    if (request.method === "GET" && replayMatch?.[1] && replayMatch[2]) {
+      const tenantId = decodeURIComponent(replayMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const output = await service.replaySession({
+        tenantId,
+        sessionId: decodeURIComponent(replayMatch[2]),
+      });
+      return jsonResponse(200, output);
+    }
+
     return jsonResponse(404, {
       error: "ROUTE_NOT_FOUND",
       message: "No route matched the request.",
@@ -183,6 +194,18 @@ async function routeRequest(
     const output = await service.listEvents({
       tenantId,
       sessionId: decodeURIComponent(eventsMatch[2]),
+    });
+    sendJson(response, 200, output);
+    return;
+  }
+
+  const replayMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/replay$/);
+  if (method === "GET" && replayMatch?.[1] && replayMatch[2]) {
+    const tenantId = decodeURIComponent(replayMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const output = await service.replaySession({
+      tenantId,
+      sessionId: decodeURIComponent(replayMatch[2]),
     });
     sendJson(response, 200, output);
     return;

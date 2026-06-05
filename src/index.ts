@@ -1,4 +1,5 @@
 export * from "./domain/call-types.js";
+export * from "./debug/session-replay.js";
 export * from "./events/call-event.js";
 export * from "./events/in-memory-event-store.js";
 export * from "./api/first-call-service.js";

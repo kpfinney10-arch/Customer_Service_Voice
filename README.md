@@ -20,6 +20,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Session event timeline for debugging and future replay.
 - Tenant API key enforcement for tenant-scoped routes.
 - Human handoff summaries for escalated first-call death reports.
+- Session replay snapshots for debugging current call state from stored events.
 
 ## Architecture Pillars
 
@@ -35,6 +36,7 @@ The first implementation target is inbound funeral home customer service intake:
 ## Current Scaffold
 
 - `src/domain`: shared types and state names.
+- `src/debug`: replay snapshots and diagnostic summaries.
 - `src/session`: call session creation and updates.
 - `src/state-machine`: allowed call transitions.
 - `src/rules`: deterministic rule evaluation.
@@ -71,6 +73,7 @@ Endpoints:
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
+- `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
 All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
 
@@ -79,3 +82,5 @@ The transcript endpoint runs deterministic first-call fact extraction, chooses t
 Transcript text is redacted before it is stored in events. Fact extraction still runs against the original transcript so operational details like callback numbers are not lost before the system can safely route the call.
 
 When a first-call transcript reaches escalation, the response includes a `handoff` summary for the funeral home team member who receives the call.
+
+The replay endpoint returns the current session, stored events, and a compact diagnostic snapshot with event count, latest event, escalation status, tool outcomes, redaction count, and any reconstructed handoff.

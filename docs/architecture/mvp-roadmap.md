@@ -17,6 +17,7 @@
 - In-memory session store for local development and API tests.
 - In-memory event timeline store and session events endpoint.
 - Human handoff summary for escalated first-call death reports.
+- Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
 ## Phase 2: Provider Adapters
