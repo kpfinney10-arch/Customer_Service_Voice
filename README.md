@@ -24,6 +24,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Generic telephony inbound-call boundary for future provider adapters.
 - Generic telephony speech-turn boundary for provider/STT transcript turns.
 - Generic telephony call-end boundary for provider lifecycle completion.
+- Generic voice response actions for say/listen/handoff/hangup provider translation.
 
 ## Architecture Pillars
 
@@ -89,6 +90,8 @@ The generic telephony inbound-call endpoint accepts provider call metadata, crea
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary.
 
 The generic call-end endpoint marks the session as ended and records a `CALL_ENDED` event for replay and audit.
+
+The telephony provider endpoints return a `voiceResponse` action list. This generic envelope can later be translated into provider-specific instructions such as Twilio TwiML, a WebRTC client message, or another voice platform format.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

@@ -6,6 +6,7 @@ export * from "./api/first-call-service.js";
 export * from "./api/http-server.js";
 export * from "./orchestrator/orchestrator.js";
 export * from "./providers/telephony/inbound-call.js";
+export * from "./providers/telephony/voice-response.js";
 export * from "./rules/rules-engine.js";
 export * from "./security/redaction.js";
 export * from "./security/tenant-auth.js";

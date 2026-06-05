@@ -25,6 +25,7 @@
 - Generic telephony inbound-call webhook boundary.
 - Generic telephony speech-turn boundary.
 - Generic telephony call-end boundary.
+- Generic voice response action envelope.
 - Telephony streaming interface for live audio sessions.
 - STT adapter.
 - TTS adapter.

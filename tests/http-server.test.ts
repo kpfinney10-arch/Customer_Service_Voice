@@ -112,6 +112,10 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(inbound.body.route, "first_call_intake");
   assert.equal(inbound.body.nextExpectedInput, "caller_speech");
   assert.equal(inbound.body.responseText, "I am sorry. I will help get this to the right person.");
+  assert.deepEqual(inbound.body.voiceResponse.actions, [
+    { type: "say", text: "I am sorry. I will help get this to the right person." },
+    { type: "listen", expectedInput: "caller_speech" },
+  ]);
   assert.equal(inbound.body.session.callId, "provider-call-1");
   assert.equal(inbound.body.session.sessionId, "provider-call-1");
   assert.equal(inbound.body.session.callerPhone, "555-888-9999");
@@ -136,6 +140,10 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(speechTurn.body.providerCallId, "provider-call-1");
   assert.equal(speechTurn.body.nextExpectedInput, "human_handoff");
   assert.equal(speechTurn.body.responseText, "I am going to connect you with a funeral home team member now.");
+  assert.deepEqual(speechTurn.body.voiceResponse.actions, [
+    { type: "say", text: "I am going to connect you with a funeral home team member now." },
+    { type: "handoff", reason: "urgent_death_report" },
+  ]);
   assert.equal(speechTurn.body.session.currentState, "ESCALATE");
   assert.equal(speechTurn.body.handoff.caller.name, "Michael Turner");
   assert.equal(speechTurn.body.handoff.decedent.name, "Helen Turner");
@@ -153,6 +161,9 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(ended.body.ended, true);
   assert.equal(ended.body.session.currentState, "END_CALL");
   assert.equal(ended.body.events[0].eventType, "CALL_ENDED");
+  assert.deepEqual(ended.body.voiceResponse.actions, [
+    { type: "hangup", reason: "human_handoff_completed" },
+  ]);
 
   const completedReplay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/provider-call-1/replay");
 

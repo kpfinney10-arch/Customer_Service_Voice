@@ -5,6 +5,12 @@ import { firstCallPromptForStep } from "../../verticals/funeral-home/first-call-
 import type { FirstCallService } from "../../api/first-call-service.js";
 import type { FirstCallHandoffSummary } from "../../verticals/funeral-home/first-call-handoff.js";
 import type { ToolResult } from "../../tools/tool-registry.js";
+import {
+  createHandoffVoiceResponse,
+  createHangupVoiceResponse,
+  createListenVoiceResponse,
+} from "./voice-response.js";
+import type { VoiceResponse } from "./voice-response.js";
 
 export type InboundTelephonyCallInput = {
   tenantId: string;
@@ -23,6 +29,7 @@ export type InboundTelephonyCallOutput = {
   providerCallId: string;
   route: "first_call_intake";
   nextExpectedInput: "caller_speech";
+  voiceResponse: VoiceResponse;
 };
 
 export type TelephonySpeechTurnInput = {
@@ -45,6 +52,7 @@ export type TelephonySpeechTurnOutput = {
   nextExpectedInput: "caller_speech" | "human_handoff";
   decision: FirstCallFlowDecision;
   toolResults: ToolResult<object>[];
+  voiceResponse: VoiceResponse;
   handoff?: FirstCallHandoffSummary;
 };
 
@@ -62,6 +70,7 @@ export type TelephonyCallEndOutput = {
   provider: string;
   providerCallId: string;
   ended: true;
+  voiceResponse: VoiceResponse;
 };
 
 export async function handleInboundTelephonyCall(
@@ -76,15 +85,17 @@ export async function handleInboundTelephonyCall(
   addIfPresent(sessionInput, "callerPhone", input.fromPhone);
   addIfPresent(sessionInput, "correlationId", input.correlationId);
   const started = await service.startSession(sessionInput);
+  const responseText = firstCallPromptForStep("acknowledge");
 
   return {
     session: started.session,
     events: started.events,
-    responseText: firstCallPromptForStep("acknowledge"),
+    responseText,
     provider: input.provider,
     providerCallId: input.providerCallId,
     route: "first_call_intake",
     nextExpectedInput: "caller_speech",
+    voiceResponse: createListenVoiceResponse(responseText),
   };
 }
 
@@ -110,6 +121,9 @@ export async function handleTelephonySpeechTurn(
     nextExpectedInput: output.handoff ? "human_handoff" : "caller_speech",
     decision: output.decision,
     toolResults: output.toolResults,
+    voiceResponse: output.handoff
+      ? createHandoffVoiceResponse(output.responseText, output.handoff.reason)
+      : createListenVoiceResponse(output.responseText),
   };
   if (output.handoff) response.handoff = output.handoff;
   return response;
@@ -133,6 +147,7 @@ export async function handleTelephonyCallEnd(
     provider: input.provider,
     providerCallId: input.providerCallId,
     ended: true,
+    voiceResponse: createHangupVoiceResponse(input.reason),
   };
 }
 
