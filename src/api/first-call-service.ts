@@ -8,6 +8,7 @@ import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
+import type { TenantConfigStore } from "../tenants/tenant-config.js";
 import { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolResult } from "../tools/tool-registry.js";
 import { createFakeFuneralHomeAdapters } from "../verticals/funeral-home/fake-adapters.js";
@@ -19,6 +20,8 @@ import { decideFirstCallNextStep, firstCallPromptForStep } from "../verticals/fu
 import type { FirstCallFlowDecision } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.js";
 import { executeFirstCallTools } from "../verticals/funeral-home/first-call-tools.js";
+import { routeFirstCallHandoff } from "../verticals/funeral-home/handoff-routing.js";
+import type { HandoffRoutingDecision } from "../verticals/funeral-home/handoff-routing.js";
 import { createFuneralHomeToolDefinitions } from "../verticals/funeral-home/tools.js";
 
 export type IdFactory = () => string;
@@ -60,6 +63,7 @@ export type HandleFirstCallTranscriptOutput = {
   events: CallEvent[];
   toolResults: ToolResult<object>[];
   handoff?: FirstCallHandoffSummary;
+  handoffRouting?: HandoffRoutingDecision;
 };
 
 export type InterruptFirstCallSessionInput = {
@@ -114,6 +118,7 @@ export type CreateFirstCallServiceOptions = {
   idFactory?: IdFactory;
   extractor?: FirstCallExtractor;
   registry?: ToolRegistry;
+  tenantConfigStore?: TenantConfigStore;
 };
 
 export function createFirstCallService(options: CreateFirstCallServiceOptions): FirstCallService {
@@ -235,6 +240,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         decision,
         toolResults: toolOutput.results,
       });
+      const tenantConfig = handoff ? await options.tenantConfigStore?.get(session.tenantId) : undefined;
+      const handoffRouting = handoff ? routeFirstCallHandoff({ handoff, tenantConfig }) : undefined;
 
       const output: HandleFirstCallTranscriptOutput = {
         session,
@@ -245,6 +252,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         toolResults: toolOutput.results,
       };
       if (handoff) output.handoff = handoff;
+      if (handoffRouting) output.handoffRouting = handoffRouting;
       return output;
     },
 

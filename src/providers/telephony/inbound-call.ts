@@ -5,6 +5,7 @@ import { firstCallPromptForStep } from "../../verticals/funeral-home/first-call-
 import type { FirstCallService } from "../../api/first-call-service.js";
 import type { SpeechAdapters, SpeechToTextOutput, TextToSpeechOutput } from "../speech/speech-adapters.js";
 import type { FirstCallHandoffSummary } from "../../verticals/funeral-home/first-call-handoff.js";
+import type { HandoffRoutingDecision } from "../../verticals/funeral-home/handoff-routing.js";
 import type { ToolResult } from "../../tools/tool-registry.js";
 import {
   createHandoffVoiceResponse,
@@ -56,6 +57,7 @@ export type TelephonySpeechTurnOutput = {
   toolResults: ToolResult<object>[];
   voiceResponse: VoiceResponse;
   handoff?: FirstCallHandoffSummary;
+  handoffRouting?: HandoffRoutingDecision;
 };
 
 export type TelephonyAudioTurnInput = {
@@ -166,6 +168,7 @@ export async function handleTelephonySpeechTurn(
       : createListenVoiceResponse(output.responseText),
   };
   if (output.handoff) response.handoff = output.handoff;
+  if (output.handoffRouting) response.handoffRouting = output.handoffRouting;
   return response;
 }
 

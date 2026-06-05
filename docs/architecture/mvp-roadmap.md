@@ -17,6 +17,7 @@
 - In-memory session store for local development and API tests.
 - In-memory event timeline store and session events endpoint.
 - Human handoff summary for escalated first-call death reports.
+- Tenant handoff routing for on-call phone, dispatch desk, queue, or manual review.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
@@ -40,6 +41,7 @@
 - Dispatch status scenario.
 - Pricing/billing routing scenario.
 - After-hours escalation.
+- Tenant-specific handoff configuration.
 - CRM intake tool adapter.
 - Dispatch review request tool adapter.
 

@@ -5,6 +5,7 @@ import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
+import { createDefaultTenantConfigStore } from "../src/tenants/tenant-config.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -43,6 +44,10 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(turn.body.handoff.caller.phone, "555-111-2222");
   assert.equal(turn.body.handoff.decedent.name, "Robert Miller");
   assert.equal(turn.body.handoff.location.pickupAddress, "123 Maple Street, Springfield");
+  assert.equal(turn.body.handoffRouting.destinationType, "on_call_phone");
+  assert.equal(turn.body.handoffRouting.destination, "+15555550100");
+  assert.equal(turn.body.handoffRouting.queue, "first-call-after-hours");
+  assert.equal(turn.body.handoffRouting.priority, "urgent");
   assert.deepEqual(turn.body.handoff.completedToolNames, [
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
@@ -147,6 +152,8 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(speechTurn.body.session.currentState, "ESCALATE");
   assert.equal(speechTurn.body.handoff.caller.name, "Michael Turner");
   assert.equal(speechTurn.body.handoff.decedent.name, "Helen Turner");
+  assert.equal(speechTurn.body.handoffRouting.destinationType, "on_call_phone");
+  assert.equal(speechTurn.body.handoffRouting.destination, "+15555550100");
   assert.deepEqual(speechTurn.body.decision.toolNames, [
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
@@ -199,6 +206,7 @@ test("telephony audio-turn route transcribes audio and synthesizes response audi
   assert.equal(audioTurn.body.nextExpectedInput, "human_handoff");
   assert.equal(audioTurn.body.handoff.caller.name, "Daniel Stone");
   assert.equal(audioTurn.body.handoff.decedent.name, "George Stone");
+  assert.equal(audioTurn.body.handoffRouting.destinationType, "on_call_phone");
 });
 
 test("telephony interrupt route records barge-in and resumes listening", async () => {
@@ -258,6 +266,7 @@ test("first-call API omits handoff before escalation", async () => {
   assert.equal(turn.body.session.currentState, "RESOLVE_REQUEST");
   assert.equal(turn.body.decision.step, "collect_decedent");
   assert.equal(turn.body.handoff, undefined);
+  assert.equal(turn.body.handoffRouting, undefined);
 });
 
 test("tenant routes require an API key", async () => {
@@ -287,7 +296,11 @@ async function fetchJson(
     init.body = JSON.stringify(body);
   }
   if (Object.keys(headers).length > 0) init.headers = headers;
-  const service = createFirstCallService({ store: sharedStore, eventStore: sharedEventStore });
+  const service = createFirstCallService({
+    store: sharedStore,
+    eventStore: sharedEventStore,
+    tenantConfigStore: sharedTenantConfigStore,
+  });
   const response = await handleApiRequest(service, new Request(`http://localhost${path}`, init), apiKeyVerifier);
   return {
     status: response.status,
@@ -297,6 +310,7 @@ async function fetchJson(
 
 const sharedStore = new InMemorySessionStore();
 const sharedEventStore = new InMemoryEventStore();
+const sharedTenantConfigStore = createDefaultTenantConfigStore();
 const apiKeyVerifier = new InMemoryTenantApiKeyVerifier({
   "fh-demo": "demo-api-key",
 });

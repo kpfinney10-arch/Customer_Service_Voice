@@ -43,6 +43,7 @@ Purpose:
 - The CRM and dispatch modules own their internal records and workflow.
 - Tool adapters should be tenant-scoped and idempotent.
 - Tool results should return caller-safe summaries, not raw internal records.
+- Human handoff routing uses tenant configuration and returns an operational destination without letting the LLM choose phone numbers, queues, or staff assignments.
 
 ## Future Work
 

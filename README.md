@@ -29,6 +29,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Generic telephony audio-turn boundary for local audio-in/audio-out testing.
 - Generic telephony interrupt boundary for barge-in and output cancellation.
 - LLM structured-output provider contract for controlled fact extraction fallback.
+- Tenant funeral-home configuration for handoff queues and on-call routing.
 
 ## Architecture Pillars
 
@@ -52,6 +53,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/orchestrator`: first turn-level orchestration slice.
 - `src/providers`: provider-facing adapters for telephony, STT, TTS, and future model services.
 - `src/security`: redaction utilities and tenant API key verification.
+- `src/tenants`: tenant configuration stores for routing, feature flags, and tenant-specific operations.
 - `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
 - `src/verticals/funeral-home`: funeral-home-specific intents, rules, first-call flow, and handoff summaries.
@@ -93,7 +95,7 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
 
-The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary.
+The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 
 The generic audio-turn endpoint accepts base64 audio, runs STT, advances the first-call workflow, and returns TTS audio for the response. The default local server uses fake STT/TTS adapters.
 
@@ -111,6 +113,6 @@ The transcript endpoint runs deterministic first-call fact extraction, chooses t
 
 Transcript text is redacted before it is stored in events. Fact extraction still runs against the original transcript so operational details like callback numbers are not lost before the system can safely route the call.
 
-When a first-call transcript reaches escalation, the response includes a `handoff` summary for the funeral home team member who receives the call.
+When a first-call transcript reaches escalation, the response includes a `handoff` summary for the funeral home team member who receives the call plus `handoffRouting`, which identifies the configured on-call phone, dispatch desk, queue, or manual-review fallback.
 
 The replay endpoint returns the current session, stored events, and a compact diagnostic snapshot with event count, latest event, escalation status, tool outcomes, redaction count, and any reconstructed handoff.
