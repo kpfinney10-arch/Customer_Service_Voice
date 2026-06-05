@@ -37,6 +37,16 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(turn.body.session.facts.caller_name, "Sarah Miller");
   assert.equal(turn.body.session.facts.decedent_name, "Robert Miller");
   assert.equal(turn.body.decision.step, "escalate");
+  assert.equal(turn.body.handoff.handoffType, "human_escalation");
+  assert.equal(turn.body.handoff.priority, "urgent");
+  assert.equal(turn.body.handoff.caller.name, "Sarah Miller");
+  assert.equal(turn.body.handoff.caller.phone, "555-111-2222");
+  assert.equal(turn.body.handoff.decedent.name, "Robert Miller");
+  assert.equal(turn.body.handoff.location.pickupAddress, "123 Maple Street, Springfield");
+  assert.deepEqual(turn.body.handoff.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
   assert.deepEqual(turn.body.decision.toolNames, [
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
@@ -82,6 +92,21 @@ test("first-call transcript endpoint validates required transcript", async () =>
 
   assert.equal(response.status, 400);
   assert.equal(response.body.error, "VALIDATION_ERROR");
+});
+
+test("first-call API omits handoff before escalation", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-api-3",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-api-3/transcript", {
+    transcript: "My name is Emily Carter and my number is 555-333-4444.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.currentState, "RESOLVE_REQUEST");
+  assert.equal(turn.body.decision.step, "collect_decedent");
+  assert.equal(turn.body.handoff, undefined);
 });
 
 test("tenant routes require an API key", async () => {

@@ -11,6 +11,8 @@ import type { ToolResult } from "../tools/tool-registry.js";
 import { createFakeFuneralHomeAdapters } from "../verticals/funeral-home/fake-adapters.js";
 import { deterministicFirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
 import type { FirstCallExtraction, FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
+import { createFirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
+import type { FirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import { decideFirstCallNextStep, firstCallPromptForStep } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFlowDecision } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.js";
@@ -52,6 +54,7 @@ export type HandleFirstCallTranscriptOutput = {
   responseText: string;
   events: CallEvent[];
   toolResults: ToolResult<object>[];
+  handoff?: FirstCallHandoffSummary;
 };
 
 export type ListFirstCallEventsInput = {
@@ -184,8 +187,14 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       await options.store.save(session);
       const events = [...decisionEvents, ...toolOutput.events];
       await options.eventStore?.append(events);
+      const handoff = createFirstCallHandoffSummary({
+        session,
+        facts,
+        decision,
+        toolResults: toolOutput.results,
+      });
 
-      return {
+      const output: HandleFirstCallTranscriptOutput = {
         session,
         extraction,
         decision,
@@ -193,6 +202,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         events,
         toolResults: toolOutput.results,
       };
+      if (handoff) output.handoff = handoff;
+      return output;
     },
 
     async listEvents(input) {

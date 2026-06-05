@@ -16,6 +16,7 @@
 - Tenant API key enforcement for tenant-scoped routes.
 - In-memory session store for local development and API tests.
 - In-memory event timeline store and session events endpoint.
+- Human handoff summary for escalated first-call death reports.
 - Scenario tests.
 
 ## Phase 2: Provider Adapters

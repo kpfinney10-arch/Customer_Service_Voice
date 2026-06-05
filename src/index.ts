@@ -14,6 +14,7 @@ export * from "./tools/tool-registry.js";
 export * from "./verticals/funeral-home/intents.js";
 export * from "./verticals/funeral-home/first-call-extractor.js";
 export * from "./verticals/funeral-home/first-call-facts.js";
+export * from "./verticals/funeral-home/first-call-handoff.js";
 export * from "./verticals/funeral-home/first-call-flow.js";
 export * from "./verticals/funeral-home/first-call-tools.js";
 export * from "./verticals/funeral-home/fake-adapters.js";

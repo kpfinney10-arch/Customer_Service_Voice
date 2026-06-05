@@ -19,6 +19,7 @@ The first implementation target is inbound funeral home customer service intake:
 - HTTP API boundary for starting sessions and submitting transcript turns.
 - Session event timeline for debugging and future replay.
 - Tenant API key enforcement for tenant-scoped routes.
+- Human handoff summaries for escalated first-call death reports.
 
 ## Architecture Pillars
 
@@ -42,7 +43,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/security`: redaction utilities and tenant API key verification.
 - `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
-- `src/verticals/funeral-home`: funeral-home-specific intents and rules.
+- `src/verticals/funeral-home`: funeral-home-specific intents, rules, first-call flow, and handoff summaries.
 - `docs/architecture/first-call-death-report-intake.md`: MVP call-flow definition.
 - `tests/fixtures/first-call`: realistic transcript fixtures and expected extraction/flow outcomes.
 - `docs/architecture/integration-contracts.md`: CRM and dispatch handoff boundaries.
@@ -76,3 +77,5 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 
 Transcript text is redacted before it is stored in events. Fact extraction still runs against the original transcript so operational details like callback numbers are not lost before the system can safely route the call.
+
+When a first-call transcript reaches escalation, the response includes a `handoff` summary for the funeral home team member who receives the call.
