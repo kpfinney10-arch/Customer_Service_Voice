@@ -128,6 +128,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
 
   return {
     async startSession(input) {
+      const tenantConfig = await options.tenantConfigStore?.get(input.tenantId);
+      assertVoiceIntakeEnabled(tenantConfig);
       const createInput: Parameters<typeof createCallSession>[0] = {
         callId: input.callId ?? idFactory(),
         sessionId: input.sessionId ?? idFactory(),
@@ -159,6 +161,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       if (!existingSession) {
         throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
       }
+      const tenantConfig = await options.tenantConfigStore?.get(existingSession.tenantId);
+      assertVoiceIntakeEnabled(tenantConfig);
 
       const redacted = redactText(input.transcript);
       const extraction = await extractor.extract(input.transcript);
@@ -179,7 +183,6 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         escalationScore: decision.escalationReason ? 1 : existingSession.escalationScore,
       });
       const correlationId = input.correlationId ?? idFactory();
-      const tenantConfig = await options.tenantConfigStore?.get(session.tenantId);
       const decisionEvents = [
         createCallEvent({
           eventId: idFactory(),
@@ -398,6 +401,15 @@ function enabledToolNamesForTenant(config: TenantConfig | undefined): Set<string
   return toolNames;
 }
 
+function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
+  if (config && !config.features.voiceIntake) {
+    throw new FirstCallServiceError(
+      "TENANT_FEATURE_DISABLED",
+      "Voice intake is not enabled for this tenant.",
+    );
+  }
+}
+
 function addIfPresent<T extends object, K extends string, V>(
   target: T,
   key: K,
@@ -410,7 +422,7 @@ function addIfPresent<T extends object, K extends string, V>(
 
 export class FirstCallServiceError extends Error {
   constructor(
-    public readonly code: "SESSION_NOT_FOUND",
+    public readonly code: "SESSION_NOT_FOUND" | "TENANT_FEATURE_DISABLED",
     message: string,
   ) {
     super(message);

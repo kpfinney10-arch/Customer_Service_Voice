@@ -300,6 +300,23 @@ test("first-call API skips disabled tenant handoff tools", async () => {
   assert.equal(turn.body.handoffRouting.destination, "+15555550200");
 });
 
+test("tenant voice intake feature flag blocks new intake sessions", async () => {
+  const firstCall = await fetchJson("POST", "/v1/tenants/fh-disabled/first-call/sessions", {
+    sessionId: "session-disabled-1",
+  });
+
+  assert.equal(firstCall.status, 403);
+  assert.equal(firstCall.body.error, "TENANT_FEATURE_DISABLED");
+
+  const inbound = await fetchJson("POST", "/v1/tenants/fh-disabled/telephony/generic/inbound-call", {
+    providerCallId: "provider-disabled-1",
+    fromPhone: "555-999-0000",
+  });
+
+  assert.equal(inbound.status, 403);
+  assert.equal(inbound.body.error, "TENANT_FEATURE_DISABLED");
+});
+
 test("tenant routes require an API key", async () => {
   const missing = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {}, { apiKey: null });
 
@@ -372,8 +389,23 @@ const sharedTenantConfigStore = new InMemoryTenantConfigStore({
       voiceIntake: true,
     },
   },
+  "fh-disabled": {
+    tenantId: "fh-disabled",
+    displayName: "Disabled Funeral Home",
+    timezone: "America/Chicago",
+    handoff: {
+      defaultQueue: "disabled-first-call",
+      onCallPhone: "+15555550300",
+    },
+    features: {
+      crmHandoff: false,
+      dispatchHandoff: false,
+      voiceIntake: false,
+    },
+  },
 });
 const apiKeyVerifier = new InMemoryTenantApiKeyVerifier({
   "fh-demo": "demo-api-key",
   "fh-crm-only": "demo-api-key",
+  "fh-disabled": "demo-api-key",
 });

@@ -19,7 +19,7 @@
 - Human handoff summary for escalated first-call death reports.
 - Tenant handoff routing for on-call phone, dispatch desk, queue, or manual review.
 - Environment-loadable tenant configuration for adding funeral home customers without code edits.
-- Tenant feature flags for CRM and dispatch tool execution.
+- Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

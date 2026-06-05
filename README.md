@@ -96,7 +96,7 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
-Tenant feature flags gate workflow execution. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
+Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new first-call sessions and telephony inbound calls return `TENANT_FEATURE_DISABLED`. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
 

@@ -46,7 +46,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         return;
       }
       if (error instanceof FirstCallServiceError) {
-        sendJson(response, 404, { error: error.code, message: error.message });
+        sendJson(response, firstCallServiceStatusCode(error), { error: error.code, message: error.message });
         return;
       }
       sendJson(response, 500, {
@@ -240,7 +240,7 @@ export async function handleApiRequest(
       return jsonResponse(error.statusCode, { error: error.code, message: error.message });
     }
     if (error instanceof FirstCallServiceError) {
-      return jsonResponse(404, { error: error.code, message: error.message });
+      return jsonResponse(firstCallServiceStatusCode(error), { error: error.code, message: error.message });
     }
     return jsonResponse(500, {
       error: "INTERNAL_SERVER_ERROR",
@@ -550,6 +550,11 @@ function jsonResponse(statusCode: number, body: object): Response {
       "cache-control": "no-store",
     },
   });
+}
+
+function firstCallServiceStatusCode(error: FirstCallServiceError): number {
+  if (error.code === "TENANT_FEATURE_DISABLED") return 403;
+  return 404;
 }
 
 class ApiError extends Error {
