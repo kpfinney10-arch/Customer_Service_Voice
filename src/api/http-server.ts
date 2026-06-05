@@ -9,7 +9,7 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
-import { createDefaultTenantConfigStore } from "../tenants/tenant-config.js";
+import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import {
   handleTelephonyAudioTurn,
   handleInboundTelephonyCall,
@@ -32,7 +32,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     createFirstCallService({
       store: new InMemorySessionStore(),
       eventStore: new InMemoryEventStore(),
-      tenantConfigStore: createDefaultTenantConfigStore(),
+      tenantConfigStore: createTenantConfigStoreFromEnv(),
     });
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();

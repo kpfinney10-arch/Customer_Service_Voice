@@ -74,6 +74,7 @@ Build and run:
 
 ```bash
 export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
+export TENANT_CONFIGS_JSON='{"fh-demo":{"tenantId":"fh-demo","displayName":"Demo Funeral Home","timezone":"America/Chicago","handoff":{"defaultQueue":"first-call-dispatch","onCallPhone":"+15555550100","dispatchDeskPhone":"+15555550101","afterHoursQueue":"first-call-after-hours"},"features":{"crmHandoff":true,"dispatchHandoff":true,"voiceIntake":true}}}'
 npm run build
 npm start
 ```
@@ -92,6 +93,8 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
 All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
+
+`TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
 
