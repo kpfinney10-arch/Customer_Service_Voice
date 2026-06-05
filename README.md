@@ -28,6 +28,7 @@ The first implementation target is inbound funeral home customer service intake:
 - STT/TTS provider contracts with fake adapters for local testing.
 - Generic telephony audio-turn boundary for local audio-in/audio-out testing.
 - Generic telephony interrupt boundary for barge-in and output cancellation.
+- LLM structured-output provider contract for controlled fact extraction fallback.
 
 ## Architecture Pillars
 
@@ -103,6 +104,8 @@ The generic call-end endpoint marks the session as ended and records a `CALL_END
 The telephony provider endpoints return a `voiceResponse` action list. This generic envelope can later be translated into provider-specific instructions such as Twilio TwiML, a WebRTC client message, or another voice platform format.
 
 Speech provider contracts live under `src/providers/speech`. Fake STT/TTS adapters are included so call-flow tests can exercise provider boundaries before real credentials or SDKs are introduced.
+
+Model provider contracts live under `src/providers/model`. The first LLM-facing use is a structured-output fallback for first-call fact extraction; deterministic extraction remains primary and the LLM does not control tools, state transitions, CRM, dispatch, or billing.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

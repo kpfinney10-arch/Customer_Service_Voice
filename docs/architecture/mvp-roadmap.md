@@ -31,7 +31,7 @@
 - STT adapter contract and fake adapter.
 - TTS adapter contract and fake adapter.
 - Barge-in and cancellation model.
-- LLM structured-output adapter.
+- LLM structured-output adapter contract and fake fallback extractor.
 
 ## Phase 3: Funeral Home Workflow
 
