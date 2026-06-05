@@ -25,6 +25,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Generic telephony speech-turn boundary for provider/STT transcript turns.
 - Generic telephony call-end boundary for provider lifecycle completion.
 - Generic voice response actions for say/listen/handoff/hangup provider translation.
+- STT/TTS provider contracts with fake adapters for local testing.
 
 ## Architecture Pillars
 
@@ -46,7 +47,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/rules`: deterministic rule evaluation.
 - `src/tools`: typed tool registry and execution boundary.
 - `src/orchestrator`: first turn-level orchestration slice.
-- `src/providers`: provider-facing adapters for telephony and future speech/model services.
+- `src/providers`: provider-facing adapters for telephony, STT, TTS, and future model services.
 - `src/security`: redaction utilities and tenant API key verification.
 - `src/events`: event construction helpers and in-memory event timeline store.
 - `src/api`: first-call application service and HTTP API boundary.
@@ -92,6 +93,8 @@ The generic speech-turn endpoint accepts provider/STT transcript text, advances 
 The generic call-end endpoint marks the session as ended and records a `CALL_ENDED` event for replay and audit.
 
 The telephony provider endpoints return a `voiceResponse` action list. This generic envelope can later be translated into provider-specific instructions such as Twilio TwiML, a WebRTC client message, or another voice platform format.
+
+Speech provider contracts live under `src/providers/speech`. Fake STT/TTS adapters are included so call-flow tests can exercise provider boundaries before real credentials or SDKs are introduced.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

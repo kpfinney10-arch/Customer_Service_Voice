@@ -5,6 +5,8 @@ export * from "./events/in-memory-event-store.js";
 export * from "./api/first-call-service.js";
 export * from "./api/http-server.js";
 export * from "./orchestrator/orchestrator.js";
+export * from "./providers/speech/fake-speech-adapters.js";
+export * from "./providers/speech/speech-adapters.js";
 export * from "./providers/telephony/inbound-call.js";
 export * from "./providers/telephony/voice-response.js";
 export * from "./rules/rules-engine.js";

@@ -27,8 +27,8 @@
 - Generic telephony call-end boundary.
 - Generic voice response action envelope.
 - Telephony streaming interface for live audio sessions.
-- STT adapter.
-- TTS adapter.
+- STT adapter contract and fake adapter.
+- TTS adapter contract and fake adapter.
 - Barge-in and cancellation model.
 - LLM structured-output adapter.
 
