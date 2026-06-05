@@ -22,6 +22,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Human handoff summaries for escalated first-call death reports.
 - Session replay snapshots for debugging current call state from stored events.
 - Generic telephony inbound-call boundary for future provider adapters.
+- Generic telephony speech-turn boundary for provider/STT transcript turns.
 
 ## Architecture Pillars
 
@@ -73,6 +74,7 @@ Endpoints:
 
 - `GET /health`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
+- `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/speech-turn`
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
@@ -81,6 +83,8 @@ Endpoints:
 All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
+
+The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary.
 
 The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.
 

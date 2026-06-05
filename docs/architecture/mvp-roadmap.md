@@ -23,7 +23,8 @@
 ## Phase 2: Provider Adapters
 
 - Generic telephony inbound-call webhook boundary.
-- Telephony streaming interface.
+- Generic telephony speech-turn boundary.
+- Telephony streaming interface for live audio sessions.
 - STT adapter.
 - TTS adapter.
 - Barge-in and cancellation model.

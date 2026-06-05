@@ -7,7 +7,7 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
-import { handleInboundTelephonyCall } from "../providers/telephony/inbound-call.js";
+import { handleInboundTelephonyCall, handleTelephonySpeechTurn } from "../providers/telephony/inbound-call.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -96,6 +96,26 @@ export async function handleApiRequest(
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleInboundTelephonyCall(service, input);
       return jsonResponse(201, output);
+    }
+
+    const speechTurnMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/speech-turn$/,
+    );
+    if (request.method === "POST" && speechTurnMatch?.[1] && speechTurnMatch[2] && speechTurnMatch[3]) {
+      const tenantId = decodeURIComponent(speechTurnMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId,
+        provider: decodeURIComponent(speechTurnMatch[2]),
+        providerCallId: decodeURIComponent(speechTurnMatch[3]),
+        transcript: requiredString(body.transcript, "transcript"),
+      };
+      addIfPresent(input, "confidence", optionalNumber(body.confidence, "confidence"));
+      addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await handleTelephonySpeechTurn(service, input);
+      return jsonResponse(200, output);
     }
 
     const transcriptMatch = url.pathname.match(
@@ -204,6 +224,27 @@ async function routeRequest(
     return;
   }
 
+  const speechTurnMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/speech-turn$/,
+  );
+  if (method === "POST" && speechTurnMatch?.[1] && speechTurnMatch[2] && speechTurnMatch[3]) {
+    const tenantId = decodeURIComponent(speechTurnMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId,
+      provider: decodeURIComponent(speechTurnMatch[2]),
+      providerCallId: decodeURIComponent(speechTurnMatch[3]),
+      transcript: requiredString(body.transcript, "transcript"),
+    };
+    addIfPresent(input, "confidence", optionalNumber(body.confidence, "confidence"));
+    addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await handleTelephonySpeechTurn(service, input);
+    sendJson(response, 200, output);
+    return;
+  }
+
   const transcriptMatch = url.pathname.match(
     /^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/transcript$/,
   );
@@ -298,6 +339,22 @@ function optionalString(value: unknown, field: string): string | undefined {
   if (value == null) return undefined;
   if (typeof value !== "string" || value.trim() === "") {
     throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a non-empty string when provided.`);
+  }
+  return value;
+}
+
+function optionalNumber(value: unknown, field: string): number | undefined {
+  if (value == null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a finite number when provided.`);
+  }
+  return value;
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value == null) return undefined;
+  if (typeof value !== "boolean") {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a boolean when provided.`);
   }
   return value;
 }

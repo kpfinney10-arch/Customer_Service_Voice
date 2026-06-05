@@ -122,6 +122,27 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(replay.status, 200);
   assert.equal(replay.body.snapshot.eventCount, 1);
   assert.equal(replay.body.snapshot.currentState, "GREETING");
+
+  const speechTurn = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/calls/provider-call-1/speech-turn", {
+    transcript:
+      "This is Michael Turner. My mother Helen Turner passed away at 456 Oak Road, Austin. My number is 555-888-9999.",
+    confidence: 0.94,
+    isFinal: true,
+    correlationId: "corr-provider-2",
+  });
+
+  assert.equal(speechTurn.status, 200);
+  assert.equal(speechTurn.body.provider, "generic");
+  assert.equal(speechTurn.body.providerCallId, "provider-call-1");
+  assert.equal(speechTurn.body.nextExpectedInput, "human_handoff");
+  assert.equal(speechTurn.body.responseText, "I am going to connect you with a funeral home team member now.");
+  assert.equal(speechTurn.body.session.currentState, "ESCALATE");
+  assert.equal(speechTurn.body.handoff.caller.name, "Michael Turner");
+  assert.equal(speechTurn.body.handoff.decedent.name, "Helen Turner");
+  assert.deepEqual(speechTurn.body.decision.toolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
 });
 
 test("first-call transcript endpoint validates required transcript", async () => {
