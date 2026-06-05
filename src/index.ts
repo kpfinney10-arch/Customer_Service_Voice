@@ -12,6 +12,7 @@ export * from "./providers/model/structured-output-adapter.js";
 export * from "./providers/telephony/inbound-call.js";
 export * from "./providers/telephony/voice-response.js";
 export * from "./rules/rules-engine.js";
+export * from "./security/rate-limit.js";
 export * from "./security/redaction.js";
 export * from "./security/tenant-auth.js";
 export * from "./session/call-session.js";

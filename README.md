@@ -98,6 +98,8 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 API responses include an `x-request-id` header. If the caller sends `x-request-id`, the server echoes it; otherwise it generates one. The HTTP boundary writes structured request logs with method, path, tenant id, status code, duration, request id, and error code when applicable. Request bodies, transcripts, and API keys are not logged.
 
+Tenant routes are protected by a fixed-window in-memory rate limiter. The local default allows 120 requests per tenant route per minute and returns `429 RATE_LIMIT_EXCEEDED` with `Retry-After` and rate-limit headers when exceeded.
+
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
 The tenant config endpoint returns the authenticated tenant's loaded display name, timezone, handoff routing, and feature flags. It is intended for deployment verification and operator debugging; it never returns tenant API keys.

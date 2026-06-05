@@ -23,6 +23,7 @@
 - Tenant readiness endpoint for first-call traffic go/no-go checks.
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Structured API request logging with request ids and tenant context.
+- Tenant-route rate limiting with `429` responses and retry headers.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

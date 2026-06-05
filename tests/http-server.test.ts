@@ -4,6 +4,8 @@ import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
 import type { ApiRequestLog, Logger } from "../src/observability/logger.js";
+import { InMemoryRateLimiter } from "../src/security/rate-limit.js";
+import type { RateLimiter } from "../src/security/rate-limit.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
@@ -87,6 +89,31 @@ test("API request logging includes error code for failed requests", async () => 
   assert.equal(response.requestId, "req-missing-key-1");
   assert.equal(logger.requests[0]?.statusCode, 401);
   assert.equal(logger.requests[0]?.errorCode, "API_KEY_REQUIRED");
+});
+
+test("tenant routes return 429 when rate limit is exceeded", async () => {
+  const logger = new TestLogger();
+  const rateLimiter = new InMemoryRateLimiter({
+    limit: 1,
+    windowMs: 60_000,
+    now: () => 1_000,
+  });
+
+  const first = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {
+    rateLimiter,
+    logger,
+  });
+  const second = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {
+    rateLimiter,
+    logger,
+  });
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 429);
+  assert.equal(second.body.error, "RATE_LIMIT_EXCEEDED");
+  assert.equal(second.headers["retry-after"], "60");
+  assert.equal(second.headers["x-rate-limit-limit"], "1");
+  assert.equal(logger.requests.at(-1)?.errorCode, "RATE_LIMIT_EXCEEDED");
 });
 
 test("first-call API starts a session and handles transcript turn", async () => {
@@ -408,8 +435,8 @@ async function fetchJson(
   method: string,
   path: string,
   body?: object,
-  options: { apiKey?: string | null; requestId?: string; logger?: Logger } = {},
-): Promise<{ status: number; body: any; requestId: string | null }> {
+  options: { apiKey?: string | null; requestId?: string; logger?: Logger; rateLimiter?: RateLimiter } = {},
+): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
   const headers: Record<string, string> = {};
   const apiKey = options.apiKey === undefined ? "demo-api-key" : options.apiKey;
@@ -432,11 +459,17 @@ async function fetchJson(
     undefined,
     sharedTenantConfigStore,
     options.logger,
+    options.rateLimiter,
   );
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
   return {
     status: response.status,
     body: await response.json(),
     requestId: response.headers.get("x-request-id"),
+    headers: responseHeaders,
   };
 }
 

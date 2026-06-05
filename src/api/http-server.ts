@@ -5,6 +5,8 @@ import { createConsoleLogger, createNoopLogger } from "../observability/logger.j
 import type { Logger } from "../observability/logger.js";
 import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
 import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
+import { createDefaultRateLimiter } from "../security/rate-limit.js";
+import type { RateLimitDecision, RateLimiter } from "../security/rate-limit.js";
 import {
   createTenantApiKeyVerifierFromEnv,
   extractApiKeyFromHeaders,
@@ -30,6 +32,7 @@ export type ApiServerOptions = {
   speechAdapters?: SpeechAdapters;
   tenantConfigStore?: TenantConfigStore;
   logger?: Logger;
+  rateLimiter?: RateLimiter;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -44,6 +47,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
   const logger = options.logger ?? createConsoleLogger();
+  const rateLimiter = options.rateLimiter ?? createDefaultRateLimiter();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -53,11 +57,17 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     response.setHeader("x-request-id", requestId);
     let errorCode: string | undefined;
     try {
+      enforceRateLimit({
+        limiter: rateLimiter,
+        method,
+        path,
+        requestKey: tenantIdFromPath(path) ?? "anonymous",
+      });
       await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
         errorCode = error.code;
-        sendJson(response, error.statusCode, { error: error.code, message: error.message });
+        sendJson(response, error.statusCode, { error: error.code, message: error.message }, error.headers);
         return;
       }
       if (error instanceof FirstCallServiceError) {
@@ -101,6 +111,7 @@ export async function handleApiRequest(
   speechAdapters: SpeechAdapters = createFakeSpeechAdapters(),
   tenantConfigStore?: TenantConfigStore,
   logger: Logger = createNoopLogger(),
+  rateLimiter?: RateLimiter,
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -112,6 +123,15 @@ export async function handleApiRequest(
       response = jsonResponse(200, { ok: true });
       response.headers.set("x-request-id", requestId);
       return response;
+    }
+
+    if (rateLimiter) {
+      enforceRateLimit({
+        limiter: rateLimiter,
+        method: request.method,
+        path: url.pathname,
+        requestKey: tenantIdFromPath(url.pathname) ?? "anonymous",
+      });
     }
 
     const tenantConfigMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/config$/);
@@ -326,7 +346,7 @@ export async function handleApiRequest(
   } catch (error) {
     if (error instanceof ApiError) {
       errorCode = error.code;
-      response = jsonResponse(error.statusCode, { error: error.code, message: error.message });
+      response = jsonResponse(error.statusCode, { error: error.code, message: error.message }, error.headers);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -667,20 +687,27 @@ function headerValue(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
-function sendJson(response: http.ServerResponse, statusCode: number, body: object): void {
+function sendJson(
+  response: http.ServerResponse,
+  statusCode: number,
+  body: object,
+  headers: Record<string, string> = {},
+): void {
   response.writeHead(statusCode, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
+    ...headers,
   });
   response.end(JSON.stringify(body));
 }
 
-function jsonResponse(statusCode: number, body: object): Response {
+function jsonResponse(statusCode: number, body: object, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status: statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
+      ...headers,
     },
   });
 }
@@ -724,11 +751,34 @@ function requestIdFromHeaders(headers: Headers): string {
   return headers.get("x-request-id")?.trim() || crypto.randomUUID();
 }
 
+function enforceRateLimit(input: {
+  limiter: RateLimiter;
+  method: string;
+  path: string;
+  requestKey: string;
+}): RateLimitDecision {
+  const decision = input.limiter.check({
+    key: input.requestKey,
+    method: input.method,
+    path: input.path,
+  });
+  if (!decision.allowed) {
+    throw new ApiError(429, "RATE_LIMIT_EXCEEDED", "Too many requests.", {
+      "retry-after": String(decision.retryAfterSeconds ?? 1),
+      "x-rate-limit-limit": String(decision.limit),
+      "x-rate-limit-remaining": String(decision.remaining),
+      "x-rate-limit-reset": decision.resetAt,
+    });
+  }
+  return decision;
+}
+
 class ApiError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
+    public readonly headers: Record<string, string> = {},
   ) {
     super(message);
     this.name = "ApiError";
