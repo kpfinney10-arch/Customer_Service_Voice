@@ -1,7 +1,18 @@
 import type { CallEvent } from "../events/call-event.js";
 
+export type ApiRequestLog = {
+  requestId: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  durationMs: number;
+  tenantId?: string;
+  errorCode?: string;
+};
+
 export type Logger = {
   event: (event: CallEvent) => void;
+  request: (entry: ApiRequestLog) => void;
   error: (message: string, context?: Record<string, unknown>) => void;
 };
 
@@ -22,9 +33,25 @@ export function createConsoleLogger(): Logger {
         }),
       );
     },
+    request(entry) {
+      console.log(
+        JSON.stringify({
+          level: entry.statusCode >= 500 ? "error" : "info",
+          type: "api_request",
+          ...entry,
+        }),
+      );
+    },
     error(message, context = {}) {
       console.error(JSON.stringify({ level: "error", message, ...context }));
     },
   };
 }
 
+export function createNoopLogger(): Logger {
+  return {
+    event() {},
+    request() {},
+    error() {},
+  };
+}

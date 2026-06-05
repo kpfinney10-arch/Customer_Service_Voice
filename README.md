@@ -95,6 +95,8 @@ Endpoints:
 
 All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
 
+API responses include an `x-request-id` header. If the caller sends `x-request-id`, the server echoes it; otherwise it generates one. The HTTP boundary writes structured request logs with method, path, tenant id, status code, duration, request id, and error code when applicable. Request bodies, transcripts, and API keys are not logged.
+
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
 The tenant config endpoint returns the authenticated tenant's loaded display name, timezone, handoff routing, and feature flags. It is intended for deployment verification and operator debugging; it never returns tenant API keys.

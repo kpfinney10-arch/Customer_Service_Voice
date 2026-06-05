@@ -1,6 +1,8 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { InMemoryEventStore } from "../events/in-memory-event-store.js";
+import { createConsoleLogger, createNoopLogger } from "../observability/logger.js";
+import type { Logger } from "../observability/logger.js";
 import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
 import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
 import {
@@ -26,6 +28,7 @@ export type ApiServerOptions = {
   apiKeyVerifier?: TenantApiKeyVerifier;
   speechAdapters?: SpeechAdapters;
   tenantConfigStore?: TenantConfigStore;
+  logger?: Logger;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -39,23 +42,44 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     });
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
+  const logger = options.logger ?? createConsoleLogger();
 
   return http.createServer(async (request, response) => {
+    const startedAt = Date.now();
+    const method = request.method ?? "GET";
+    const path = request.url ? new URL(request.url, "http://localhost").pathname : "/";
+    const requestId = requestIdFromIncomingMessage(request);
+    response.setHeader("x-request-id", requestId);
+    let errorCode: string | undefined;
     try {
       await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
+        errorCode = error.code;
         sendJson(response, error.statusCode, { error: error.code, message: error.message });
         return;
       }
       if (error instanceof FirstCallServiceError) {
+        errorCode = error.code;
         sendJson(response, firstCallServiceStatusCode(error), { error: error.code, message: error.message });
         return;
       }
+      errorCode = "INTERNAL_SERVER_ERROR";
       sendJson(response, 500, {
         error: "INTERNAL_SERVER_ERROR",
         message: "An unexpected error occurred.",
       });
+    } finally {
+      logger.request(
+        createApiRequestLog({
+          method,
+          path,
+          requestId,
+          statusCode: response.statusCode,
+          startedAt,
+          errorCode,
+        }),
+      );
     }
   });
 }
@@ -75,12 +99,18 @@ export async function handleApiRequest(
   apiKeyVerifier: TenantApiKeyVerifier,
   speechAdapters: SpeechAdapters = createFakeSpeechAdapters(),
   tenantConfigStore?: TenantConfigStore,
+  logger: Logger = createNoopLogger(),
 ): Promise<Response> {
+  const startedAt = Date.now();
+  const url = new URL(request.url);
+  const requestId = requestIdFromHeaders(request.headers);
+  let response: Response | undefined;
+  let errorCode: string | undefined;
   try {
-    const url = new URL(request.url);
-
     if (request.method === "GET" && url.pathname === "/health") {
-      return jsonResponse(200, { ok: true });
+      response = jsonResponse(200, { ok: true });
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const tenantConfigMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/config$/);
@@ -94,7 +124,9 @@ export async function handleApiRequest(
       if (!config) {
         throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
       }
-      return jsonResponse(200, { tenantConfig: config });
+      response = jsonResponse(200, { tenantConfig: config });
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
@@ -109,7 +141,9 @@ export async function handleApiRequest(
       addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
       addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
       const output = await service.startSession(input);
-      return jsonResponse(201, output);
+      response = jsonResponse(201, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const inboundCallMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/inbound-call$/);
@@ -126,7 +160,9 @@ export async function handleApiRequest(
       addIfPresent(input, "toPhone", optionalString(body.toPhone, "toPhone"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleInboundTelephonyCall(service, input);
-      return jsonResponse(201, output);
+      response = jsonResponse(201, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const speechTurnMatch = url.pathname.match(
@@ -146,7 +182,9 @@ export async function handleApiRequest(
       addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonySpeechTurn(service, input);
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const audioTurnMatch = url.pathname.match(
@@ -169,7 +207,9 @@ export async function handleApiRequest(
       addIfPresent(input, "voice", optionalString(body.voice, "voice"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const interruptMatch = url.pathname.match(
@@ -188,7 +228,9 @@ export async function handleApiRequest(
       addIfPresent(input, "interruptedOutput", optionalString(body.interruptedOutput, "interruptedOutput"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonyInterrupt(service, input);
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const callEndMatch = url.pathname.match(
@@ -206,7 +248,9 @@ export async function handleApiRequest(
       addIfPresent(input, "reason", optionalString(body.reason, "reason"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonyCallEnd(service, input);
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const transcriptMatch = url.pathname.match(
@@ -224,7 +268,9 @@ export async function handleApiRequest(
       };
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await service.handleTranscript(input);
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const eventsMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/events$/);
@@ -235,7 +281,9 @@ export async function handleApiRequest(
         tenantId,
         sessionId: decodeURIComponent(eventsMatch[2]),
       });
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const replayMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/replay$/);
@@ -246,24 +294,49 @@ export async function handleApiRequest(
         tenantId,
         sessionId: decodeURIComponent(replayMatch[2]),
       });
-      return jsonResponse(200, output);
+      response = jsonResponse(200, output);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
-    return jsonResponse(404, {
+    errorCode = "ROUTE_NOT_FOUND";
+    response = jsonResponse(404, {
       error: "ROUTE_NOT_FOUND",
       message: "No route matched the request.",
     });
+    response.headers.set("x-request-id", requestId);
+    return response;
   } catch (error) {
     if (error instanceof ApiError) {
-      return jsonResponse(error.statusCode, { error: error.code, message: error.message });
+      errorCode = error.code;
+      response = jsonResponse(error.statusCode, { error: error.code, message: error.message });
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
     if (error instanceof FirstCallServiceError) {
-      return jsonResponse(firstCallServiceStatusCode(error), { error: error.code, message: error.message });
+      errorCode = error.code;
+      response = jsonResponse(firstCallServiceStatusCode(error), { error: error.code, message: error.message });
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
-    return jsonResponse(500, {
+    errorCode = "INTERNAL_SERVER_ERROR";
+    response = jsonResponse(500, {
       error: "INTERNAL_SERVER_ERROR",
       message: "An unexpected error occurred.",
     });
+    response.headers.set("x-request-id", requestId);
+    return response;
+  } finally {
+    logger.request(
+      createApiRequestLog({
+        method: request.method,
+        path: url.pathname,
+        requestId,
+        statusCode: response?.status ?? 500,
+        startedAt,
+        errorCode,
+      }),
+    );
   }
 }
 
@@ -586,6 +659,40 @@ function jsonResponse(statusCode: number, body: object): Response {
 function firstCallServiceStatusCode(error: FirstCallServiceError): number {
   if (error.code === "TENANT_FEATURE_DISABLED") return 403;
   return 404;
+}
+
+function createApiRequestLog(input: {
+  method: string;
+  path: string;
+  requestId: string;
+  statusCode: number;
+  startedAt: number;
+  errorCode?: string | undefined;
+}): Parameters<Logger["request"]>[0] {
+  const entry: Parameters<Logger["request"]>[0] = {
+    requestId: input.requestId,
+    method: input.method,
+    path: input.path,
+    statusCode: input.statusCode,
+    durationMs: Math.max(0, Date.now() - input.startedAt),
+  };
+  addIfPresent(entry, "tenantId", tenantIdFromPath(input.path));
+  addIfPresent(entry, "errorCode", input.errorCode);
+  return entry;
+}
+
+function tenantIdFromPath(path: string): string | undefined {
+  const match = path.match(/^\/v1\/tenants\/([^/]+)/);
+  if (!match?.[1]) return undefined;
+  return decodeURIComponent(match[1]);
+}
+
+function requestIdFromIncomingMessage(request: http.IncomingMessage): string {
+  return headerValue(request.headers["x-request-id"])?.trim() || crypto.randomUUID();
+}
+
+function requestIdFromHeaders(headers: Headers): string {
+  return headers.get("x-request-id")?.trim() || crypto.randomUUID();
 }
 
 class ApiError extends Error {

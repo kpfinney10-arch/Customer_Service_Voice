@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
+import type { ApiRequestLog, Logger } from "../src/observability/logger.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
@@ -35,6 +36,39 @@ test("tenant config endpoint requires tenant API key and known config", async ()
 
   assert.equal(missingConfig.status, 404);
   assert.equal(missingConfig.body.error, "TENANT_CONFIG_NOT_FOUND");
+});
+
+test("API request logging captures request metadata without request bodies", async () => {
+  const logger = new TestLogger();
+  const response = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {
+    requestId: "req-config-1",
+    logger,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.requestId, "req-config-1");
+  assert.equal(logger.requests.length, 1);
+  assert.equal(logger.requests[0]?.requestId, "req-config-1");
+  assert.equal(logger.requests[0]?.method, "GET");
+  assert.equal(logger.requests[0]?.path, "/v1/tenants/fh-demo/config");
+  assert.equal(logger.requests[0]?.tenantId, "fh-demo");
+  assert.equal(logger.requests[0]?.statusCode, 200);
+  assert.equal(typeof logger.requests[0]?.durationMs, "number");
+  assert.equal("transcript" in (logger.requests[0] ?? {}), false);
+});
+
+test("API request logging includes error code for failed requests", async () => {
+  const logger = new TestLogger();
+  const response = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {
+    apiKey: null,
+    requestId: "req-missing-key-1",
+    logger,
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.requestId, "req-missing-key-1");
+  assert.equal(logger.requests[0]?.statusCode, 401);
+  assert.equal(logger.requests[0]?.errorCode, "API_KEY_REQUIRED");
 });
 
 test("first-call API starts a session and handles transcript turn", async () => {
@@ -356,12 +390,13 @@ async function fetchJson(
   method: string,
   path: string,
   body?: object,
-  options: { apiKey?: string | null } = {},
-): Promise<{ status: number; body: any }> {
+  options: { apiKey?: string | null; requestId?: string; logger?: Logger } = {},
+): Promise<{ status: number; body: any; requestId: string | null }> {
   const init: RequestInit = { method };
   const headers: Record<string, string> = {};
   const apiKey = options.apiKey === undefined ? "demo-api-key" : options.apiKey;
   if (apiKey) headers["x-api-key"] = apiKey;
+  if (options.requestId) headers["x-request-id"] = options.requestId;
   if (body) {
     headers["content-type"] = "application/json";
     init.body = JSON.stringify(body);
@@ -378,11 +413,25 @@ async function fetchJson(
     apiKeyVerifier,
     undefined,
     sharedTenantConfigStore,
+    options.logger,
   );
   return {
     status: response.status,
     body: await response.json(),
+    requestId: response.headers.get("x-request-id"),
   };
+}
+
+class TestLogger implements Logger {
+  readonly requests: ApiRequestLog[] = [];
+
+  event(): void {}
+
+  request(entry: ApiRequestLog): void {
+    this.requests.push(entry);
+  }
+
+  error(): void {}
 }
 
 const sharedStore = new InMemorySessionStore();

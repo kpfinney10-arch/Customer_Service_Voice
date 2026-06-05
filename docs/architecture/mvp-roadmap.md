@@ -21,6 +21,7 @@
 - Environment-loadable tenant configuration for adding funeral home customers without code edits.
 - Tenant config lookup endpoint for deployment verification.
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
+- Structured API request logging with request ids and tenant context.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
