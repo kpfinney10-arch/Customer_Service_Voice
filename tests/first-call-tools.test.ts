@@ -99,3 +99,47 @@ test("first-call tool execution emits failed event when dispatch adapter fails",
   assert.equal(output.results[1]?.errorCode, "DISPATCH_UNAVAILABLE");
   assert.equal(output.events.at(-1)?.eventType, "TOOL_FAILED");
 });
+
+test("first-call tool execution emits skipped event when tenant disables a tool", async () => {
+  let eventCount = 0;
+  let toolCount = 0;
+  const session = updateSession(
+    createCallSession({
+      callId: "call_789",
+      sessionId: "session_789",
+      tenantId: "tenant_789",
+    }),
+    { currentState: "ESCALATE", facts: { reasonForCall: "first_call_death_report" } },
+  );
+  const facts = {
+    caller_name: "Sarah Miller",
+    caller_phone: "555-010-2300",
+    decedent_name: "Robert Miller",
+    pickup_address: "124 Oak Street",
+    urgency: "urgent" as const,
+  };
+  const registry = new ToolRegistry();
+  for (const definition of createFuneralHomeToolDefinitions(createFakeFuneralHomeAdapters())) {
+    registry.registerAny(definition);
+  }
+
+  const output = await executeFirstCallTools({
+    eventIdFactory: () => `event_${++eventCount}`,
+    toolCallIdFactory: () => `tool_${++toolCount}`,
+    correlationId: "corr_789",
+    session,
+    facts,
+    decision: decideFirstCallNextStep(facts),
+    registry,
+    enabledToolNames: new Set(["crm.create_intake_lead"]),
+  });
+
+  assert.deepEqual(output.results.map((result) => result.toolName), ["crm.create_intake_lead"]);
+  assert.deepEqual(output.events.map((event) => event.eventType), [
+    "TOOL_REQUESTED",
+    "TOOL_EXECUTED",
+    "TOOL_SKIPPED",
+  ]);
+  assert.equal(output.events.at(-1)?.payload.toolName, "dispatch.create_removal_request");
+  assert.equal(output.events.at(-1)?.payload.reason, "tenant_feature_disabled");
+});

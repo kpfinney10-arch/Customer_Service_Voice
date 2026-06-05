@@ -8,7 +8,7 @@ import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
-import type { TenantConfigStore } from "../tenants/tenant-config.js";
+import type { TenantConfig, TenantConfigStore } from "../tenants/tenant-config.js";
 import { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolResult } from "../tools/tool-registry.js";
 import { createFakeFuneralHomeAdapters } from "../verticals/funeral-home/fake-adapters.js";
@@ -179,6 +179,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         escalationScore: decision.escalationReason ? 1 : existingSession.escalationScore,
       });
       const correlationId = input.correlationId ?? idFactory();
+      const tenantConfig = await options.tenantConfigStore?.get(session.tenantId);
       const decisionEvents = [
         createCallEvent({
           eventId: idFactory(),
@@ -222,7 +223,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
           },
         }),
       ];
-      const toolOutput = await executeFirstCallTools({
+      const toolInput = {
         eventIdFactory: idFactory,
         toolCallIdFactory: idFactory,
         correlationId,
@@ -230,7 +231,9 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         facts,
         decision,
         registry,
-      });
+      };
+      addIfPresent(toolInput, "enabledToolNames", enabledToolNamesForTenant(tenantConfig));
+      const toolOutput = await executeFirstCallTools(toolInput);
       await options.store.save(session);
       const events = [...decisionEvents, ...toolOutput.events];
       await options.eventStore?.append(events);
@@ -240,7 +243,6 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         decision,
         toolResults: toolOutput.results,
       });
-      const tenantConfig = handoff ? await options.tenantConfigStore?.get(session.tenantId) : undefined;
       const handoffRouting = handoff ? routeFirstCallHandoff({ handoff, tenantConfig }) : undefined;
 
       const output: HandleFirstCallTranscriptOutput = {
@@ -386,6 +388,24 @@ function createReplaySnapshot(input: {
     session: input.session,
     events: input.events,
   });
+}
+
+function enabledToolNamesForTenant(config: TenantConfig | undefined): Set<string> | undefined {
+  if (!config) return undefined;
+  const toolNames = new Set<string>();
+  if (config.features.crmHandoff) toolNames.add("crm.create_intake_lead");
+  if (config.features.dispatchHandoff) toolNames.add("dispatch.create_removal_request");
+  return toolNames;
+}
+
+function addIfPresent<T extends object, K extends string, V>(
+  target: T,
+  key: K,
+  value: V | undefined,
+): asserts target is T & Record<K, V> {
+  if (value !== undefined) {
+    Object.assign(target, { [key]: value });
+  }
 }
 
 export class FirstCallServiceError extends Error {

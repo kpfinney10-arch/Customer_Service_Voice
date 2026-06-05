@@ -20,6 +20,7 @@ export const CALL_EVENT_TYPES = [
   "STATE_TRANSITIONED",
   "RULE_EVALUATED",
   "TOOL_REQUESTED",
+  "TOOL_SKIPPED",
   "TOOL_EXECUTED",
   "TOOL_FAILED",
   "ESCALATION_TRIGGERED",
@@ -56,4 +57,3 @@ export type EscalationReason =
   | "tool_failure"
   | "retry_budget_exhausted"
   | "policy_required";
-

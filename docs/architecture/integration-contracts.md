@@ -44,6 +44,7 @@ Purpose:
 - Tool adapters should be tenant-scoped and idempotent.
 - Tool results should return caller-safe summaries, not raw internal records.
 - Human handoff routing uses tenant configuration and returns an operational destination without letting the LLM choose phone numbers, queues, or staff assignments.
+- Tenant feature flags decide whether CRM and dispatch handoff tools are executed. Disabled tools produce `TOOL_SKIPPED` audit events so rollout choices remain visible during debugging.
 
 ## Future Work
 

@@ -5,7 +5,7 @@ import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
-import { createDefaultTenantConfigStore } from "../src/tenants/tenant-config.js";
+import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -269,6 +269,37 @@ test("first-call API omits handoff before escalation", async () => {
   assert.equal(turn.body.handoffRouting, undefined);
 });
 
+test("first-call API skips disabled tenant handoff tools", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-crm-only/first-call/sessions", {
+    sessionId: "session-crm-only-1",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-crm-only/first-call/sessions/session-crm-only-1/transcript", {
+    transcript:
+      "My name is Laura Fields. My father Thomas Fields passed away at 900 Cedar Lane, Tulsa. My number is 555-777-1212.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.deepEqual(turn.body.toolResults.map((result: { toolName: string }) => result.toolName), [
+    "crm.create_intake_lead",
+  ]);
+  assert.deepEqual(
+    turn.body.events.map((event: { eventType: string }) => event.eventType),
+    [
+      "TRANSCRIPT_RECEIVED",
+      "INTENT_DETECTED",
+      "ESCALATION_TRIGGERED",
+      "TOOL_REQUESTED",
+      "TOOL_EXECUTED",
+      "TOOL_SKIPPED",
+    ],
+  );
+  assert.equal(turn.body.events.at(-1).payload.toolName, "dispatch.create_removal_request");
+  assert.equal(turn.body.handoff.completedToolNames.length, 1);
+  assert.equal(turn.body.handoffRouting.destination, "+15555550200");
+});
+
 test("tenant routes require an API key", async () => {
   const missing = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {}, { apiKey: null });
 
@@ -310,7 +341,39 @@ async function fetchJson(
 
 const sharedStore = new InMemorySessionStore();
 const sharedEventStore = new InMemoryEventStore();
-const sharedTenantConfigStore = createDefaultTenantConfigStore();
+const sharedTenantConfigStore = new InMemoryTenantConfigStore({
+  "fh-demo": {
+    tenantId: "fh-demo",
+    displayName: "Demo Funeral Home",
+    timezone: "America/Chicago",
+    handoff: {
+      defaultQueue: "first-call-dispatch",
+      onCallPhone: "+15555550100",
+      dispatchDeskPhone: "+15555550101",
+      afterHoursQueue: "first-call-after-hours",
+    },
+    features: {
+      crmHandoff: true,
+      dispatchHandoff: true,
+      voiceIntake: true,
+    },
+  },
+  "fh-crm-only": {
+    tenantId: "fh-crm-only",
+    displayName: "CRM Only Funeral Home",
+    timezone: "America/Chicago",
+    handoff: {
+      defaultQueue: "crm-only-first-call",
+      onCallPhone: "+15555550200",
+    },
+    features: {
+      crmHandoff: true,
+      dispatchHandoff: false,
+      voiceIntake: true,
+    },
+  },
+});
 const apiKeyVerifier = new InMemoryTenantApiKeyVerifier({
   "fh-demo": "demo-api-key",
+  "fh-crm-only": "demo-api-key",
 });
