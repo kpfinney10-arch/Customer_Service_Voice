@@ -201,6 +201,39 @@ test("telephony audio-turn route transcribes audio and synthesizes response audi
   assert.equal(audioTurn.body.handoff.decedent.name, "George Stone");
 });
 
+test("telephony interrupt route records barge-in and resumes listening", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
+    providerCallId: "provider-call-interrupt-1",
+    fromPhone: "555-444-2020",
+  });
+
+  const interrupted = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/generic/calls/provider-call-interrupt-1/interrupt",
+    {
+      reason: "caller_barged_in",
+      interruptedOutput: "I am sorry. I will help get this to the right person.",
+      correlationId: "corr-interrupt-1",
+    },
+  );
+
+  assert.equal(interrupted.status, 200);
+  assert.equal(interrupted.body.interrupted, true);
+  assert.equal(interrupted.body.responseText, "Go ahead. I am listening.");
+  assert.equal(interrupted.body.session.retryCount, 1);
+  assert.deepEqual(interrupted.body.voiceResponse.actions, [
+    { type: "stop", target: "current_output" },
+    { type: "say", text: "Go ahead. I am listening." },
+    { type: "listen", expectedInput: "caller_speech" },
+  ]);
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/provider-call-interrupt-1/replay");
+
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.snapshot.interruptionCount, 1);
+  assert.equal(replay.body.snapshot.latestEventType, "CALL_INTERRUPTED");
+});
+
 test("first-call transcript endpoint validates required transcript", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-api-2",

@@ -27,6 +27,7 @@ The first implementation target is inbound funeral home customer service intake:
 - Generic voice response actions for say/listen/handoff/hangup provider translation.
 - STT/TTS provider contracts with fake adapters for local testing.
 - Generic telephony audio-turn boundary for local audio-in/audio-out testing.
+- Generic telephony interrupt boundary for barge-in and output cancellation.
 
 ## Architecture Pillars
 
@@ -80,6 +81,7 @@ Endpoints:
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/speech-turn`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/audio-turn`
+- `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/interrupt`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/end`
 - `POST /v1/tenants/:tenantId/first-call/sessions`
 - `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
@@ -93,6 +95,8 @@ The generic telephony inbound-call endpoint accepts provider call metadata, crea
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary.
 
 The generic audio-turn endpoint accepts base64 audio, runs STT, advances the first-call workflow, and returns TTS audio for the response. The default local server uses fake STT/TTS adapters.
+
+The generic interrupt endpoint records caller barge-in, increments the session retry count, and returns voice actions to stop current output and resume listening.
 
 The generic call-end endpoint marks the session as ended and records a `CALL_ENDED` event for replay and audit.
 

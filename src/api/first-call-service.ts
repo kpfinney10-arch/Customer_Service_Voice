@@ -26,6 +26,7 @@ export type IdFactory = () => string;
 export type FirstCallService = {
   startSession: (input: StartFirstCallSessionInput) => Promise<StartFirstCallSessionOutput>;
   handleTranscript: (input: HandleFirstCallTranscriptInput) => Promise<HandleFirstCallTranscriptOutput>;
+  interruptSession: (input: InterruptFirstCallSessionInput) => Promise<InterruptFirstCallSessionOutput>;
   endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
@@ -59,6 +60,20 @@ export type HandleFirstCallTranscriptOutput = {
   events: CallEvent[];
   toolResults: ToolResult<object>[];
   handoff?: FirstCallHandoffSummary;
+};
+
+export type InterruptFirstCallSessionInput = {
+  tenantId: string;
+  sessionId: string;
+  reason: string;
+  interruptedOutput?: string;
+  correlationId?: string;
+};
+
+export type InterruptFirstCallSessionOutput = {
+  session: CallSession;
+  events: CallEvent[];
+  responseText: string;
 };
 
 export type EndFirstCallSessionInput = {
@@ -231,6 +246,40 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
       if (handoff) output.handoff = handoff;
       return output;
+    },
+
+    async interruptSession(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const session = updateSession(existingSession, {
+        retryCount: existingSession.retryCount + 1,
+      });
+      const payload: Record<string, unknown> = {
+        reason: input.reason,
+        currentState: session.currentState,
+        retryCount: session.retryCount,
+      };
+      if (input.interruptedOutput !== undefined) payload.interruptedOutput = input.interruptedOutput;
+      const events = [
+        createCallEvent({
+          eventId: idFactory(),
+          eventType: "CALL_INTERRUPTED",
+          callId: session.callId,
+          sessionId: session.sessionId,
+          tenantId: session.tenantId,
+          correlationId: input.correlationId ?? idFactory(),
+          payload,
+        }),
+      ];
+      await options.store.save(session);
+      await options.eventStore?.append(events);
+      return {
+        session,
+        events,
+        responseText: "Go ahead. I am listening.",
+      };
     },
 
     async endSession(input) {

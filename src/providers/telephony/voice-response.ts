@@ -14,6 +14,10 @@ export type VoiceResponseAction =
   | {
       type: "hangup";
       reason?: string;
+    }
+  | {
+      type: "stop";
+      target: "current_output";
     };
 
 export type VoiceResponse = {
@@ -46,5 +50,16 @@ export function createHangupVoiceResponse(reason?: string): VoiceResponse {
   return {
     contentType: "application/json",
     actions: [action],
+  };
+}
+
+export function createInterruptedVoiceResponse(text: string): VoiceResponse {
+  return {
+    contentType: "application/json",
+    actions: [
+      { type: "stop", target: "current_output" },
+      { type: "say", text },
+      { type: "listen", expectedInput: "caller_speech" },
+    ],
   };
 }

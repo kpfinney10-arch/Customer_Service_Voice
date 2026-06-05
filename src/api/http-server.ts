@@ -13,6 +13,7 @@ import {
   handleTelephonyAudioTurn,
   handleInboundTelephonyCall,
   handleTelephonyCallEnd,
+  handleTelephonyInterrupt,
   handleTelephonySpeechTurn,
 } from "../providers/telephony/inbound-call.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
@@ -148,6 +149,25 @@ export async function handleApiRequest(
       addIfPresent(input, "voice", optionalString(body.voice, "voice"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
       const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
+      return jsonResponse(200, output);
+    }
+
+    const interruptMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/interrupt$/,
+    );
+    if (request.method === "POST" && interruptMatch?.[1] && interruptMatch[2] && interruptMatch[3]) {
+      const tenantId = decodeURIComponent(interruptMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId,
+        provider: decodeURIComponent(interruptMatch[2]),
+        providerCallId: decodeURIComponent(interruptMatch[3]),
+        reason: requiredString(body.reason, "reason"),
+      };
+      addIfPresent(input, "interruptedOutput", optionalString(body.interruptedOutput, "interruptedOutput"));
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await handleTelephonyInterrupt(service, input);
       return jsonResponse(200, output);
     }
 
@@ -317,6 +337,26 @@ async function routeRequest(
     addIfPresent(input, "voice", optionalString(body.voice, "voice"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
     const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
+    sendJson(response, 200, output);
+    return;
+  }
+
+  const interruptMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/calls\/([^/]+)\/interrupt$/,
+  );
+  if (method === "POST" && interruptMatch?.[1] && interruptMatch[2] && interruptMatch[3]) {
+    const tenantId = decodeURIComponent(interruptMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId,
+      provider: decodeURIComponent(interruptMatch[2]),
+      providerCallId: decodeURIComponent(interruptMatch[3]),
+      reason: requiredString(body.reason, "reason"),
+    };
+    addIfPresent(input, "interruptedOutput", optionalString(body.interruptedOutput, "interruptedOutput"));
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await handleTelephonyInterrupt(service, input);
     sendJson(response, 200, output);
     return;
   }

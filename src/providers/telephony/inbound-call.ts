@@ -9,6 +9,7 @@ import type { ToolResult } from "../../tools/tool-registry.js";
 import {
   createHandoffVoiceResponse,
   createHangupVoiceResponse,
+  createInterruptedVoiceResponse,
   createListenVoiceResponse,
 } from "./voice-response.js";
 import type { VoiceResponse } from "./voice-response.js";
@@ -73,6 +74,26 @@ export type TelephonyAudioTurnInput = {
 export type TelephonyAudioTurnOutput = TelephonySpeechTurnOutput & {
   stt: SpeechToTextOutput;
   tts: TextToSpeechOutput;
+};
+
+export type TelephonyInterruptInput = {
+  tenantId: string;
+  provider: string;
+  providerCallId: string;
+  reason: string;
+  interruptedOutput?: string;
+  correlationId?: string;
+};
+
+export type TelephonyInterruptOutput = {
+  session: CallSession;
+  events: CallEvent[];
+  responseText: string;
+  provider: string;
+  providerCallId: string;
+  interrupted: true;
+  nextExpectedInput: "caller_speech";
+  voiceResponse: VoiceResponse;
 };
 
 export type TelephonyCallEndInput = {
@@ -185,6 +206,31 @@ export async function handleTelephonyAudioTurn(
     ...speechTurn,
     stt,
     tts,
+  };
+}
+
+export async function handleTelephonyInterrupt(
+  service: FirstCallService,
+  input: TelephonyInterruptInput,
+): Promise<TelephonyInterruptOutput> {
+  const interruptInput = {
+    tenantId: input.tenantId,
+    sessionId: input.providerCallId,
+    reason: input.reason,
+  };
+  addIfPresent(interruptInput, "interruptedOutput", input.interruptedOutput);
+  addIfPresent(interruptInput, "correlationId", input.correlationId);
+  const output = await service.interruptSession(interruptInput);
+
+  return {
+    session: output.session,
+    events: output.events,
+    responseText: output.responseText,
+    provider: input.provider,
+    providerCallId: input.providerCallId,
+    interrupted: true,
+    nextExpectedInput: "caller_speech",
+    voiceResponse: createInterruptedVoiceResponse(output.responseText),
   };
 }
 

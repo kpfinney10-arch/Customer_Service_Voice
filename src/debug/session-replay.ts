@@ -16,6 +16,7 @@ export type SessionReplaySnapshot = {
   failedToolNames: string[];
   completedToolNames: string[];
   redactedTranscriptCount: number;
+  interruptionCount: number;
   handoff?: FirstCallHandoffSummary;
 };
 
@@ -41,6 +42,7 @@ export function createSessionReplaySnapshot(input: {
     redactedTranscriptCount: input.events.filter(
       (event) => event.eventType === "TRANSCRIPT_RECEIVED" && event.redactionStatus === "redacted",
     ).length,
+    interruptionCount: input.events.filter((event) => event.eventType === "CALL_INTERRUPTED").length,
   };
   addIfPresent(snapshot, "latestEventType", latestEvent?.eventType);
   addIfPresent(snapshot, "latestEventAt", latestEvent?.occurredAt);
