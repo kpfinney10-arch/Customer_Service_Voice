@@ -16,6 +16,7 @@ The first implementation target is inbound funeral home customer service intake:
 - First MVP call flow: first-call death report intake.
 - Deterministic first-call fact extraction before any LLM dependency.
 - Fake CRM/dispatch adapters for contract testing before real integrations.
+- HTTP API boundary for starting sessions and submitting transcript turns.
 
 ## Architecture Pillars
 
@@ -38,6 +39,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `src/orchestrator`: first turn-level orchestration slice.
 - `src/security`: redaction utilities.
 - `src/events`: event construction helpers.
+- `src/api`: first-call application service and HTTP API boundary.
 - `src/verticals/funeral-home`: funeral-home-specific intents and rules.
 - `docs/architecture/first-call-death-report-intake.md`: MVP call-flow definition.
 - `tests/fixtures/first-call`: realistic transcript fixtures and expected extraction/flow outcomes.
@@ -49,3 +51,20 @@ The first implementation target is inbound funeral home customer service intake:
 ## Build Notes
 
 This scaffold is dependency-light on purpose. Provider-specific telephony, STT, TTS, LLM, CRM, and dispatch adapters should be added behind the existing typed interfaces rather than coupled directly into orchestration code.
+
+## Local API
+
+Build and run:
+
+```bash
+npm run build
+npm start
+```
+
+Endpoints:
+
+- `GET /health`
+- `POST /v1/tenants/:tenantId/first-call/sessions`
+- `POST /v1/tenants/:tenantId/first-call/sessions/:sessionId/transcript`
+
+The transcript endpoint runs deterministic first-call fact extraction, chooses the next call-flow step, updates session facts, and emits fake CRM/dispatch tool results when the collected facts are sufficient.

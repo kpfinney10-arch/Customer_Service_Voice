@@ -12,6 +12,8 @@
 - Tool registry.
 - Fake CRM and dispatch adapters.
 - Tool request/executed/failed event tests.
+- HTTP API boundary for first-call session and transcript turns.
+- In-memory session store for local development and API tests.
 - Scenario tests.
 
 ## Phase 2: Provider Adapters

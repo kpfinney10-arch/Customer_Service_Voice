@@ -1,0 +1,238 @@
+import http from "node:http";
+import type { AddressInfo } from "node:net";
+import { InMemorySessionStore } from "../session/in-memory-session-store.js";
+import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
+import type { FirstCallService } from "./first-call-service.js";
+
+export type ApiServerOptions = {
+  service?: FirstCallService;
+};
+
+export function createApiServer(options: ApiServerOptions = {}): http.Server {
+  const service =
+    options.service ??
+    createFirstCallService({
+      store: new InMemorySessionStore(),
+    });
+
+  return http.createServer(async (request, response) => {
+    try {
+      await routeRequest(service, request, response);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        sendJson(response, error.statusCode, { error: error.code, message: error.message });
+        return;
+      }
+      if (error instanceof FirstCallServiceError) {
+        sendJson(response, 404, { error: error.code, message: error.message });
+        return;
+      }
+      sendJson(response, 500, {
+        error: "INTERNAL_SERVER_ERROR",
+        message: "An unexpected error occurred.",
+      });
+    }
+  });
+}
+
+export async function listen(server: http.Server, port: number, host = "127.0.0.1"): Promise<string> {
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, resolve);
+  });
+  const address = server.address() as AddressInfo;
+  return `http://${address.address}:${address.port}`;
+}
+
+export async function handleApiRequest(service: FirstCallService, request: Request): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/health") {
+      return jsonResponse(200, { ok: true });
+    }
+
+    const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
+    if (request.method === "POST" && startMatch?.[1]) {
+      const body = await readWebJsonObject(request);
+      const input = {
+        tenantId: decodeURIComponent(startMatch[1]),
+      };
+      addIfPresent(input, "callId", optionalString(body.callId, "callId"));
+      addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
+      addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
+      const output = await service.startSession(input);
+      return jsonResponse(201, output);
+    }
+
+    const transcriptMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/transcript$/,
+    );
+    if (request.method === "POST" && transcriptMatch?.[1] && transcriptMatch[2]) {
+      const body = await readWebJsonObject(request);
+      const transcript = requiredString(body.transcript, "transcript");
+      const input = {
+        tenantId: decodeURIComponent(transcriptMatch[1]),
+        sessionId: decodeURIComponent(transcriptMatch[2]),
+        transcript,
+      };
+      addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+      const output = await service.handleTranscript(input);
+      return jsonResponse(200, output);
+    }
+
+    return jsonResponse(404, {
+      error: "ROUTE_NOT_FOUND",
+      message: "No route matched the request.",
+    });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return jsonResponse(error.statusCode, { error: error.code, message: error.message });
+    }
+    if (error instanceof FirstCallServiceError) {
+      return jsonResponse(404, { error: error.code, message: error.message });
+    }
+    return jsonResponse(500, {
+      error: "INTERNAL_SERVER_ERROR",
+      message: "An unexpected error occurred.",
+    });
+  }
+}
+
+async function routeRequest(
+  service: FirstCallService,
+  request: http.IncomingMessage,
+  response: http.ServerResponse,
+): Promise<void> {
+  const method = request.method ?? "GET";
+  const url = new URL(request.url ?? "/", "http://localhost");
+
+  if (method === "GET" && url.pathname === "/health") {
+    sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
+  if (method === "POST" && startMatch?.[1]) {
+    const body = await readJsonObject(request);
+    const input = {
+      tenantId: decodeURIComponent(startMatch[1]),
+    };
+    addIfPresent(input, "callId", optionalString(body.callId, "callId"));
+    addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
+    addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
+    const output = await service.startSession(input);
+    sendJson(response, 201, output);
+    return;
+  }
+
+  const transcriptMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/first-call\/sessions\/([^/]+)\/transcript$/,
+  );
+  if (method === "POST" && transcriptMatch?.[1] && transcriptMatch[2]) {
+    const body = await readJsonObject(request);
+    const transcript = requiredString(body.transcript, "transcript");
+    const input = {
+      tenantId: decodeURIComponent(transcriptMatch[1]),
+      sessionId: decodeURIComponent(transcriptMatch[2]),
+      transcript,
+    };
+    addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
+    const output = await service.handleTranscript(input);
+    sendJson(response, 200, output);
+    return;
+  }
+
+  sendJson(response, 404, {
+    error: "ROUTE_NOT_FOUND",
+    message: "No route matched the request.",
+  });
+}
+
+async function readJsonObject(request: http.IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new ApiError(400, "INVALID_JSON_BODY", "Request body must be a JSON object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(400, "INVALID_JSON_BODY", "Request body must contain valid JSON.");
+  }
+}
+
+async function readWebJsonObject(request: Request): Promise<Record<string, unknown>> {
+  const raw = (await request.text()).trim();
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new ApiError(400, "INVALID_JSON_BODY", "Request body must be a JSON object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(400, "INVALID_JSON_BODY", "Request body must contain valid JSON.");
+  }
+}
+
+function requiredString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} is required.`);
+  }
+  return value;
+}
+
+function optionalString(value: unknown, field: string): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a non-empty string when provided.`);
+  }
+  return value;
+}
+
+function addIfPresent<T extends object, K extends string, V>(
+  target: T,
+  key: K,
+  value: V | undefined,
+): asserts target is T & Record<K, V> {
+  if (value !== undefined) {
+    Object.assign(target, { [key]: value });
+  }
+}
+
+function sendJson(response: http.ServerResponse, statusCode: number, body: object): void {
+  response.writeHead(statusCode, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  response.end(JSON.stringify(body));
+}
+
+function jsonResponse(statusCode: number, body: object): Response {
+  return new Response(JSON.stringify(body), {
+    status: statusCode,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+}
+
+class ApiError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
