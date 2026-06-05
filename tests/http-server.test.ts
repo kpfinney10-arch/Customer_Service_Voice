@@ -14,6 +14,29 @@ test("health endpoint reports ready", async () => {
   assert.deepEqual(response.body, { ok: true });
 });
 
+test("tenant config endpoint returns authenticated tenant configuration", async () => {
+  const response = await fetchJson("GET", "/v1/tenants/fh-crm-only/config");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tenantConfig.tenantId, "fh-crm-only");
+  assert.equal(response.body.tenantConfig.displayName, "CRM Only Funeral Home");
+  assert.equal(response.body.tenantConfig.handoff.onCallPhone, "+15555550200");
+  assert.equal(response.body.tenantConfig.features.voiceIntake, true);
+  assert.equal(response.body.tenantConfig.features.dispatchHandoff, false);
+});
+
+test("tenant config endpoint requires tenant API key and known config", async () => {
+  const missingKey = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, { apiKey: null });
+
+  assert.equal(missingKey.status, 401);
+  assert.equal(missingKey.body.error, "API_KEY_REQUIRED");
+
+  const missingConfig = await fetchJson("GET", "/v1/tenants/fh-auth-only/config");
+
+  assert.equal(missingConfig.status, 404);
+  assert.equal(missingConfig.body.error, "TENANT_CONFIG_NOT_FOUND");
+});
+
 test("first-call API starts a session and handles transcript turn", async () => {
   const started = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     callId: "call-api-1",
@@ -349,7 +372,13 @@ async function fetchJson(
     eventStore: sharedEventStore,
     tenantConfigStore: sharedTenantConfigStore,
   });
-  const response = await handleApiRequest(service, new Request(`http://localhost${path}`, init), apiKeyVerifier);
+  const response = await handleApiRequest(
+    service,
+    new Request(`http://localhost${path}`, init),
+    apiKeyVerifier,
+    undefined,
+    sharedTenantConfigStore,
+  );
   return {
     status: response.status,
     body: await response.json(),
@@ -408,4 +437,5 @@ const apiKeyVerifier = new InMemoryTenantApiKeyVerifier({
   "fh-demo": "demo-api-key",
   "fh-crm-only": "demo-api-key",
   "fh-disabled": "demo-api-key",
+  "fh-auth-only": "demo-api-key",
 });

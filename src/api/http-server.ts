@@ -10,6 +10,7 @@ import {
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
+import type { TenantConfigStore } from "../tenants/tenant-config.js";
 import {
   handleTelephonyAudioTurn,
   handleInboundTelephonyCall,
@@ -24,22 +25,24 @@ export type ApiServerOptions = {
   service?: FirstCallService;
   apiKeyVerifier?: TenantApiKeyVerifier;
   speechAdapters?: SpeechAdapters;
+  tenantConfigStore?: TenantConfigStore;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
+  const tenantConfigStore = options.tenantConfigStore ?? createTenantConfigStoreFromEnv();
   const service =
     options.service ??
     createFirstCallService({
       store: new InMemorySessionStore(),
       eventStore: new InMemoryEventStore(),
-      tenantConfigStore: createTenantConfigStoreFromEnv(),
+      tenantConfigStore,
     });
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
 
   return http.createServer(async (request, response) => {
     try {
-      await routeRequest(service, apiKeyVerifier, speechAdapters, request, response);
+      await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
         sendJson(response, error.statusCode, { error: error.code, message: error.message });
@@ -71,12 +74,27 @@ export async function handleApiRequest(
   request: Request,
   apiKeyVerifier: TenantApiKeyVerifier,
   speechAdapters: SpeechAdapters = createFakeSpeechAdapters(),
+  tenantConfigStore?: TenantConfigStore,
 ): Promise<Response> {
   try {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/health") {
       return jsonResponse(200, { ok: true });
+    }
+
+    const tenantConfigMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/config$/);
+    if (request.method === "GET" && tenantConfigMatch?.[1]) {
+      const tenantId = decodeURIComponent(tenantConfigMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      if (!tenantConfigStore) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      const config = await tenantConfigStore.get(tenantId);
+      if (!config) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      return jsonResponse(200, { tenantConfig: config });
     }
 
     const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
@@ -253,6 +271,7 @@ async function routeRequest(
   service: FirstCallService,
   apiKeyVerifier: TenantApiKeyVerifier,
   speechAdapters: SpeechAdapters,
+  tenantConfigStore: TenantConfigStore,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -261,6 +280,18 @@ async function routeRequest(
 
   if (method === "GET" && url.pathname === "/health") {
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  const tenantConfigMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/config$/);
+  if (method === "GET" && tenantConfigMatch?.[1]) {
+    const tenantId = decodeURIComponent(tenantConfigMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const config = await tenantConfigStore.get(tenantId);
+    if (!config) {
+      throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+    }
+    sendJson(response, 200, { tenantConfig: config });
     return;
   }
 
