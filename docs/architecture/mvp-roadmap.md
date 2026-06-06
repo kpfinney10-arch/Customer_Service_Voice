@@ -26,6 +26,7 @@
 - Tenant-route rate limiting with `429` responses and retry headers.
 - Environment-configurable rate-limit window and request count.
 - Startup environment validation with structured startup errors.
+- Graceful shutdown handling for `SIGINT` and `SIGTERM`.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

@@ -100,6 +100,8 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 Server startup validates `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process.
 
+The server installs graceful shutdown handlers for `SIGINT` and `SIGTERM`. On shutdown, it stops accepting new HTTP requests, attempts to close active connections, logs lifecycle events, and exits with a non-zero code if the close times out or fails.
+
 API responses include an `x-request-id` header. If the caller sends `x-request-id`, the server echoes it; otherwise it generates one. The HTTP boundary writes structured request logs with method, path, tenant id, status code, duration, request id, and error code when applicable. Request bodies, transcripts, and API keys are not logged.
 
 Tenant routes are protected by a fixed-window in-memory rate limiter. The local default allows 120 requests per tenant route per minute and returns `429 RATE_LIMIT_EXCEEDED` with `Retry-After` and rate-limit headers when exceeded. Configure `RATE_LIMIT_PER_WINDOW` and `RATE_LIMIT_WINDOW_MS` per deployment.

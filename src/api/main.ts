@@ -1,5 +1,9 @@
+import { installGracefulShutdown } from "./graceful-shutdown.js";
 import { createApiServer, listen } from "./http-server.js";
 import { loadServerEnvironment } from "../config/server-environment.js";
+import { createConsoleLogger } from "../observability/logger.js";
+
+const logger = createConsoleLogger();
 
 try {
   const environment = loadServerEnvironment();
@@ -7,18 +11,23 @@ try {
     apiKeyVerifier: environment.apiKeyVerifier,
     tenantConfigStore: environment.tenantConfigStore,
     rateLimiter: environment.rateLimiter,
+    logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");
+  installGracefulShutdown({
+    server,
+    logger,
+  });
 
+  logger.lifecycle({
+    type: "startup",
+  });
   console.log(`voice-ai-platform listening on ${url}`);
 } catch (error) {
-  console.error(
-    JSON.stringify({
-      level: "error",
-      type: "startup_error",
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      message: error instanceof Error ? error.message : "Unknown startup error.",
-    }),
-  );
+  logger.error("Server startup failed.", {
+    type: "startup_error",
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    message: error instanceof Error ? error.message : "Unknown startup error.",
+  });
   process.exitCode = 1;
 }

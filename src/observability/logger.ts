@@ -10,9 +10,17 @@ export type ApiRequestLog = {
   errorCode?: string;
 };
 
+export type LifecycleLog = {
+  type: "startup" | "shutdown_started" | "shutdown_completed" | "shutdown_failed";
+  signal?: string;
+  durationMs?: number;
+  timedOut?: boolean;
+};
+
 export type Logger = {
   event: (event: CallEvent) => void;
   request: (entry: ApiRequestLog) => void;
+  lifecycle: (entry: LifecycleLog) => void;
   error: (message: string, context?: Record<string, unknown>) => void;
 };
 
@@ -42,6 +50,14 @@ export function createConsoleLogger(): Logger {
         }),
       );
     },
+    lifecycle(entry) {
+      console.log(
+        JSON.stringify({
+          level: entry.type === "shutdown_failed" ? "error" : "info",
+          ...entry,
+        }),
+      );
+    },
     error(message, context = {}) {
       console.error(JSON.stringify({ level: "error", message, ...context }));
     },
@@ -52,6 +68,7 @@ export function createNoopLogger(): Logger {
   return {
     event() {},
     request() {},
+    lifecycle() {},
     error() {},
   };
 }

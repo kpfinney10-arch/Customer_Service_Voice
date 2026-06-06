@@ -482,6 +482,8 @@ class TestLogger implements Logger {
     this.requests.push(entry);
   }
 
+  lifecycle(): void {}
+
   error(): void {}
 }
 
