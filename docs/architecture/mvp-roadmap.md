@@ -24,6 +24,7 @@
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Structured API request logging with request ids and tenant context.
 - Tenant-route rate limiting with `429` responses and retry headers.
+- Tenant POST idempotency keys for webhook retry protection.
 - Environment-configurable rate-limit window and request count.
 - Startup environment validation with structured startup errors.
 - Graceful shutdown handling for `SIGINT` and `SIGTERM`.

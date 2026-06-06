@@ -4,6 +4,8 @@ import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
 import type { ApiRequestLog, Logger } from "../src/observability/logger.js";
+import { InMemoryIdempotencyStore } from "../src/security/idempotency.js";
+import type { IdempotencyStore } from "../src/security/idempotency.js";
 import { InMemoryRateLimiter } from "../src/security/rate-limit.js";
 import type { RateLimiter } from "../src/security/rate-limit.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
@@ -130,6 +132,72 @@ test("tenant routes return 429 when rate limit is exceeded", async () => {
   assert.equal(second.headers["retry-after"], "60");
   assert.equal(second.headers["x-rate-limit-limit"], "1");
   assert.equal(logger.requests.at(-1)?.errorCode, "RATE_LIMIT_EXCEEDED");
+});
+
+test("POST routes replay matching idempotency keys", async () => {
+  const idempotencyStore = new InMemoryIdempotencyStore();
+  const body = {
+    callId: "call-idempotent-1",
+    sessionId: "session-idempotent-1",
+    callerPhone: "555-333-4444",
+  };
+
+  const first = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", body, {
+    idempotencyKey: "idem-session-1",
+    idempotencyStore,
+  });
+  const second = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", body, {
+    idempotencyKey: "idem-session-1",
+    idempotencyStore,
+  });
+
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+  assert.equal(first.headers["x-idempotency-status"], "stored");
+  assert.equal(second.headers["x-idempotency-status"], "replayed");
+  assert.deepEqual(second.body, first.body);
+});
+
+test("POST routes omit idempotency status when no key is provided", async () => {
+  const response = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    callId: "call-no-idempotency-header-1",
+    sessionId: "session-no-idempotency-header-1",
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.headers["x-idempotency-status"], undefined);
+});
+
+test("POST routes reject idempotency key reuse for different requests", async () => {
+  const idempotencyStore = new InMemoryIdempotencyStore();
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      callId: "call-idempotent-conflict-1",
+      sessionId: "session-idempotent-conflict-1",
+    },
+    {
+      idempotencyKey: "idem-conflict-1",
+      idempotencyStore,
+    },
+  );
+  const conflict = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      callId: "call-idempotent-conflict-2",
+      sessionId: "session-idempotent-conflict-2",
+    },
+    {
+      idempotencyKey: "idem-conflict-1",
+      idempotencyStore,
+    },
+  );
+
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.body.error, "IDEMPOTENCY_KEY_CONFLICT");
 });
 
 test("first-call API starts a session and handles transcript turn", async () => {
@@ -451,13 +519,21 @@ async function fetchJson(
   method: string,
   path: string,
   body?: object,
-  options: { apiKey?: string | null; requestId?: string; logger?: Logger; rateLimiter?: RateLimiter } = {},
+  options: {
+    apiKey?: string | null;
+    requestId?: string;
+    idempotencyKey?: string;
+    idempotencyStore?: IdempotencyStore;
+    logger?: Logger;
+    rateLimiter?: RateLimiter;
+  } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
   const headers: Record<string, string> = {};
   const apiKey = options.apiKey === undefined ? "demo-api-key" : options.apiKey;
   if (apiKey) headers["x-api-key"] = apiKey;
   if (options.requestId) headers["x-request-id"] = options.requestId;
+  if (options.idempotencyKey) headers["idempotency-key"] = options.idempotencyKey;
   if (body) {
     headers["content-type"] = "application/json";
     init.body = JSON.stringify(body);
@@ -482,6 +558,7 @@ async function fetchJson(
       commit: "test-commit",
       buildTime: "2026-06-06T12:00:00.000Z",
     },
+    options.idempotencyStore,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

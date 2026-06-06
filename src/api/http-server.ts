@@ -10,6 +10,12 @@ import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
 import { createRateLimiterFromEnv } from "../security/rate-limit.js";
 import type { RateLimitDecision, RateLimiter } from "../security/rate-limit.js";
 import {
+  IdempotencyConflictError,
+  InMemoryIdempotencyStore,
+  resolveIdempotentOperation,
+} from "../security/idempotency.js";
+import type { IdempotencyStore } from "../security/idempotency.js";
+import {
   createTenantApiKeyVerifierFromEnv,
   extractApiKeyFromHeaders,
 } from "../security/tenant-auth.js";
@@ -36,6 +42,7 @@ export type ApiServerOptions = {
   logger?: Logger;
   rateLimiter?: RateLimiter;
   buildInfo?: BuildInfo;
+  idempotencyStore?: IdempotencyStore;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -52,6 +59,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const logger = options.logger ?? createConsoleLogger();
   const rateLimiter = options.rateLimiter ?? createRateLimiterFromEnv();
   const buildInfo = options.buildInfo ?? createBuildInfoFromEnv();
+  const idempotencyStore = options.idempotencyStore ?? new InMemoryIdempotencyStore();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -69,7 +77,16 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
           requestKey: tenantIdFromPath(path) ?? "anonymous",
         });
       }
-      await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, buildInfo, request, response);
+      await routeRequest(
+        service,
+        apiKeyVerifier,
+        speechAdapters,
+        tenantConfigStore,
+        buildInfo,
+        idempotencyStore,
+        request,
+        response,
+      );
     } catch (error) {
       if (error instanceof ApiError) {
         errorCode = error.code;
@@ -79,6 +96,14 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
       if (error instanceof FirstCallServiceError) {
         errorCode = error.code;
         sendJson(response, firstCallServiceStatusCode(error), { error: error.code, message: error.message });
+        return;
+      }
+      if (error instanceof IdempotencyConflictError) {
+        errorCode = "IDEMPOTENCY_KEY_CONFLICT";
+        sendJson(response, 409, {
+          error: "IDEMPOTENCY_KEY_CONFLICT",
+          message: error.message,
+        });
         return;
       }
       errorCode = "INTERNAL_SERVER_ERROR";
@@ -119,6 +144,7 @@ export async function handleApiRequest(
   logger: Logger = createNoopLogger(),
   rateLimiter?: RateLimiter,
   buildInfo: BuildInfo = createBuildInfoFromEnv(),
+  idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -190,8 +216,16 @@ export async function handleApiRequest(
       addIfPresent(input, "callId", optionalString(body.callId, "callId"));
       addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
       addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
-      const output = await service.startSession(input);
-      response = jsonResponse(201, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 201, body: await service.startSession(input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -209,8 +243,16 @@ export async function handleApiRequest(
       addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
       addIfPresent(input, "toPhone", optionalString(body.toPhone, "toPhone"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await handleInboundTelephonyCall(service, input);
-      response = jsonResponse(201, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 201, body: await handleInboundTelephonyCall(service, input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -231,8 +273,16 @@ export async function handleApiRequest(
       addIfPresent(input, "confidence", optionalNumber(body.confidence, "confidence"));
       addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await handleTelephonySpeechTurn(service, input);
-      response = jsonResponse(200, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 200, body: await handleTelephonySpeechTurn(service, input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -256,8 +306,16 @@ export async function handleApiRequest(
       addIfPresent(input, "languageCode", optionalString(body.languageCode, "languageCode"));
       addIfPresent(input, "voice", optionalString(body.voice, "voice"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
-      response = jsonResponse(200, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 200, body: await handleTelephonyAudioTurn(service, speechAdapters, input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -277,8 +335,16 @@ export async function handleApiRequest(
       };
       addIfPresent(input, "interruptedOutput", optionalString(body.interruptedOutput, "interruptedOutput"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await handleTelephonyInterrupt(service, input);
-      response = jsonResponse(200, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 200, body: await handleTelephonyInterrupt(service, input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -297,8 +363,16 @@ export async function handleApiRequest(
       };
       addIfPresent(input, "reason", optionalString(body.reason, "reason"));
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await handleTelephonyCallEnd(service, input);
-      response = jsonResponse(200, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 200, body: await handleTelephonyCallEnd(service, input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -317,8 +391,16 @@ export async function handleApiRequest(
         transcript,
       };
       addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-      const output = await service.handleTranscript(input);
-      response = jsonResponse(200, output);
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({ statusCode: 200, body: await service.handleTranscript(input) }),
+      });
+      response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -363,6 +445,15 @@ export async function handleApiRequest(
       response.headers.set("x-request-id", requestId);
       return response;
     }
+    if (error instanceof IdempotencyConflictError) {
+      errorCode = "IDEMPOTENCY_KEY_CONFLICT";
+      response = jsonResponse(409, {
+        error: "IDEMPOTENCY_KEY_CONFLICT",
+        message: error.message,
+      });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
     if (error instanceof FirstCallServiceError) {
       errorCode = error.code;
       response = jsonResponse(firstCallServiceStatusCode(error), { error: error.code, message: error.message });
@@ -396,6 +487,7 @@ async function routeRequest(
   speechAdapters: SpeechAdapters,
   tenantConfigStore: TenantConfigStore,
   buildInfo: BuildInfo,
+  idempotencyStore: IdempotencyStore,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -447,8 +539,16 @@ async function routeRequest(
     addIfPresent(input, "callId", optionalString(body.callId, "callId"));
     addIfPresent(input, "sessionId", optionalString(body.sessionId, "sessionId"));
     addIfPresent(input, "callerPhone", optionalString(body.callerPhone, "callerPhone"));
-    const output = await service.startSession(input);
-    sendJson(response, 201, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 201, body: await service.startSession(input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -465,8 +565,16 @@ async function routeRequest(
     addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
     addIfPresent(input, "toPhone", optionalString(body.toPhone, "toPhone"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await handleInboundTelephonyCall(service, input);
-    sendJson(response, 201, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 201, body: await handleInboundTelephonyCall(service, input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -486,8 +594,16 @@ async function routeRequest(
     addIfPresent(input, "confidence", optionalNumber(body.confidence, "confidence"));
     addIfPresent(input, "isFinal", optionalBoolean(body.isFinal, "isFinal"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await handleTelephonySpeechTurn(service, input);
-    sendJson(response, 200, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 200, body: await handleTelephonySpeechTurn(service, input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -510,8 +626,16 @@ async function routeRequest(
     addIfPresent(input, "languageCode", optionalString(body.languageCode, "languageCode"));
     addIfPresent(input, "voice", optionalString(body.voice, "voice"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await handleTelephonyAudioTurn(service, speechAdapters, input);
-    sendJson(response, 200, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 200, body: await handleTelephonyAudioTurn(service, speechAdapters, input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -530,8 +654,16 @@ async function routeRequest(
     };
     addIfPresent(input, "interruptedOutput", optionalString(body.interruptedOutput, "interruptedOutput"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await handleTelephonyInterrupt(service, input);
-    sendJson(response, 200, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 200, body: await handleTelephonyInterrupt(service, input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -549,8 +681,16 @@ async function routeRequest(
     };
     addIfPresent(input, "reason", optionalString(body.reason, "reason"));
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await handleTelephonyCallEnd(service, input);
-    sendJson(response, 200, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 200, body: await handleTelephonyCallEnd(service, input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -568,8 +708,16 @@ async function routeRequest(
       transcript,
     };
     addIfPresent(input, "correlationId", optionalString(body.correlationId, "correlationId"));
-    const output = await service.handleTranscript(input);
-    sendJson(response, 200, output);
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({ statusCode: 200, body: await service.handleTranscript(input) }),
+    });
+    sendIdempotentJson(response, output);
     return;
   }
 
@@ -701,9 +849,26 @@ function extractApiKeyFromIncomingMessage(request: http.IncomingMessage): string
   return bearer || undefined;
 }
 
+function idempotencyKeyFromIncomingMessage(request: http.IncomingMessage): string | undefined {
+  return headerValue(request.headers["idempotency-key"])?.trim() || undefined;
+}
+
+function idempotencyKeyFromHeaders(headers: Headers): string | undefined {
+  return headers.get("idempotency-key")?.trim() || undefined;
+}
+
 function headerValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
+}
+
+function sendIdempotentJson(
+  response: http.ServerResponse,
+  output: { statusCode: number; body: object; idempotencyStatus?: "stored" | "replayed" },
+): void {
+  const headers: Record<string, string> = {};
+  if (output.idempotencyStatus) headers["x-idempotency-status"] = output.idempotencyStatus;
+  sendJson(response, output.statusCode, output.body, headers);
 }
 
 function sendJson(
@@ -718,6 +883,16 @@ function sendJson(
     ...headers,
   });
   response.end(JSON.stringify(body));
+}
+
+function idempotentJsonResponse(output: {
+  statusCode: number;
+  body: object;
+  idempotencyStatus?: "stored" | "replayed";
+}): Response {
+  const headers: Record<string, string> = {};
+  if (output.idempotencyStatus) headers["x-idempotency-status"] = output.idempotencyStatus;
+  return jsonResponse(output.statusCode, output.body, headers);
 }
 
 function jsonResponse(statusCode: number, body: object, headers: Record<string, string> = {}): Response {

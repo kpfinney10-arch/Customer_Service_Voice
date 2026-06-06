@@ -18,6 +18,7 @@ export * from "./persistence/file-event-store.js";
 export * from "./persistence/file-session-store.js";
 export * from "./persistence/storage-factory.js";
 export * from "./rules/rules-engine.js";
+export * from "./security/idempotency.js";
 export * from "./security/rate-limit.js";
 export * from "./security/redaction.js";
 export * from "./security/tenant-auth.js";

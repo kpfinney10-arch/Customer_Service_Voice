@@ -116,6 +116,8 @@ API responses include an `x-request-id` header. If the caller sends `x-request-i
 
 Tenant routes are protected by a fixed-window in-memory rate limiter. The local default allows 120 requests per tenant route per minute and returns `429 RATE_LIMIT_EXCEEDED` with `Retry-After` and rate-limit headers when exceeded. Configure `RATE_LIMIT_PER_WINDOW` and `RATE_LIMIT_WINDOW_MS` per deployment.
 
+Tenant POST routes support `Idempotency-Key`. A matching retry returns the original JSON response with `x-idempotency-status: replayed`; the first successful request returns `x-idempotency-status: stored`. Reusing the same key with a different request returns `409 IDEMPOTENCY_KEY_CONFLICT`.
+
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
 The tenant config endpoint returns the authenticated tenant's loaded display name, timezone, handoff routing, and feature flags. It is intended for deployment verification and operator debugging; it never returns tenant API keys.
