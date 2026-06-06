@@ -25,6 +25,7 @@
 - Structured API request logging with request ids and tenant context.
 - Tenant-route rate limiting with `429` responses and retry headers.
 - Environment-configurable rate-limit window and request count.
+- Startup environment validation with structured startup errors.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
