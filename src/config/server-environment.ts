@@ -2,11 +2,15 @@ import { createBuildInfoFromEnv } from "./build-info.js";
 import type { BuildInfo } from "./build-info.js";
 import { createRateLimiterFromEnv } from "../security/rate-limit.js";
 import type { RateLimiter } from "../security/rate-limit.js";
+import { createPersistenceStoresFromEnv } from "../persistence/storage-factory.js";
+import type { StorageDriver } from "../persistence/storage-factory.js";
 import {
   createTenantApiKeyVerifierFromEnv,
   parseTenantApiKeys,
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
+import type { EventStore } from "../events/in-memory-event-store.js";
+import type { SessionStore } from "../session/in-memory-session-store.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 
@@ -16,6 +20,12 @@ export type ServerEnvironment = {
   apiKeyVerifier: TenantApiKeyVerifier;
   rateLimiter: RateLimiter;
   buildInfo: BuildInfo;
+  storage: {
+    driver: StorageDriver;
+    dataDir?: string;
+  };
+  sessionStore: SessionStore;
+  eventStore: EventStore;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -30,6 +40,12 @@ export class ServerEnvironmentError extends Error {
 
 export function loadServerEnvironment(env: Record<string, string | undefined> = process.env): ServerEnvironment {
   validateTenantApiKeys(env.TENANT_API_KEYS);
+  const persistence = createPersistenceStoresFromEnv(env);
+  const storage: ServerEnvironment["storage"] = {
+    driver: persistence.driver,
+  };
+  if (persistence.dataDir) storage.dataDir = persistence.dataDir;
+
   return {
     port: parsePort(env.PORT),
     tenantConfigStore: createTenantConfigStoreFromEnv(env.TENANT_CONFIGS_JSON),
@@ -39,6 +55,9 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
       windowMs: env.RATE_LIMIT_WINDOW_MS,
     }),
     buildInfo: createBuildInfoFromEnv(env),
+    storage,
+    sessionStore: persistence.sessionStore,
+    eventStore: persistence.eventStore,
   };
 }
 

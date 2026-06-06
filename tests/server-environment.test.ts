@@ -29,11 +29,15 @@ test("server environment loads validated startup dependencies", async () => {
     SERVICE_VERSION: "1.0.0",
     SERVICE_COMMIT: "abc123",
     SERVICE_BUILD_TIME: "2026-06-06T12:00:00.000Z",
+    STORAGE_DRIVER: "file",
+    STORAGE_DATA_DIR: "/tmp/voice-ai-platform-test",
   });
 
   assert.equal(environment.port, 4000);
   assert.equal(environment.buildInfo.version, "1.0.0");
   assert.equal(environment.buildInfo.commit, "abc123");
+  assert.equal(environment.storage.driver, "file");
+  assert.equal(environment.storage.dataDir, "/tmp/voice-ai-platform-test");
   assert.equal(await environment.apiKeyVerifier.verify("fh-demo", "demo-api-key"), true);
   assert.equal((await environment.tenantConfigStore.get("fh-demo"))?.displayName, "Demo Funeral Home");
   assert.equal(environment.rateLimiter.check({ key: "fh-demo", method: "GET", path: "/config" }).allowed, true);

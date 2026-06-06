@@ -1,4 +1,5 @@
 import { installGracefulShutdown } from "./graceful-shutdown.js";
+import { createFirstCallService } from "./first-call-service.js";
 import { createApiServer, listen } from "./http-server.js";
 import { loadServerEnvironment } from "../config/server-environment.js";
 import { createConsoleLogger } from "../observability/logger.js";
@@ -7,7 +8,13 @@ const logger = createConsoleLogger();
 
 try {
   const environment = loadServerEnvironment();
+  const service = createFirstCallService({
+    store: environment.sessionStore,
+    eventStore: environment.eventStore,
+    tenantConfigStore: environment.tenantConfigStore,
+  });
   const server = createApiServer({
+    service,
     apiKeyVerifier: environment.apiKeyVerifier,
     tenantConfigStore: environment.tenantConfigStore,
     rateLimiter: environment.rateLimiter,
