@@ -11,6 +11,7 @@ try {
     apiKeyVerifier: environment.apiKeyVerifier,
     tenantConfigStore: environment.tenantConfigStore,
     rateLimiter: environment.rateLimiter,
+    buildInfo: environment.buildInfo,
     logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");

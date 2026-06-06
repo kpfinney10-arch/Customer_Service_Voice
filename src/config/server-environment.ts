@@ -1,3 +1,5 @@
+import { createBuildInfoFromEnv } from "./build-info.js";
+import type { BuildInfo } from "./build-info.js";
 import { createRateLimiterFromEnv } from "../security/rate-limit.js";
 import type { RateLimiter } from "../security/rate-limit.js";
 import {
@@ -13,6 +15,7 @@ export type ServerEnvironment = {
   tenantConfigStore: TenantConfigStore;
   apiKeyVerifier: TenantApiKeyVerifier;
   rateLimiter: RateLimiter;
+  buildInfo: BuildInfo;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -35,6 +38,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
       limit: env.RATE_LIMIT_PER_WINDOW,
       windowMs: env.RATE_LIMIT_WINDOW_MS,
     }),
+    buildInfo: createBuildInfoFromEnv(env),
   };
 }
 

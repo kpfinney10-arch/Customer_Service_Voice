@@ -27,6 +27,7 @@
 - Environment-configurable rate-limit window and request count.
 - Startup environment validation with structured startup errors.
 - Graceful shutdown handling for `SIGINT` and `SIGTERM`.
+- Public build/version endpoint for deployment identification.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

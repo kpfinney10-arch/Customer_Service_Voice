@@ -77,6 +77,9 @@ export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
 export TENANT_CONFIGS_JSON='{"fh-demo":{"tenantId":"fh-demo","displayName":"Demo Funeral Home","timezone":"America/Chicago","handoff":{"defaultQueue":"first-call-dispatch","onCallPhone":"+15555550100","dispatchDeskPhone":"+15555550101","afterHoursQueue":"first-call-after-hours"},"features":{"crmHandoff":true,"dispatchHandoff":true,"voiceIntake":true}}}'
 export RATE_LIMIT_PER_WINDOW=120
 export RATE_LIMIT_WINDOW_MS=60000
+export SERVICE_VERSION=0.1.0
+export SERVICE_COMMIT=local
+export SERVICE_BUILD_TIME=local
 npm run build
 npm start
 ```
@@ -84,6 +87,7 @@ npm start
 Endpoints:
 
 - `GET /health`
+- `GET /version`
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
@@ -96,7 +100,9 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
-All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` remains public.
+All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` and `GET /version` remain public.
+
+The version endpoint returns deployment metadata from `SERVICE_NAME`, `SERVICE_VERSION`, `SERVICE_COMMIT`, and `SERVICE_BUILD_TIME`. These values make it easier to confirm which build is running during debugging, support, and staging-to-production comparisons.
 
 Server startup validates `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process.
 

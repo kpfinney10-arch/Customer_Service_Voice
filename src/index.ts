@@ -1,3 +1,4 @@
+export * from "./config/build-info.js";
 export * from "./config/server-environment.js";
 export * from "./domain/call-types.js";
 export * from "./debug/session-replay.js";

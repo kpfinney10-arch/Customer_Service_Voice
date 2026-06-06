@@ -17,6 +17,22 @@ test("health endpoint reports ready", async () => {
   assert.deepEqual(response.body, { ok: true });
 });
 
+test("version endpoint reports build metadata without tenant auth", async () => {
+  const response = await fetchJson("GET", "/version", undefined, {
+    apiKey: null,
+    requestId: "req-version-1",
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.requestId, "req-version-1");
+  assert.deepEqual(response.body.build, {
+    serviceName: "voice-ai-platform",
+    version: "test-version",
+    commit: "test-commit",
+    buildTime: "2026-06-06T12:00:00.000Z",
+  });
+});
+
 test("tenant config endpoint returns authenticated tenant configuration", async () => {
   const response = await fetchJson("GET", "/v1/tenants/fh-crm-only/config");
 
@@ -460,6 +476,12 @@ async function fetchJson(
     sharedTenantConfigStore,
     options.logger,
     options.rateLimiter,
+    {
+      serviceName: "voice-ai-platform",
+      version: "test-version",
+      commit: "test-commit",
+      buildTime: "2026-06-06T12:00:00.000Z",
+    },
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

@@ -1,5 +1,7 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import { createBuildInfoFromEnv } from "../config/build-info.js";
+import type { BuildInfo } from "../config/build-info.js";
 import { InMemoryEventStore } from "../events/in-memory-event-store.js";
 import { createConsoleLogger, createNoopLogger } from "../observability/logger.js";
 import type { Logger } from "../observability/logger.js";
@@ -33,6 +35,7 @@ export type ApiServerOptions = {
   tenantConfigStore?: TenantConfigStore;
   logger?: Logger;
   rateLimiter?: RateLimiter;
+  buildInfo?: BuildInfo;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -48,6 +51,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
   const logger = options.logger ?? createConsoleLogger();
   const rateLimiter = options.rateLimiter ?? createRateLimiterFromEnv();
+  const buildInfo = options.buildInfo ?? createBuildInfoFromEnv();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -57,13 +61,15 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     response.setHeader("x-request-id", requestId);
     let errorCode: string | undefined;
     try {
-      enforceRateLimit({
-        limiter: rateLimiter,
-        method,
-        path,
-        requestKey: tenantIdFromPath(path) ?? "anonymous",
-      });
-      await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, request, response);
+      if (!isPublicOperationalPath(method, path)) {
+        enforceRateLimit({
+          limiter: rateLimiter,
+          method,
+          path,
+          requestKey: tenantIdFromPath(path) ?? "anonymous",
+        });
+      }
+      await routeRequest(service, apiKeyVerifier, speechAdapters, tenantConfigStore, buildInfo, request, response);
     } catch (error) {
       if (error instanceof ApiError) {
         errorCode = error.code;
@@ -112,6 +118,7 @@ export async function handleApiRequest(
   tenantConfigStore?: TenantConfigStore,
   logger: Logger = createNoopLogger(),
   rateLimiter?: RateLimiter,
+  buildInfo: BuildInfo = createBuildInfoFromEnv(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -121,6 +128,12 @@ export async function handleApiRequest(
   try {
     if (request.method === "GET" && url.pathname === "/health") {
       response = jsonResponse(200, { ok: true });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    if (request.method === "GET" && url.pathname === "/version") {
+      response = jsonResponse(200, { build: buildInfo });
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -382,6 +395,7 @@ async function routeRequest(
   apiKeyVerifier: TenantApiKeyVerifier,
   speechAdapters: SpeechAdapters,
   tenantConfigStore: TenantConfigStore,
+  buildInfo: BuildInfo,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -390,6 +404,11 @@ async function routeRequest(
 
   if (method === "GET" && url.pathname === "/health") {
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/version") {
+    sendJson(response, 200, { build: buildInfo });
     return;
   }
 
@@ -741,6 +760,10 @@ function tenantIdFromPath(path: string): string | undefined {
   const match = path.match(/^\/v1\/tenants\/([^/]+)/);
   if (!match?.[1]) return undefined;
   return decodeURIComponent(match[1]);
+}
+
+function isPublicOperationalPath(method: string, path: string): boolean {
+  return method === "GET" && (path === "/health" || path === "/version");
 }
 
 function requestIdFromIncomingMessage(request: http.IncomingMessage): string {
