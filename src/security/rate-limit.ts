@@ -22,6 +22,13 @@ export type InMemoryRateLimiterOptions = {
   now?: () => number;
 };
 
+export class RateLimitConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitConfigError";
+  }
+}
+
 export class InMemoryRateLimiter implements RateLimiter {
   private readonly buckets = new Map<string, { count: number; resetAtMs: number }>();
   private readonly now: () => number;
@@ -69,4 +76,23 @@ export function createDefaultRateLimiter(): RateLimiter {
     limit: 120,
     windowMs: 60_000,
   });
+}
+
+export function createRateLimiterFromEnv(input: {
+  limit?: string | undefined;
+  windowMs?: string | undefined;
+} = {}): RateLimiter {
+  return new InMemoryRateLimiter({
+    limit: parsePositiveInteger(input.limit ?? process.env.RATE_LIMIT_PER_WINDOW, "RATE_LIMIT_PER_WINDOW", 120),
+    windowMs: parsePositiveInteger(input.windowMs ?? process.env.RATE_LIMIT_WINDOW_MS, "RATE_LIMIT_WINDOW_MS", 60_000),
+  });
+}
+
+function parsePositiveInteger(value: string | undefined, name: string, fallback: number): number {
+  if (!value?.trim()) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new RateLimitConfigError(`${name} must be a positive integer.`);
+  }
+  return parsed;
 }

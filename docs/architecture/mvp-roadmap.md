@@ -24,6 +24,7 @@
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Structured API request logging with request ids and tenant context.
 - Tenant-route rate limiting with `429` responses and retry headers.
+- Environment-configurable rate-limit window and request count.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

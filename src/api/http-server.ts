@@ -5,7 +5,7 @@ import { createConsoleLogger, createNoopLogger } from "../observability/logger.j
 import type { Logger } from "../observability/logger.js";
 import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
 import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
-import { createDefaultRateLimiter } from "../security/rate-limit.js";
+import { createRateLimiterFromEnv } from "../security/rate-limit.js";
 import type { RateLimitDecision, RateLimiter } from "../security/rate-limit.js";
 import {
   createTenantApiKeyVerifierFromEnv,
@@ -47,7 +47,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const apiKeyVerifier = options.apiKeyVerifier ?? createTenantApiKeyVerifierFromEnv();
   const speechAdapters = options.speechAdapters ?? createFakeSpeechAdapters();
   const logger = options.logger ?? createConsoleLogger();
-  const rateLimiter = options.rateLimiter ?? createDefaultRateLimiter();
+  const rateLimiter = options.rateLimiter ?? createRateLimiterFromEnv();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();

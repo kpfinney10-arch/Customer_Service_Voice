@@ -75,6 +75,8 @@ Build and run:
 ```bash
 export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
 export TENANT_CONFIGS_JSON='{"fh-demo":{"tenantId":"fh-demo","displayName":"Demo Funeral Home","timezone":"America/Chicago","handoff":{"defaultQueue":"first-call-dispatch","onCallPhone":"+15555550100","dispatchDeskPhone":"+15555550101","afterHoursQueue":"first-call-after-hours"},"features":{"crmHandoff":true,"dispatchHandoff":true,"voiceIntake":true}}}'
+export RATE_LIMIT_PER_WINDOW=120
+export RATE_LIMIT_WINDOW_MS=60000
 npm run build
 npm start
 ```
@@ -98,7 +100,7 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 API responses include an `x-request-id` header. If the caller sends `x-request-id`, the server echoes it; otherwise it generates one. The HTTP boundary writes structured request logs with method, path, tenant id, status code, duration, request id, and error code when applicable. Request bodies, transcripts, and API keys are not logged.
 
-Tenant routes are protected by a fixed-window in-memory rate limiter. The local default allows 120 requests per tenant route per minute and returns `429 RATE_LIMIT_EXCEEDED` with `Retry-After` and rate-limit headers when exceeded.
+Tenant routes are protected by a fixed-window in-memory rate limiter. The local default allows 120 requests per tenant route per minute and returns `429 RATE_LIMIT_EXCEEDED` with `Retry-After` and rate-limit headers when exceeded. Configure `RATE_LIMIT_PER_WINDOW` and `RATE_LIMIT_WINDOW_MS` per deployment.
 
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
 
