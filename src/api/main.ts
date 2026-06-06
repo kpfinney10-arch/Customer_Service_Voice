@@ -19,6 +19,7 @@ try {
     tenantConfigStore: environment.tenantConfigStore,
     rateLimiter: environment.rateLimiter,
     buildInfo: environment.buildInfo,
+    idempotencyStore: environment.idempotencyStore,
     logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");

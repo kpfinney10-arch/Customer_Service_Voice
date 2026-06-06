@@ -10,6 +10,7 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
+import type { IdempotencyStore } from "../security/idempotency.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
@@ -26,6 +27,7 @@ export type ServerEnvironment = {
   };
   sessionStore: SessionStore;
   eventStore: EventStore;
+  idempotencyStore: IdempotencyStore;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -58,6 +60,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     storage,
     sessionStore: persistence.sessionStore,
     eventStore: persistence.eventStore,
+    idempotencyStore: persistence.idempotencyStore,
   };
 }
 

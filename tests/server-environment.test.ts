@@ -38,6 +38,7 @@ test("server environment loads validated startup dependencies", async () => {
   assert.equal(environment.buildInfo.commit, "abc123");
   assert.equal(environment.storage.driver, "file");
   assert.equal(environment.storage.dataDir, "/tmp/voice-ai-platform-test");
+  assert.equal(typeof environment.idempotencyStore.get, "function");
   assert.equal(await environment.apiKeyVerifier.verify("fh-demo", "demo-api-key"), true);
   assert.equal((await environment.tenantConfigStore.get("fh-demo"))?.displayName, "Demo Funeral Home");
   assert.equal(environment.rateLimiter.check({ key: "fh-demo", method: "GET", path: "/config" }).allowed, true);

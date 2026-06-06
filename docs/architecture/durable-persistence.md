@@ -6,6 +6,7 @@ The voice platform keeps storage behind narrow interfaces so call orchestration 
 
 - `SessionStore` owns the latest call session state.
 - `EventStore` owns the append-only call event timeline.
+- `IdempotencyStore` owns replay records for tenant POST retries.
 - The first-call service receives both stores through dependency injection.
 - API routing, telephony adapters, tools, rules, and model adapters do not read or write persistence directly.
 
@@ -17,9 +18,10 @@ The voice platform keeps storage behind narrow interfaces so call orchestration 
 
 - Session snapshots are written under `STORAGE_DATA_DIR/sessions`.
 - Call events are appended to `STORAGE_DATA_DIR/events.jsonl`.
+- Idempotency replay records are written under `STORAGE_DATA_DIR/idempotency`.
 - The default file data directory is `.voice-ai-data`.
 
-The file driver is useful for early human testing because sessions and replay data survive server restarts. It is not intended as the final production storage layer for multiple app instances.
+The file driver is useful for early human testing because sessions, replay data, and idempotency records survive server restarts. It is not intended as the final production storage layer for multiple app instances.
 
 ## Production Direction
 
@@ -36,4 +38,4 @@ Minimum production requirements:
 
 ## Operating Rule
 
-Business workflow code should continue to depend only on `SessionStore` and `EventStore`. New persistence backends should be introduced as adapters, not by adding database calls inside orchestration, tools, or telephony handlers.
+Business workflow code should continue to depend only on narrow storage interfaces such as `SessionStore`, `EventStore`, and `IdempotencyStore`. New persistence backends should be introduced as adapters, not by adding database calls inside orchestration, tools, or telephony handlers.

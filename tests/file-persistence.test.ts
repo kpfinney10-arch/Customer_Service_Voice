@@ -5,8 +5,10 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { createCallEvent } from "../src/events/call-event.js";
 import { FileEventStore } from "../src/persistence/file-event-store.js";
+import { FileIdempotencyStore } from "../src/persistence/file-idempotency-store.js";
 import { FileSessionStore } from "../src/persistence/file-session-store.js";
 import { createPersistenceStoresFromEnv, PersistenceConfigError } from "../src/persistence/storage-factory.js";
+import { resolveIdempotentOperation } from "../src/security/idempotency.js";
 import { createCallSession, updateSession } from "../src/session/call-session.js";
 
 test("file session store persists sessions across store instances", async () => {
@@ -71,11 +73,47 @@ test("file event store appends and filters events by tenant and session", async 
   assert.deepEqual(loaded, [matching]);
 });
 
+test("file idempotency store persists replay records across store instances", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "voice-ai-idempotency-"));
+  const firstStore = new FileIdempotencyStore(directory);
+  const first = await resolveIdempotentOperation({
+    store: firstStore,
+    tenantId: "fh-demo",
+    key: "idempotency-file-1",
+    method: "POST",
+    path: "/v1/tenants/fh-demo/first-call/sessions",
+    body: { sessionId: "session-file-idempotency-1" },
+    execute: () => ({
+      statusCode: 201,
+      body: { session: { sessionId: "session-file-idempotency-1" } },
+    }),
+  });
+
+  const secondStore = new FileIdempotencyStore(directory);
+  const second = await resolveIdempotentOperation({
+    store: secondStore,
+    tenantId: "fh-demo",
+    key: "idempotency-file-1",
+    method: "POST",
+    path: "/v1/tenants/fh-demo/first-call/sessions",
+    body: { sessionId: "session-file-idempotency-1" },
+    execute: () => ({
+      statusCode: 201,
+      body: { session: { sessionId: "should-not-run" } },
+    }),
+  });
+
+  assert.equal(first.idempotencyStatus, "stored");
+  assert.equal(second.idempotencyStatus, "replayed");
+  assert.deepEqual(second.body, first.body);
+});
+
 test("persistence factory defaults to memory stores", () => {
   const stores = createPersistenceStoresFromEnv({});
 
   assert.equal(stores.driver, "memory");
   assert.equal(stores.dataDir, undefined);
+  assert.equal(typeof stores.idempotencyStore.get, "function");
 });
 
 test("persistence factory creates file stores from environment", () => {
@@ -86,6 +124,7 @@ test("persistence factory creates file stores from environment", () => {
 
   assert.equal(stores.driver, "file");
   assert.equal(stores.dataDir, "/tmp/voice-ai-data");
+  assert.equal(typeof stores.idempotencyStore.save, "function");
 });
 
 test("persistence factory rejects unknown storage drivers", () => {

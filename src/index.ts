@@ -15,6 +15,7 @@ export * from "./providers/model/structured-output-adapter.js";
 export * from "./providers/telephony/inbound-call.js";
 export * from "./providers/telephony/voice-response.js";
 export * from "./persistence/file-event-store.js";
+export * from "./persistence/file-idempotency-store.js";
 export * from "./persistence/file-session-store.js";
 export * from "./persistence/storage-factory.js";
 export * from "./rules/rules-engine.js";

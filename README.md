@@ -108,7 +108,7 @@ The version endpoint returns deployment metadata from `SERVICE_NAME`, `SERVICE_V
 
 Server startup validates `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process.
 
-Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions and event timelines under `STORAGE_DATA_DIR` so early human-testing data survives server restarts.
+Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions, event timelines, and idempotency replay records under `STORAGE_DATA_DIR` so early human-testing data survives server restarts.
 
 The server installs graceful shutdown handlers for `SIGINT` and `SIGTERM`. On shutdown, it stops accepting new HTTP requests, attempts to close active connections, logs lifecycle events, and exits with a non-zero code if the close times out or fails.
 
