@@ -23,6 +23,7 @@ export * from "./security/idempotency.js";
 export * from "./security/rate-limit.js";
 export * from "./security/redaction.js";
 export * from "./security/tenant-auth.js";
+export * from "./security/webhook-signature.js";
 export * from "./session/call-session.js";
 export * from "./session/in-memory-session-store.js";
 export * from "./state-machine/call-state-machine.js";

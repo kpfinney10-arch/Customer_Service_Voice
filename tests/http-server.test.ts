@@ -9,6 +9,11 @@ import type { IdempotencyStore } from "../src/security/idempotency.js";
 import { InMemoryRateLimiter } from "../src/security/rate-limit.js";
 import type { RateLimiter } from "../src/security/rate-limit.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
+import {
+  createWebhookSignature,
+  HmacWebhookSignatureVerifier,
+} from "../src/security/webhook-signature.js";
+import type { WebhookSignatureVerifier } from "../src/security/webhook-signature.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
 
@@ -405,6 +410,50 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(completedReplay.body.snapshot.latestEventType, "CALL_ENDED");
 });
 
+test("telephony routes reject missing webhook signature when provider secret is configured", async () => {
+  const response = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/generic/inbound-call",
+    {
+      providerCallId: "provider-signed-missing-1",
+      fromPhone: "555-888-9999",
+    },
+    {
+      webhookSignatureVerifier: new HmacWebhookSignatureVerifier({
+        generic: "secret-1",
+      }),
+    },
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, "WEBHOOK_SIGNATURE_INVALID");
+});
+
+test("telephony routes accept valid webhook signatures", async () => {
+  const path = "/v1/tenants/fh-demo/telephony/generic/inbound-call";
+  const body = {
+    providerCallId: "provider-signed-valid-1",
+    fromPhone: "555-888-9999",
+  };
+  const rawBody = JSON.stringify(body);
+  const response = await fetchJson("POST", path, body, {
+    webhookSignatureVerifier: new HmacWebhookSignatureVerifier({
+      generic: "secret-1",
+    }),
+    extraHeaders: {
+      "x-webhook-signature": createWebhookSignature({
+        secret: "secret-1",
+        method: "POST",
+        path,
+        rawBody,
+      }),
+    },
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(response.body.providerCallId, "provider-signed-valid-1");
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",
@@ -564,8 +613,10 @@ async function fetchJson(
     requestId?: string;
     idempotencyKey?: string;
     idempotencyStore?: IdempotencyStore;
+    extraHeaders?: Record<string, string>;
     logger?: Logger;
     rateLimiter?: RateLimiter;
+    webhookSignatureVerifier?: WebhookSignatureVerifier;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -574,6 +625,7 @@ async function fetchJson(
   if (apiKey) headers["x-api-key"] = apiKey;
   if (options.requestId) headers["x-request-id"] = options.requestId;
   if (options.idempotencyKey) headers["idempotency-key"] = options.idempotencyKey;
+  Object.assign(headers, options.extraHeaders);
   if (body) {
     headers["content-type"] = "application/json";
     init.body = JSON.stringify(body);
@@ -599,6 +651,7 @@ async function fetchJson(
       buildTime: "2026-06-06T12:00:00.000Z",
     },
     options.idempotencyStore,
+    options.webhookSignatureVerifier,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

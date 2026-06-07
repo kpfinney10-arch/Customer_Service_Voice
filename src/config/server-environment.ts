@@ -12,6 +12,8 @@ import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
 import type { IdempotencyStore } from "../security/idempotency.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
+import { createWebhookSignatureVerifierFromEnv } from "../security/webhook-signature.js";
+import type { WebhookSignatureVerifier } from "../security/webhook-signature.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 
@@ -28,6 +30,7 @@ export type ServerEnvironment = {
   sessionStore: SessionStore;
   eventStore: EventStore;
   idempotencyStore: IdempotencyStore;
+  webhookSignatureVerifier: WebhookSignatureVerifier;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -61,6 +64,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     sessionStore: persistence.sessionStore,
     eventStore: persistence.eventStore,
     idempotencyStore: persistence.idempotencyStore,
+    webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
   };
 }
 

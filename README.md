@@ -79,6 +79,7 @@ export RATE_LIMIT_PER_WINDOW=120
 export RATE_LIMIT_WINDOW_MS=60000
 export STORAGE_DRIVER=memory
 export STORAGE_DATA_DIR=.voice-ai-data
+export TELEPHONY_WEBHOOK_SECRETS=
 export SERVICE_VERSION=0.1.0
 export SERVICE_COMMIT=local
 export SERVICE_BUILD_TIME=local
@@ -136,6 +137,8 @@ The tenant diagnostics activity endpoint returns recent session summaries and re
 Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new first-call sessions and telephony inbound calls return `TENANT_FEATURE_DISABLED`. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
+
+Telephony POST routes support provider webhook signature verification. Set `TELEPHONY_WEBHOOK_SECRETS` to comma-separated `provider:secret` entries, then send `x-webhook-signature` as `sha256=<hmac>` over `METHOD path\nrawBody`. Providers without configured secrets are allowed for local development.
 
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 

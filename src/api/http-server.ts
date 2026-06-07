@@ -20,6 +20,12 @@ import {
   extractApiKeyFromHeaders,
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
+import {
+  createWebhookSignatureVerifierFromEnv,
+  NoopWebhookSignatureVerifier,
+  WebhookSignatureError,
+} from "../security/webhook-signature.js";
+import type { WebhookSignatureVerifier } from "../security/webhook-signature.js";
 import { InMemorySessionStore } from "../session/in-memory-session-store.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
@@ -43,6 +49,7 @@ export type ApiServerOptions = {
   rateLimiter?: RateLimiter;
   buildInfo?: BuildInfo;
   idempotencyStore?: IdempotencyStore;
+  webhookSignatureVerifier?: WebhookSignatureVerifier;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -60,6 +67,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const rateLimiter = options.rateLimiter ?? createRateLimiterFromEnv();
   const buildInfo = options.buildInfo ?? createBuildInfoFromEnv();
   const idempotencyStore = options.idempotencyStore ?? new InMemoryIdempotencyStore();
+  const webhookSignatureVerifier = options.webhookSignatureVerifier ?? createWebhookSignatureVerifierFromEnv();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -84,6 +92,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         tenantConfigStore,
         buildInfo,
         idempotencyStore,
+        webhookSignatureVerifier,
         request,
         response,
       );
@@ -102,6 +111,14 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         errorCode = "IDEMPOTENCY_KEY_CONFLICT";
         sendJson(response, 409, {
           error: "IDEMPOTENCY_KEY_CONFLICT",
+          message: error.message,
+        });
+        return;
+      }
+      if (error instanceof WebhookSignatureError) {
+        errorCode = "WEBHOOK_SIGNATURE_INVALID";
+        sendJson(response, 401, {
+          error: "WEBHOOK_SIGNATURE_INVALID",
           message: error.message,
         });
         return;
@@ -145,6 +162,7 @@ export async function handleApiRequest(
   rateLimiter?: RateLimiter,
   buildInfo: BuildInfo = createBuildInfoFromEnv(),
   idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
+  webhookSignatureVerifier: WebhookSignatureVerifier = new NoopWebhookSignatureVerifier(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -245,10 +263,18 @@ export async function handleApiRequest(
     if (request.method === "POST" && inboundCallMatch?.[1] && inboundCallMatch[2]) {
       const tenantId = decodeURIComponent(inboundCallMatch[1]);
       await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
-      const body = await readWebJsonObject(request);
+      const provider = decodeURIComponent(inboundCallMatch[2]);
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider,
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
       const input = {
         tenantId,
-        provider: decodeURIComponent(inboundCallMatch[2]),
+        provider,
         providerCallId: requiredString(body.providerCallId, "providerCallId"),
       };
       addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
@@ -274,10 +300,18 @@ export async function handleApiRequest(
     if (request.method === "POST" && speechTurnMatch?.[1] && speechTurnMatch[2] && speechTurnMatch[3]) {
       const tenantId = decodeURIComponent(speechTurnMatch[1]);
       await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
-      const body = await readWebJsonObject(request);
+      const provider = decodeURIComponent(speechTurnMatch[2]);
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider,
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
       const input = {
         tenantId,
-        provider: decodeURIComponent(speechTurnMatch[2]),
+        provider,
         providerCallId: decodeURIComponent(speechTurnMatch[3]),
         transcript: requiredString(body.transcript, "transcript"),
       };
@@ -304,10 +338,18 @@ export async function handleApiRequest(
     if (request.method === "POST" && audioTurnMatch?.[1] && audioTurnMatch[2] && audioTurnMatch[3]) {
       const tenantId = decodeURIComponent(audioTurnMatch[1]);
       await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
-      const body = await readWebJsonObject(request);
+      const provider = decodeURIComponent(audioTurnMatch[2]);
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider,
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
       const input = {
         tenantId,
-        provider: decodeURIComponent(audioTurnMatch[2]),
+        provider,
         providerCallId: decodeURIComponent(audioTurnMatch[3]),
         audio: {
           contentType: requiredString(body.audioContentType, "audioContentType"),
@@ -337,10 +379,18 @@ export async function handleApiRequest(
     if (request.method === "POST" && interruptMatch?.[1] && interruptMatch[2] && interruptMatch[3]) {
       const tenantId = decodeURIComponent(interruptMatch[1]);
       await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
-      const body = await readWebJsonObject(request);
+      const provider = decodeURIComponent(interruptMatch[2]);
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider,
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
       const input = {
         tenantId,
-        provider: decodeURIComponent(interruptMatch[2]),
+        provider,
         providerCallId: decodeURIComponent(interruptMatch[3]),
         reason: requiredString(body.reason, "reason"),
       };
@@ -366,10 +416,18 @@ export async function handleApiRequest(
     if (request.method === "POST" && callEndMatch?.[1] && callEndMatch[2] && callEndMatch[3]) {
       const tenantId = decodeURIComponent(callEndMatch[1]);
       await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
-      const body = await readWebJsonObject(request);
+      const provider = decodeURIComponent(callEndMatch[2]);
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider,
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
       const input = {
         tenantId,
-        provider: decodeURIComponent(callEndMatch[2]),
+        provider,
         providerCallId: decodeURIComponent(callEndMatch[3]),
       };
       addIfPresent(input, "reason", optionalString(body.reason, "reason"));
@@ -465,6 +523,15 @@ export async function handleApiRequest(
       response.headers.set("x-request-id", requestId);
       return response;
     }
+    if (error instanceof WebhookSignatureError) {
+      errorCode = "WEBHOOK_SIGNATURE_INVALID";
+      response = jsonResponse(401, {
+        error: "WEBHOOK_SIGNATURE_INVALID",
+        message: error.message,
+      });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
     if (error instanceof FirstCallServiceError) {
       errorCode = error.code;
       response = jsonResponse(firstCallServiceStatusCode(error), { error: error.code, message: error.message });
@@ -499,6 +566,7 @@ async function routeRequest(
   tenantConfigStore: TenantConfigStore,
   buildInfo: BuildInfo,
   idempotencyStore: IdempotencyStore,
+  webhookSignatureVerifier: WebhookSignatureVerifier,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -577,10 +645,18 @@ async function routeRequest(
   if (method === "POST" && inboundCallMatch?.[1] && inboundCallMatch[2]) {
     const tenantId = decodeURIComponent(inboundCallMatch[1]);
     await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
-    const body = await readJsonObject(request);
+    const provider = decodeURIComponent(inboundCallMatch[2]);
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider,
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
     const input = {
       tenantId,
-      provider: decodeURIComponent(inboundCallMatch[2]),
+      provider,
       providerCallId: requiredString(body.providerCallId, "providerCallId"),
     };
     addIfPresent(input, "fromPhone", optionalString(body.fromPhone, "fromPhone"));
@@ -605,10 +681,18 @@ async function routeRequest(
   if (method === "POST" && speechTurnMatch?.[1] && speechTurnMatch[2] && speechTurnMatch[3]) {
     const tenantId = decodeURIComponent(speechTurnMatch[1]);
     await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
-    const body = await readJsonObject(request);
+    const provider = decodeURIComponent(speechTurnMatch[2]);
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider,
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
     const input = {
       tenantId,
-      provider: decodeURIComponent(speechTurnMatch[2]),
+      provider,
       providerCallId: decodeURIComponent(speechTurnMatch[3]),
       transcript: requiredString(body.transcript, "transcript"),
     };
@@ -634,10 +718,18 @@ async function routeRequest(
   if (method === "POST" && audioTurnMatch?.[1] && audioTurnMatch[2] && audioTurnMatch[3]) {
     const tenantId = decodeURIComponent(audioTurnMatch[1]);
     await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
-    const body = await readJsonObject(request);
+    const provider = decodeURIComponent(audioTurnMatch[2]);
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider,
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
     const input = {
       tenantId,
-      provider: decodeURIComponent(audioTurnMatch[2]),
+      provider,
       providerCallId: decodeURIComponent(audioTurnMatch[3]),
       audio: {
         contentType: requiredString(body.audioContentType, "audioContentType"),
@@ -666,10 +758,18 @@ async function routeRequest(
   if (method === "POST" && interruptMatch?.[1] && interruptMatch[2] && interruptMatch[3]) {
     const tenantId = decodeURIComponent(interruptMatch[1]);
     await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
-    const body = await readJsonObject(request);
+    const provider = decodeURIComponent(interruptMatch[2]);
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider,
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
     const input = {
       tenantId,
-      provider: decodeURIComponent(interruptMatch[2]),
+      provider,
       providerCallId: decodeURIComponent(interruptMatch[3]),
       reason: requiredString(body.reason, "reason"),
     };
@@ -694,10 +794,18 @@ async function routeRequest(
   if (method === "POST" && callEndMatch?.[1] && callEndMatch[2] && callEndMatch[3]) {
     const tenantId = decodeURIComponent(callEndMatch[1]);
     await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
-    const body = await readJsonObject(request);
+    const provider = decodeURIComponent(callEndMatch[2]);
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider,
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
     const input = {
       tenantId,
-      provider: decodeURIComponent(callEndMatch[2]),
+      provider,
       providerCallId: decodeURIComponent(callEndMatch[3]),
     };
     addIfPresent(input, "reason", optionalString(body.reason, "reason"));
@@ -773,11 +881,34 @@ async function routeRequest(
 }
 
 async function readJsonObject(request: http.IncomingMessage): Promise<Record<string, unknown>> {
+  return (await readJsonPayload(request)).body;
+}
+
+async function readJsonPayload(request: http.IncomingMessage): Promise<{ body: Record<string, unknown>; rawBody: string }> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   const raw = Buffer.concat(chunks).toString("utf8").trim();
+  return {
+    body: parseJsonObject(raw),
+    rawBody: raw,
+  };
+}
+
+async function readWebJsonObject(request: Request): Promise<Record<string, unknown>> {
+  return (await readWebJsonPayload(request)).body;
+}
+
+async function readWebJsonPayload(request: Request): Promise<{ body: Record<string, unknown>; rawBody: string }> {
+  const raw = (await request.text()).trim();
+  return {
+    body: parseJsonObject(raw),
+    rawBody: raw,
+  };
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> {
   if (!raw) return {};
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -791,19 +922,17 @@ async function readJsonObject(request: http.IncomingMessage): Promise<Record<str
   }
 }
 
-async function readWebJsonObject(request: Request): Promise<Record<string, unknown>> {
-  const raw = (await request.text()).trim();
-  if (!raw) return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new ApiError(400, "INVALID_JSON_BODY", "Request body must be a JSON object.");
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    throw new ApiError(400, "INVALID_JSON_BODY", "Request body must contain valid JSON.");
-  }
+async function verifyTelephonyWebhookSignature(
+  verifier: WebhookSignatureVerifier,
+  input: {
+    provider: string;
+    method: string;
+    path: string;
+    rawBody: string;
+    headers: Headers;
+  },
+): Promise<void> {
+  await verifier.verify(input);
 }
 
 function requiredString(value: unknown, field: string): string {
@@ -885,6 +1014,15 @@ function idempotencyKeyFromIncomingMessage(request: http.IncomingMessage): strin
 
 function idempotencyKeyFromHeaders(headers: Headers): string | undefined {
   return headers.get("idempotency-key")?.trim() || undefined;
+}
+
+function headersFromIncomingMessage(request: http.IncomingMessage): Headers {
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(request.headers)) {
+    const normalized = headerValue(value);
+    if (normalized !== undefined) headers.set(key, normalized);
+  }
+  return headers;
 }
 
 function headerValue(value: string | string[] | undefined): string | undefined {

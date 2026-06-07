@@ -20,6 +20,7 @@ try {
     rateLimiter: environment.rateLimiter,
     buildInfo: environment.buildInfo,
     idempotencyStore: environment.idempotencyStore,
+    webhookSignatureVerifier: environment.webhookSignatureVerifier,
     logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");
