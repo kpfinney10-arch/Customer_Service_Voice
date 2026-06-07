@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CallSession } from "../session/call-session.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
@@ -19,6 +19,26 @@ export class FileSessionStore implements SessionStore {
       if (isMissingFileError(error)) return undefined;
       throw error;
     }
+  }
+
+  async listRecentByTenant(tenantId: string, limit: number): Promise<CallSession[]> {
+    let filenames: string[];
+    try {
+      filenames = await readdir(this.directory);
+    } catch (error) {
+      if (isMissingFileError(error)) return [];
+      throw error;
+    }
+
+    const sessions = await Promise.all(
+      filenames
+        .filter((filename) => filename.endsWith(".json"))
+        .map(async (filename) => JSON.parse(await readFile(join(this.directory, filename), "utf8")) as CallSession),
+    );
+    return sessions
+      .filter((session) => session.tenantId === tenantId)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, limit);
   }
 
   private pathFor(tenantId: string, sessionId: string): string {

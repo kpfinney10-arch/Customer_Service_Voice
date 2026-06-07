@@ -6,6 +6,10 @@ export type EventStore = {
     tenantId: string,
     sessionId: string,
   ) => Promise<CallEvent[]> | CallEvent[];
+  listRecentByTenant: (
+    tenantId: string,
+    limit: number,
+  ) => Promise<CallEvent[]> | CallEvent[];
 };
 
 export class InMemoryEventStore implements EventStore {
@@ -22,6 +26,14 @@ export class InMemoryEventStore implements EventStore {
 
   listBySession(tenantId: string, sessionId: string): CallEvent[] {
     return [...(this.eventsBySession.get(eventKey(tenantId, sessionId)) ?? [])];
+  }
+
+  listRecentByTenant(tenantId: string, limit: number): CallEvent[] {
+    return [...this.eventsBySession.values()]
+      .flat()
+      .filter((event) => event.tenantId === tenantId)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, limit);
   }
 }
 

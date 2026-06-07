@@ -92,6 +92,7 @@ Endpoints:
 - `GET /version`
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
+- `GET /v1/tenants/:tenantId/diagnostics/activity`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/speech-turn`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/audio-turn`
@@ -123,6 +124,8 @@ Tenant POST routes support `Idempotency-Key`. A matching retry returns the origi
 The tenant config endpoint returns the authenticated tenant's loaded display name, timezone, handoff routing, and feature flags. It is intended for deployment verification and operator debugging; it never returns tenant API keys.
 
 The tenant readiness endpoint evaluates whether a tenant is ready to receive first-call voice traffic. It checks voice intake access, default handoff queue, urgent on-call routing, and downstream CRM/dispatch handoff flags.
+
+The tenant diagnostics activity endpoint returns recent session summaries and recent event summaries for early human testing. It is tenant API-key protected, accepts an optional `limit` query parameter, and intentionally omits raw event payloads and transcripts.
 
 Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new first-call sessions and telephony inbound calls return `TENANT_FEATURE_DISABLED`. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
 

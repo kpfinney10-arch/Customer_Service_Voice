@@ -33,6 +33,7 @@ export type FirstCallService = {
   endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
+  listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
 };
 
 export type StartFirstCallSessionInput = {
@@ -110,6 +111,40 @@ export type ReplayFirstCallSessionOutput = {
   session: CallSession;
   events: CallEvent[];
   snapshot: SessionReplaySnapshot;
+};
+
+export type ListTenantActivityInput = {
+  tenantId: string;
+  limit?: number;
+};
+
+export type TenantActivitySessionSummary = {
+  callId: string;
+  sessionId: string;
+  currentState: string;
+  intent: string | null;
+  sentiment: string;
+  retryCount: number;
+  escalationScore: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TenantActivityEventSummary = {
+  eventId: string;
+  eventType: string;
+  callId: string;
+  sessionId: string;
+  occurredAt: string;
+  correlationId: string;
+  redactionStatus: string;
+};
+
+export type ListTenantActivityOutput = {
+  tenantId: string;
+  limit: number;
+  sessions: TenantActivitySessionSummary[];
+  recentEvents: TenantActivityEventSummary[];
 };
 
 export type CreateFirstCallServiceOptions = {
@@ -372,7 +407,51 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         }),
       };
     },
+
+    async listTenantActivity(input) {
+      const limit = normalizeActivityLimit(input.limit);
+      const sessions = await options.store.listRecentByTenant(input.tenantId, limit);
+      const recentEvents = (await options.eventStore?.listRecentByTenant(input.tenantId, limit)) ?? [];
+      return {
+        tenantId: input.tenantId,
+        limit,
+        sessions: sessions.map(summarizeSession),
+        recentEvents: recentEvents.map(summarizeEvent),
+      };
+    },
   };
+}
+
+function summarizeSession(session: CallSession): TenantActivitySessionSummary {
+  return {
+    callId: session.callId,
+    sessionId: session.sessionId,
+    currentState: session.currentState,
+    intent: session.intent,
+    sentiment: session.sentiment,
+    retryCount: session.retryCount,
+    escalationScore: session.escalationScore,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+  };
+}
+
+function summarizeEvent(event: CallEvent): TenantActivityEventSummary {
+  return {
+    eventId: event.eventId,
+    eventType: event.eventType,
+    callId: event.callId,
+    sessionId: event.sessionId,
+    occurredAt: event.occurredAt,
+    correlationId: event.correlationId,
+    redactionStatus: event.redactionStatus,
+  };
+}
+
+function normalizeActivityLimit(value: number | undefined): number {
+  if (value === undefined) return 20;
+  if (!Number.isInteger(value) || value < 1) return 20;
+  return Math.min(value, 100);
 }
 
 function createReplaySnapshot(input: {

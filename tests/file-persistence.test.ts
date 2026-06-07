@@ -40,6 +40,40 @@ test("file session store persists sessions across store instances", async () => 
   assert.deepEqual(loaded, session);
 });
 
+test("file session store lists recent sessions by tenant", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "voice-ai-sessions-list-"));
+  const store = new FileSessionStore(directory);
+  const older = createCallSession({
+    callId: "call-list-1",
+    sessionId: "session-list-1",
+    tenantId: "fh-demo",
+    now: "2026-06-06T12:00:00.000Z",
+  });
+  const newer = createCallSession({
+    callId: "call-list-2",
+    sessionId: "session-list-2",
+    tenantId: "fh-demo",
+    now: "2026-06-06T12:01:00.000Z",
+  });
+  const otherTenant = createCallSession({
+    callId: "call-list-other",
+    sessionId: "session-list-other",
+    tenantId: "fh-other",
+    now: "2026-06-06T12:02:00.000Z",
+  });
+
+  await store.save(older);
+  await store.save(newer);
+  await store.save(otherTenant);
+
+  const sessions = await store.listRecentByTenant("fh-demo", 1);
+
+  assert.deepEqual(
+    sessions.map((session) => session.sessionId),
+    ["session-list-2"],
+  );
+});
+
 test("file event store appends and filters events by tenant and session", async () => {
   const directory = await mkdtemp(join(tmpdir(), "voice-ai-events-"));
   const filePath = join(directory, "events.jsonl");
@@ -71,6 +105,50 @@ test("file event store appends and filters events by tenant and session", async 
   const loaded = await secondStore.listBySession("fh-demo", "session-file-1");
 
   assert.deepEqual(loaded, [matching]);
+});
+
+test("file event store lists recent events by tenant", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "voice-ai-events-list-"));
+  const store = new FileEventStore(join(directory, "events.jsonl"));
+  const older = createCallEvent({
+    eventId: "event-list-1",
+    eventType: "CALL_STARTED",
+    callId: "call-list-1",
+    sessionId: "session-list-1",
+    tenantId: "fh-demo",
+    correlationId: "corr-list-1",
+    payload: {},
+    occurredAt: "2026-06-06T12:00:00.000Z",
+  });
+  const newer = createCallEvent({
+    eventId: "event-list-2",
+    eventType: "CALL_ENDED",
+    callId: "call-list-1",
+    sessionId: "session-list-1",
+    tenantId: "fh-demo",
+    correlationId: "corr-list-2",
+    payload: {},
+    occurredAt: "2026-06-06T12:01:00.000Z",
+  });
+  const otherTenant = createCallEvent({
+    eventId: "event-list-other",
+    eventType: "CALL_STARTED",
+    callId: "call-list-other",
+    sessionId: "session-list-other",
+    tenantId: "fh-other",
+    correlationId: "corr-list-other",
+    payload: {},
+    occurredAt: "2026-06-06T12:02:00.000Z",
+  });
+
+  await store.append([older, newer, otherTenant]);
+
+  const events = await store.listRecentByTenant("fh-demo", 1);
+
+  assert.deepEqual(
+    events.map((event) => event.eventId),
+    ["event-list-2"],
+  );
 });
 
 test("file idempotency store persists replay records across store instances", async () => {

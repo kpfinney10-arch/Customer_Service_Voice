@@ -205,6 +205,17 @@ export async function handleApiRequest(
       return response;
     }
 
+    const tenantActivityMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/diagnostics\/activity$/);
+    if (request.method === "GET" && tenantActivityMatch?.[1]) {
+      const tenantId = decodeURIComponent(tenantActivityMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const input = { tenantId };
+      addIfPresent(input, "limit", optionalPositiveIntegerFromQuery(url.searchParams.get("limit"), "limit"));
+      response = jsonResponse(200, await service.listTenantActivity(input));
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
     const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
     if (request.method === "POST" && startMatch?.[1]) {
       const tenantId = decodeURIComponent(startMatch[1]);
@@ -528,6 +539,16 @@ async function routeRequest(
     return;
   }
 
+  const tenantActivityMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/diagnostics\/activity$/);
+  if (method === "GET" && tenantActivityMatch?.[1]) {
+    const tenantId = decodeURIComponent(tenantActivityMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const input = { tenantId };
+    addIfPresent(input, "limit", optionalPositiveIntegerFromQuery(url.searchParams.get("limit"), "limit"));
+    sendJson(response, 200, await service.listTenantActivity(input));
+    return;
+  }
+
   const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
   if (method === "POST" && startMatch?.[1]) {
     const tenantId = decodeURIComponent(startMatch[1]);
@@ -814,6 +835,15 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
     throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a boolean when provided.`);
   }
   return value;
+}
+
+function optionalPositiveIntegerFromQuery(value: string | null, field: string): number | undefined {
+  if (value == null || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new ApiError(400, "VALIDATION_ERROR", `${field} must be a positive integer when provided.`);
+  }
+  return parsed;
 }
 
 function addIfPresent<T extends object, K extends string, V>(

@@ -18,6 +18,14 @@ export class FileEventStore implements EventStore {
     return events.filter((event) => event.tenantId === tenantId && event.sessionId === sessionId);
   }
 
+  async listRecentByTenant(tenantId: string, limit: number): Promise<CallEvent[]> {
+    const events = await this.readEvents();
+    return events
+      .filter((event) => event.tenantId === tenantId)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, limit);
+  }
+
   private async readEvents(): Promise<CallEvent[]> {
     let raw: string;
     try {

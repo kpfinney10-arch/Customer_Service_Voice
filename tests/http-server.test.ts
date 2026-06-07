@@ -76,6 +76,46 @@ test("tenant readiness endpoint reports ready and blocked tenants", async () => 
   );
 });
 
+test("tenant diagnostics activity endpoint returns authenticated recent summaries", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    callId: "call-diagnostics-1",
+    sessionId: "session-diagnostics-1",
+    callerPhone: "555-212-3434",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-diagnostics-1/transcript", {
+    transcript:
+      "My name is Angela Carter. My uncle David Carter passed away at 100 Pine Street, Tulsa. My phone is 555-212-3434.",
+    correlationId: "corr-diagnostics-1",
+  });
+
+  const response = await fetchJson("GET", "/v1/tenants/fh-demo/diagnostics/activity?limit=5");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tenantId, "fh-demo");
+  assert.equal(response.body.limit, 5);
+  assert.equal(
+    response.body.sessions.some((session: { sessionId: string }) => session.sessionId === "session-diagnostics-1"),
+    true,
+  );
+  assert.equal(
+    response.body.recentEvents.some((event: { eventType: string }) => event.eventType === "TRANSCRIPT_RECEIVED"),
+    true,
+  );
+  assert.equal("payload" in response.body.recentEvents[0], false);
+});
+
+test("tenant diagnostics activity endpoint requires auth and validates limit", async () => {
+  const missingKey = await fetchJson("GET", "/v1/tenants/fh-demo/diagnostics/activity", undefined, {
+    apiKey: null,
+  });
+  const invalidLimit = await fetchJson("GET", "/v1/tenants/fh-demo/diagnostics/activity?limit=zero");
+
+  assert.equal(missingKey.status, 401);
+  assert.equal(missingKey.body.error, "API_KEY_REQUIRED");
+  assert.equal(invalidLimit.status, 400);
+  assert.equal(invalidLimit.body.error, "VALIDATION_ERROR");
+});
+
 test("API request logging captures request metadata without request bodies", async () => {
   const logger = new TestLogger();
   const response = await fetchJson("GET", "/v1/tenants/fh-demo/config", undefined, {
