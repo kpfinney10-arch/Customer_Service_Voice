@@ -86,6 +86,12 @@ npm run build
 npm start
 ```
 
+For a repeatable local human-testing check with file persistence, see `docs/runbooks/local-human-testing.md` and run:
+
+```bash
+npm run smoke:human-test
+```
+
 Endpoints:
 
 - `GET /health`

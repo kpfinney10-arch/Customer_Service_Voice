@@ -32,6 +32,7 @@
 - Graceful shutdown handling for `SIGINT` and `SIGTERM`.
 - Public build/version endpoint for deployment identification.
 - File-backed session and event persistence for early human testing.
+- Local human-testing runbook and smoke script.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
