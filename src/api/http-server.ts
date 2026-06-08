@@ -37,6 +37,10 @@ import {
   handleTelephonyInterrupt,
   handleTelephonySpeechTurn,
 } from "../providers/telephony/inbound-call.js";
+import {
+  createTelnyxCommands,
+  translateTelnyxWebhook,
+} from "../providers/telephony/telnyx-adapter.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -253,6 +257,35 @@ export async function handleApiRequest(
         path: url.pathname,
         body,
         execute: async () => ({ statusCode: 201, body: await service.startSession(input) }),
+      });
+      response = idempotentJsonResponse(output);
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const telnyxWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/webhook$/);
+    if (request.method === "POST" && telnyxWebhookMatch?.[1]) {
+      const tenantId = decodeURIComponent(telnyxWebhookMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      const { body, rawBody } = await readWebJsonPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider: "telnyx",
+        method: request.method,
+        path: url.pathname,
+        rawBody,
+        headers: request.headers,
+      });
+      const output = await resolveIdempotentOperation({
+        store: idempotencyStore,
+        tenantId,
+        key: idempotencyKeyFromHeaders(request.headers),
+        method: request.method,
+        path: url.pathname,
+        body,
+        execute: async () => ({
+          statusCode: 200,
+          body: await handleTelnyxWebhook(service, tenantId, body),
+        }),
       });
       response = idempotentJsonResponse(output);
       response.headers.set("x-request-id", requestId);
@@ -641,6 +674,34 @@ async function routeRequest(
     return;
   }
 
+  const telnyxWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/webhook$/);
+  if (method === "POST" && telnyxWebhookMatch?.[1]) {
+    const tenantId = decodeURIComponent(telnyxWebhookMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const { body, rawBody } = await readJsonPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider: "telnyx",
+      method,
+      path: url.pathname,
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
+    const output = await resolveIdempotentOperation({
+      store: idempotencyStore,
+      tenantId,
+      key: idempotencyKeyFromIncomingMessage(request),
+      method,
+      path: url.pathname,
+      body,
+      execute: async () => ({
+        statusCode: 200,
+        body: await handleTelnyxWebhook(service, tenantId, body),
+      }),
+    });
+    sendIdempotentJson(response, output);
+    return;
+  }
+
   const inboundCallMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/([^/]+)\/inbound-call$/);
   if (method === "POST" && inboundCallMatch?.[1] && inboundCallMatch[2]) {
     const tenantId = decodeURIComponent(inboundCallMatch[1]);
@@ -878,6 +939,61 @@ async function routeRequest(
     error: "ROUTE_NOT_FOUND",
     message: "No route matched the request.",
   });
+}
+
+async function handleTelnyxWebhook(
+  service: FirstCallService,
+  tenantId: string,
+  body: Record<string, unknown>,
+): Promise<object> {
+  const translated = translateTelnyxWebhook({
+    tenantId,
+    payload: body,
+  });
+  if (translated.kind === "ignored") {
+    return {
+      provider: "telnyx",
+      eventType: translated.eventType,
+      ignored: true,
+    };
+  }
+  if (translated.kind === "inbound_call") {
+    const output = await handleInboundTelephonyCall(service, translated.input);
+    return {
+      provider: "telnyx",
+      eventType: "call.initiated",
+      result: output,
+      telnyxCommands: createTelnyxCommandsInput(
+        translated.input.providerCallId,
+        output.voiceResponse,
+        translated.input.correlationId,
+      ),
+    };
+  }
+  const output = await handleTelephonyCallEnd(service, translated.input);
+  return {
+    provider: "telnyx",
+    eventType: "call.hangup",
+    result: output,
+    telnyxCommands: createTelnyxCommandsInput(
+      translated.input.providerCallId,
+      output.voiceResponse,
+      translated.input.correlationId,
+    ),
+  };
+}
+
+function createTelnyxCommandsInput(
+  callControlId: string,
+  voiceResponse: Parameters<typeof createTelnyxCommands>[0]["voiceResponse"],
+  commandIdPrefix: string | undefined,
+): ReturnType<typeof createTelnyxCommands> {
+  const input = {
+    callControlId,
+    voiceResponse,
+  };
+  addIfPresent(input, "commandIdPrefix", commandIdPrefix);
+  return createTelnyxCommands(input);
 }
 
 async function readJsonObject(request: http.IncomingMessage): Promise<Record<string, unknown>> {

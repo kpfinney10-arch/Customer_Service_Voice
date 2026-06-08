@@ -454,6 +454,44 @@ test("telephony routes accept valid webhook signatures", async () => {
   assert.equal(response.body.providerCallId, "provider-signed-valid-1");
 });
 
+test("Telnyx webhook route starts first-call session and returns command plan", async () => {
+  const response = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
+    data: {
+      id: "telnyx-event-1",
+      event_type: "call.initiated",
+      payload: {
+        call_control_id: "telnyx-call-http-1",
+        from: "+15551230000",
+        to: "+15559870000",
+      },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.provider, "telnyx");
+  assert.equal(response.body.eventType, "call.initiated");
+  assert.equal(response.body.result.providerCallId, "telnyx-call-http-1");
+  assert.equal(response.body.result.session.sessionId, "telnyx-call-http-1");
+  assert.equal(response.body.telnyxCommands[0].command, "gather_using_speak");
+  assert.equal(response.body.telnyxCommands[0].callControlId, "telnyx-call-http-1");
+});
+
+test("Telnyx webhook route ignores unsupported events", async () => {
+  const response = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
+    data: {
+      event_type: "call.speak.ended",
+      payload: {
+        call_control_id: "telnyx-call-http-ignored-1",
+      },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.provider, "telnyx");
+  assert.equal(response.body.eventType, "call.speak.ended");
+  assert.equal(response.body.ignored, true);
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",

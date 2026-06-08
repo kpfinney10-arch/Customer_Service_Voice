@@ -44,6 +44,7 @@
 - Generic telephony audio-turn boundary.
 - Generic telephony call-end boundary.
 - Generic voice response action envelope.
+- Telnyx Call Control webhook adapter boundary.
 - Telephony streaming interface for live audio sessions.
 - STT adapter contract and fake adapter.
 - TTS adapter contract and fake adapter.

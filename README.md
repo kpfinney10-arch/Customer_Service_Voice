@@ -100,6 +100,7 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
 - `GET /v1/tenants/:tenantId/diagnostics/activity`
+- `POST /v1/tenants/:tenantId/telephony/telnyx/webhook`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/speech-turn`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/audio-turn`
@@ -139,6 +140,8 @@ Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new 
 The generic telephony inbound-call endpoint accepts provider call metadata, creates the first-call session, and returns the opening prompt plus the next expected input. Provider-specific webhook translation should stay outside the core first-call workflow.
 
 Telephony POST routes support provider webhook signature verification. Set `TELEPHONY_WEBHOOK_SECRETS` to comma-separated `provider:secret` entries, then send `x-webhook-signature` as `sha256=<hmac>` over `METHOD path\nrawBody`. Providers without configured secrets are allowed for local development.
+
+The Telnyx webhook endpoint translates Telnyx Call Control webhooks into the generic telephony workflow. `call.initiated` starts a first-call session, `call.hangup` ends a session, and unsupported events are acknowledged as ignored. The response includes a Telnyx command plan derived from the generic voice response; live command execution should be added behind a Telnyx client adapter instead of inside the workflow.
 
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 
