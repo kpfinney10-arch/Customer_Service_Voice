@@ -981,6 +981,22 @@ async function handleTelnyxWebhook(
       telnyxCommandResults: await telnyxClient.execute(commands),
     };
   }
+  if (translated.kind === "speech_turn") {
+    const output = await handleTelephonySpeechTurn(service, translated.input);
+    const commands = createTelnyxCommandsInput(
+      translated.input.providerCallId,
+      output.voiceResponse,
+      translated.input.correlationId,
+      false,
+    );
+    return {
+      provider: "telnyx",
+      eventType: "call.ai_gather.ended",
+      result: output,
+      telnyxCommands: commands,
+      telnyxCommandResults: await telnyxClient.execute(commands),
+    };
+  }
   const output = await handleTelephonyCallEnd(service, translated.input);
   const commands = createTelnyxCommandsInput(
     translated.input.providerCallId,

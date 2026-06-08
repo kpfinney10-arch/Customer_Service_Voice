@@ -149,7 +149,7 @@ The generic telephony inbound-call endpoint accepts provider call metadata, crea
 
 Telephony POST routes support provider webhook signature verification. Set `TELEPHONY_WEBHOOK_SECRETS` to comma-separated `provider:secret` entries, then send `x-webhook-signature` as `sha256=<hmac>` over `METHOD path\nrawBody`. Providers without configured secrets are allowed for local development.
 
-The Telnyx webhook endpoint translates Telnyx Call Control webhooks into the generic telephony workflow. `call.initiated` starts a first-call session, `call.hangup` ends a session, and unsupported events are acknowledged as ignored. The response includes a Telnyx command plan derived from the generic voice response. Live Telnyx Call Control execution is disabled by default; set `TELNYX_EXECUTE_COMMANDS=true` and `TELNYX_API_KEY` to execute generated commands through the Telnyx client adapter.
+The Telnyx webhook endpoint translates Telnyx Call Control webhooks into the generic telephony workflow. `call.initiated` starts a first-call session, `call.ai_gather.ended` advances the speech-turn workflow from the latest caller message, `call.hangup` ends a session, and unsupported events are acknowledged as ignored. The response includes a Telnyx command plan derived from the generic voice response. Live Telnyx Call Control execution is disabled by default; set `TELNYX_EXECUTE_COMMANDS=true` and `TELNYX_API_KEY` to execute generated commands through the Telnyx client adapter.
 
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 

@@ -63,6 +63,42 @@ test("Telnyx adapter translates call.hangup into generic call-end input", () => 
   });
 });
 
+test("Telnyx adapter translates call.ai_gather.ended into generic speech-turn input", () => {
+  const translated = translateTelnyxWebhook({
+    tenantId: "fh-demo",
+    payload: {
+      data: {
+        id: "event-3",
+        event_type: "call.ai_gather.ended",
+        payload: {
+          call_control_id: "telnyx-call-1",
+          message_history: [
+            {
+              role: "assistant",
+              content: "How can I help?",
+            },
+            {
+              role: "user",
+              content: "My name is Angela Carter. My uncle David Carter passed away at 100 Pine Street.",
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(translated, {
+    kind: "speech_turn",
+    input: {
+      tenantId: "fh-demo",
+      provider: "telnyx",
+      providerCallId: "telnyx-call-1",
+      transcript: "My name is Angela Carter. My uncle David Carter passed away at 100 Pine Street.",
+      correlationId: "event-3",
+    },
+  });
+});
+
 test("Telnyx adapter ignores unsupported events without failing", () => {
   const translated = translateTelnyxWebhook({
     tenantId: "fh-demo",

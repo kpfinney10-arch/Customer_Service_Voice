@@ -2,6 +2,8 @@
 
 Use this runbook to validate the Telnyx webhook adapter before connecting real caller traffic.
 
+Supported Telnyx events in this scaffold are `call.initiated`, `call.ai_gather.ended`, and `call.hangup`. Other events are acknowledged as ignored.
+
 ## 1. Dry-Run Webhook Test
 
 Start the server with Telnyx command execution disabled:

@@ -1,5 +1,6 @@
 import type {
   InboundTelephonyCallInput,
+  TelephonySpeechTurnInput,
   TelephonyCallEndInput,
 } from "./inbound-call.js";
 import type { VoiceResponse } from "./voice-response.js";
@@ -20,6 +21,10 @@ export type TelnyxWebhookTranslation =
   | {
       kind: "call_end";
       input: TelephonyCallEndInput;
+    }
+  | {
+      kind: "speech_turn";
+      input: TelephonySpeechTurnInput;
     }
   | {
       kind: "ignored";
@@ -106,6 +111,23 @@ export function translateTelnyxWebhook(input: {
         },
         {
           reason: optionalString(payload.hangup_cause),
+          correlationId,
+        },
+      ),
+    };
+  }
+
+  if (eventType === "call.ai_gather.ended") {
+    return {
+      kind: "speech_turn",
+      input: addOptionalFields(
+        {
+          tenantId: input.tenantId,
+          provider: "telnyx",
+          providerCallId: callControlId,
+          transcript: latestUserMessage(payload.message_history) ?? resultTranscript(payload.result),
+        },
+        {
           correlationId,
         },
       ),
@@ -228,6 +250,26 @@ function requiredString(value: unknown, field: string): string {
 function optionalString(value: unknown): string | undefined {
   if (typeof value !== "string" || value.trim() === "") return undefined;
   return value;
+}
+
+function latestUserMessage(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  for (const item of [...value].reverse()) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    if (entry.role === "user") {
+      return optionalString(entry.content);
+    }
+  }
+  return undefined;
+}
+
+function resultTranscript(value: unknown): string {
+  if (value && typeof value === "object") {
+    const transcript = optionalString((value as Record<string, unknown>).transcript);
+    if (transcript) return transcript;
+  }
+  throw new TelnyxWebhookError("data.payload.message_history must include a user message.");
 }
 
 function addOptionalFields<T extends object>(

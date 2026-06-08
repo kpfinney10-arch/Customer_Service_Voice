@@ -494,6 +494,49 @@ test("Telnyx webhook route ignores unsupported events", async () => {
   assert.equal(response.body.ignored, true);
 });
 
+test("Telnyx webhook route advances speech gather events through first-call workflow", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
+    data: {
+      id: "telnyx-event-speech-start-1",
+      event_type: "call.initiated",
+      payload: {
+        call_control_id: "telnyx-call-http-speech-1",
+        from: "+15551230000",
+        to: "+15559870000",
+      },
+    },
+  });
+
+  const response = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
+    data: {
+      id: "telnyx-event-speech-1",
+      event_type: "call.ai_gather.ended",
+      payload: {
+        call_control_id: "telnyx-call-http-speech-1",
+        message_history: [
+          {
+            role: "assistant",
+            content: "I am sorry. I will help get this to the right person.",
+          },
+          {
+            role: "user",
+            content:
+              "My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street, Springfield. My phone is 555-212-3434.",
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.provider, "telnyx");
+  assert.equal(response.body.eventType, "call.ai_gather.ended");
+  assert.equal(response.body.result.providerCallId, "telnyx-call-http-speech-1");
+  assert.equal(response.body.result.session.currentState, "ESCALATE");
+  assert.equal(response.body.result.nextExpectedInput, "human_handoff");
+  assert.equal(response.body.telnyxCommands[0].command, "speak");
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",
