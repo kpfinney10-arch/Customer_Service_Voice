@@ -38,6 +38,7 @@
 - Telnyx smoke script coverage for initiated calls and AI gather speech-turn handoff.
 - Telnyx readiness preflight endpoint for dry-run and controlled live testing.
 - Telnyx provider command audit events for dry-run and controlled live diagnostics.
+- Replay snapshot provider command summaries for live-test troubleshooting.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

@@ -178,4 +178,4 @@ Transcript text is redacted before it is stored in events. Fact extraction still
 
 When a first-call transcript reaches escalation, the response includes a `handoff` summary for the funeral home team member who receives the call plus `handoffRouting`, which identifies the configured on-call phone, dispatch desk, queue, or manual-review fallback.
 
-The replay endpoint returns the current session, stored events, and a compact diagnostic snapshot with event count, latest event, escalation status, tool outcomes, redaction count, and any reconstructed handoff.
+The replay endpoint returns the current session, stored events, and a compact diagnostic snapshot with event count, latest event, escalation status, tool outcomes, redaction count, provider command batch summaries, and any reconstructed handoff.

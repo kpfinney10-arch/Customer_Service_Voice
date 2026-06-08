@@ -64,6 +64,16 @@ curl -s \
 
 The response should include `human-test-session-1` in `sessions` and recent redacted event summaries in `recentEvents`.
 
+For a session-level view, call replay:
+
+```bash
+curl -s \
+  -H "x-api-key: replace-with-local-dev-key" \
+  "http://127.0.0.1:3000/v1/tenants/fh-demo/first-call/sessions/human-test-session-1/replay"
+```
+
+The replay snapshot summarizes event counts, escalation state, tool outcomes, redaction counts, interruptions, provider command batches when present, and any reconstructed handoff.
+
 ## Notes
 
 - Keep `STORAGE_DATA_DIR` stable between restarts when testing durability.

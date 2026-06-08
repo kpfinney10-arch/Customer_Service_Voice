@@ -68,6 +68,16 @@ curl -s \
 
 The response should include `PROVIDER_COMMANDS_EXECUTED` events with sanitized Telnyx command names, status codes, dry-run flags, and failure names.
 
+The replay endpoint should also summarize those command batches:
+
+```bash
+curl -s \
+  -H "x-api-key: replace-with-local-dev-key" \
+  "http://127.0.0.1:3000/v1/tenants/fh-demo/first-call/sessions/telnyx-smoke-call-1/replay"
+```
+
+Check `snapshot.providerCommandBatches` for command counts, command names, failed command names, and dry-run/live status codes.
+
 ## 3. Controlled Live Execution
 
 Only use this after dry-run and signature verification pass.
