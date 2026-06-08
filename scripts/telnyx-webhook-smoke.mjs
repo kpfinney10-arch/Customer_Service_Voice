@@ -7,13 +7,18 @@ const webhookSecret = env("TELNYX_WEBHOOK_SECRET", "");
 const liveExpected = env("TELNYX_EXPECT_LIVE_EXECUTION", "false").toLowerCase() === "true";
 const callControlId = env("TELNYX_SMOKE_CALL_CONTROL_ID", "telnyx-smoke-call-1");
 const eventId = env("TELNYX_SMOKE_EVENT_ID", "telnyx-smoke-event-1");
+const speechEventId = env("TELNYX_SMOKE_SPEECH_EVENT_ID", "telnyx-smoke-speech-event-1");
+const speechTranscript = env(
+  "TELNYX_SMOKE_TRANSCRIPT",
+  "My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street, Springfield. My phone is 555-212-3434.",
+);
 
 await main();
 
 async function main() {
   console.log(`Telnyx webhook smoke check against ${baseUrl}`);
 
-  const payload = {
+  const initiatedPayload = {
     data: {
       id: eventId,
       event_type: "call.initiated",
@@ -24,45 +29,64 @@ async function main() {
       },
     },
   };
+  const initiatedResponse = await postTelnyxWebhook(initiatedPayload, eventId);
+
+  assertEqual(initiatedResponse.provider, "telnyx", "provider");
+  assertEqual(initiatedResponse.eventType, "call.initiated", "event type");
+  assertEqual(initiatedResponse.result?.session?.sessionId, callControlId, "session id");
+  assertEqual(initiatedResponse.telnyxCommands?.[0]?.command, "answer", "first Telnyx command");
+  assertEqual(initiatedResponse.telnyxCommands?.[1]?.command, "gather_using_speak", "second Telnyx command");
+  assertCommandResults(initiatedResponse, "initiated command result");
+
+  const speechPayload = {
+    data: {
+      id: speechEventId,
+      event_type: "call.ai_gather.ended",
+      payload: {
+        call_control_id: callControlId,
+        message_history: [
+          {
+            role: "assistant",
+            content: initiatedResponse.telnyxCommands?.[1]?.payload?.payload ?? "I am sorry. I will help.",
+          },
+          {
+            role: "user",
+            content: speechTranscript,
+          },
+        ],
+      },
+    },
+  };
+  const speechResponse = await postTelnyxWebhook(speechPayload, speechEventId);
+
+  assertEqual(speechResponse.provider, "telnyx", "speech provider");
+  assertEqual(speechResponse.eventType, "call.ai_gather.ended", "speech event type");
+  assertEqual(speechResponse.result?.session?.sessionId, callControlId, "speech session id");
+  assertEqual(speechResponse.result?.session?.currentState, "ESCALATE", "speech session state");
+  assertEqual(speechResponse.result?.nextExpectedInput, "human_handoff", "speech next expected input");
+  assertEqual(speechResponse.telnyxCommands?.[0]?.command, "speak", "speech Telnyx command");
+  assertCommandResults(speechResponse, "speech command result");
+
+  console.log("Telnyx webhook smoke check passed.");
+  console.log(`Call control id: ${callControlId}`);
+  console.log(`Mode: ${liveExpected ? "live execution expected" : "dry-run expected"}`);
+}
+
+async function postTelnyxWebhook(payload, eventKey) {
+  const path = `/v1/tenants/${tenantId}/telephony/telnyx/webhook`;
   const rawBody = JSON.stringify(payload);
   const headers = {
-    "idempotency-key": `telnyx-smoke-${eventId}`,
+    "idempotency-key": `telnyx-smoke-${eventKey}`,
   };
   if (webhookSecret) {
     headers["x-webhook-signature"] = createSignature({
       secret: webhookSecret,
       method: "POST",
-      path: `/v1/tenants/${tenantId}/telephony/telnyx/webhook`,
+      path,
       rawBody,
     });
   }
-
-  const response = await expectTenantJson(
-    "POST",
-    `/v1/tenants/${tenantId}/telephony/telnyx/webhook`,
-    payload,
-    200,
-    headers,
-  );
-
-  assertEqual(response.provider, "telnyx", "provider");
-  assertEqual(response.eventType, "call.initiated", "event type");
-  assertEqual(response.result?.session?.sessionId, callControlId, "session id");
-  assertEqual(response.telnyxCommands?.[0]?.command, "answer", "first Telnyx command");
-  assertEqual(response.telnyxCommands?.[1]?.command, "gather_using_speak", "second Telnyx command");
-
-  if (liveExpected) {
-    const failed = response.telnyxCommandResults?.filter((result) => !result.ok) ?? [];
-    if (failed.length > 0) {
-      throw new Error(`Telnyx live command execution failed: ${JSON.stringify(failed)}`);
-    }
-  } else {
-    assertEqual(response.telnyxCommandResults?.[0]?.responseBody?.dryRun, true, "dry-run command result");
-  }
-
-  console.log("Telnyx webhook smoke check passed.");
-  console.log(`Call control id: ${callControlId}`);
-  console.log(`Mode: ${liveExpected ? "live execution expected" : "dry-run expected"}`);
+  return expectTenantJson("POST", path, payload, 200, headers);
 }
 
 async function expectTenantJson(method, path, body, statusCode, headers = {}) {
@@ -99,6 +123,17 @@ function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`${label} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
+}
+
+function assertCommandResults(response, label) {
+  if (liveExpected) {
+    const failed = response.telnyxCommandResults?.filter((result) => !result.ok) ?? [];
+    if (failed.length > 0) {
+      throw new Error(`Telnyx live command execution failed for ${label}: ${JSON.stringify(failed)}`);
+    }
+    return;
+  }
+  assertEqual(response.telnyxCommandResults?.[0]?.responseBody?.dryRun, true, label);
 }
 
 function env(name, fallback) {

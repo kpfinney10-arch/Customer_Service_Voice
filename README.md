@@ -151,6 +151,8 @@ Telephony POST routes support provider webhook signature verification. Set `TELE
 
 The Telnyx webhook endpoint translates Telnyx Call Control webhooks into the generic telephony workflow. `call.initiated` starts a first-call session, `call.ai_gather.ended` advances the speech-turn workflow from the latest caller message, `call.hangup` ends a session, and unsupported events are acknowledged as ignored. The response includes a Telnyx command plan derived from the generic voice response. Live Telnyx Call Control execution is disabled by default; set `TELNYX_EXECUTE_COMMANDS=true` and `TELNYX_API_KEY` to execute generated commands through the Telnyx client adapter.
 
+Telnyx live caller speech collection uses an explicit `gather_using_speak` command strategy so the opening prompt and gather settings remain inspectable before live execution. The Telnyx smoke script validates both a synthetic `call.initiated` event and a synthetic `call.ai_gather.ended` speech event.
+
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 
 The generic audio-turn endpoint accepts base64 audio, runs STT, advances the first-call workflow, and returns TTS audio for the response. The default local server uses fake STT/TTS adapters.

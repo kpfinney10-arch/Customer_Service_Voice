@@ -31,6 +31,16 @@ export type TelnyxWebhookTranslation =
       eventType: string;
     };
 
+export type TelnyxGatherUsingSpeakStrategy = {
+  command: "gather_using_speak";
+  language?: string;
+  voice?: string;
+  validDigits?: string;
+  interDigitTimeoutMillis?: number;
+  maximumDigits?: number;
+  timeoutMillis?: number;
+};
+
 export type TelnyxCommand =
   | {
       command: "answer";
@@ -54,6 +64,12 @@ export type TelnyxCommand =
       callControlId: string;
       payload: {
         payload: string;
+        language?: string;
+        voice?: string;
+        valid_digits?: string;
+        inter_digit_timeout_millis?: number;
+        maximum_digits?: number;
+        timeout_millis?: number;
         command_id?: string;
       };
     }
@@ -145,6 +161,7 @@ export function createTelnyxCommands(input: {
   voiceResponse: VoiceResponse;
   commandIdPrefix?: string;
   answerFirst?: boolean;
+  gatherStrategy?: TelnyxGatherUsingSpeakStrategy;
 }): TelnyxCommand[] {
   const commands: TelnyxCommand[] = [];
   let lastSay: string | undefined;
@@ -171,14 +188,12 @@ export function createTelnyxCommands(input: {
       commands.push({
         command: "gather_using_speak",
         callControlId: input.callControlId,
-        payload: addOptionalFields(
-          {
-            payload: lastSay ?? "",
-          },
-          {
-            command_id: commandId(input.commandIdPrefix, commands.length + 1),
-          },
-        ),
+        payload: createGatherUsingSpeakPayload({
+          prompt: lastSay ?? "",
+          commandIdPrefix: input.commandIdPrefix,
+          index: commands.length + 1,
+          gatherStrategy: input.gatherStrategy,
+        }),
       });
       lastSay = undefined;
       continue;
@@ -214,6 +229,28 @@ export function createTelnyxCommands(input: {
   }
 
   return commands;
+}
+
+function createGatherUsingSpeakPayload(input: {
+  prompt: string;
+  commandIdPrefix: string | undefined;
+  index: number;
+  gatherStrategy: TelnyxGatherUsingSpeakStrategy | undefined;
+}): Extract<TelnyxCommand, { command: "gather_using_speak" }>["payload"] {
+  return addOptionalFields(
+    {
+      payload: input.prompt,
+    },
+    {
+      command_id: commandId(input.commandIdPrefix, input.index),
+      language: input.gatherStrategy?.language,
+      voice: input.gatherStrategy?.voice,
+      valid_digits: input.gatherStrategy?.validDigits,
+      inter_digit_timeout_millis: input.gatherStrategy?.interDigitTimeoutMillis,
+      maximum_digits: input.gatherStrategy?.maximumDigits,
+      timeout_millis: input.gatherStrategy?.timeoutMillis,
+    },
+  );
 }
 
 function speakCommand(
@@ -274,7 +311,7 @@ function resultTranscript(value: unknown): string {
 
 function addOptionalFields<T extends object>(
   target: T,
-  fields: Record<string, string | undefined>,
+  fields: Record<string, string | number | undefined>,
 ): T {
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) Object.assign(target, { [key]: value });

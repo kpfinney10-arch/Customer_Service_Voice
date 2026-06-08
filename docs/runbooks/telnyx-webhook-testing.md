@@ -27,6 +27,8 @@ export TENANT_API_KEY=replace-with-local-dev-key
 npm run smoke:telnyx
 ```
 
+The smoke script posts a synthetic `call.initiated` webhook, verifies the generated `answer` plus `gather_using_speak` command plan, then posts a synthetic `call.ai_gather.ended` webhook and verifies the first-call workflow reaches human handoff.
+
 Expected result:
 
 ```text
@@ -77,9 +79,17 @@ export TELNYX_EXPECT_LIVE_EXECUTION=true
 npm run smoke:telnyx
 ```
 
+Optional smoke-script overrides:
+
+```bash
+export TELNYX_SMOKE_EVENT_ID=<unique-initiated-event-id>
+export TELNYX_SMOKE_SPEECH_EVENT_ID=<unique-speech-event-id>
+export TELNYX_SMOKE_TRANSCRIPT="My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street. My phone is 555-212-3434."
+```
+
 ## Safety Notes
 
 - Keep `TELNYX_EXECUTE_COMMANDS=false` until you are intentionally testing a controlled live call.
 - Never commit real Telnyx API keys or webhook secrets.
-- The Telnyx smoke script uses synthetic caller numbers unless you override them.
+- The Telnyx smoke script uses synthetic caller numbers and a synthetic first-call death report transcript unless you override them.
 - The adapter returns generated command plans and command results so you can inspect behavior before production use.

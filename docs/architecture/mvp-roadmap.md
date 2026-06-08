@@ -35,6 +35,7 @@
 - File-backed session and event persistence for early human testing.
 - Local human-testing runbook and smoke script.
 - Telnyx webhook testing runbook and smoke script.
+- Telnyx smoke script coverage for initiated calls and AI gather speech-turn handoff.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
@@ -48,6 +49,7 @@
 - Telnyx Call Control webhook adapter boundary.
 - Telnyx Call Control client adapter with dry-run default.
 - Telnyx AI gather speech-turn event translation.
+- Telnyx `gather_using_speak` command strategy for live caller speech collection.
 - Telephony streaming interface for live audio sessions.
 - STT adapter contract and fake adapter.
 - TTS adapter contract and fake adapter.
