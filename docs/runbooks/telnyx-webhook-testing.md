@@ -27,7 +27,7 @@ export TENANT_API_KEY=replace-with-local-dev-key
 npm run smoke:telnyx
 ```
 
-The smoke check first calls `GET /v1/tenants/fh-demo/telephony/telnyx/readiness` and then runs the synthetic webhook flow.
+The smoke check first calls `GET /v1/tenants/fh-demo/telephony/telnyx/readiness`, runs the synthetic webhook flow, then fetches replay to verify handoff and provider command batch summaries.
 
 The smoke script posts a synthetic `call.initiated` webhook, verifies the generated `answer` plus `gather_using_speak` command plan, then posts a synthetic `call.ai_gather.ended` webhook and verifies the first-call workflow reaches human handoff.
 
@@ -35,6 +35,7 @@ Expected result:
 
 ```text
 Telnyx webhook smoke check passed.
+Replay: http://127.0.0.1:3000/v1/tenants/fh-demo/first-call/sessions/telnyx-smoke-call-1/replay
 Mode: dry-run expected
 ```
 

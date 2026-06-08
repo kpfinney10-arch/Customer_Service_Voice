@@ -75,8 +75,25 @@ async function main() {
   assertString(speechResponse.providerCommandEventId, "speech provider command event id");
   assertCommandResults(speechResponse, "speech command result");
 
+  const replay = await expectTenantJson(
+    "GET",
+    `/v1/tenants/${tenantId}/first-call/sessions/${callControlId}/replay`,
+    undefined,
+    200,
+  );
+  assertEqual(replay.snapshot?.escalated, true, "replay escalation status");
+  assertEqual(replay.snapshot?.handoff?.handoffType, "human_escalation", "replay handoff type");
+  const providerCommandBatches = replay.snapshot?.providerCommandBatches ?? [];
+  assertEqual(providerCommandBatches.length, 2, "replay provider command batch count");
+  assertEqual(providerCommandBatches[0]?.provider, "telnyx", "first replay command provider");
+  assertEqual(providerCommandBatches[0]?.providerEventType, "call.initiated", "first replay provider event type");
+  assertEqual(providerCommandBatches[0]?.allSucceeded, true, "first replay command batch success");
+  assertEqual(providerCommandBatches[1]?.providerEventType, "call.ai_gather.ended", "second replay provider event type");
+  assertEqual(providerCommandBatches[1]?.allSucceeded, true, "second replay command batch success");
+
   console.log("Telnyx webhook smoke check passed.");
   console.log(`Call control id: ${callControlId}`);
+  console.log(`Replay: ${baseUrl}/v1/tenants/${tenantId}/first-call/sessions/${callControlId}/replay`);
   console.log(`Mode: ${liveExpected ? "live execution expected" : "dry-run expected"}`);
 }
 

@@ -9,6 +9,8 @@ test("Telnyx smoke script covers initiated and speech gather events", () => {
   assert.match(script, /call\.initiated/);
   assert.match(script, /call\.ai_gather\.ended/);
   assert.match(script, /telephony\/telnyx\/readiness/);
+  assert.match(script, /first-call\/sessions\/\$\{callControlId\}\/replay/);
+  assert.match(script, /providerCommandBatches/);
   assert.match(script, /TELNYX_SMOKE_TRANSCRIPT/);
   assert.match(script, /TELNYX_SMOKE_SPEECH_EVENT_ID/);
 });
