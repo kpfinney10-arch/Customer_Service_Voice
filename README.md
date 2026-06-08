@@ -108,6 +108,7 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
 - `GET /v1/tenants/:tenantId/diagnostics/activity`
+- `GET /v1/tenants/:tenantId/telephony/telnyx/readiness`
 - `POST /v1/tenants/:tenantId/telephony/telnyx/webhook`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
 - `POST /v1/tenants/:tenantId/telephony/:provider/calls/:providerCallId/speech-turn`
@@ -152,6 +153,8 @@ Telephony POST routes support provider webhook signature verification. Set `TELE
 The Telnyx webhook endpoint translates Telnyx Call Control webhooks into the generic telephony workflow. `call.initiated` starts a first-call session, `call.ai_gather.ended` advances the speech-turn workflow from the latest caller message, `call.hangup` ends a session, and unsupported events are acknowledged as ignored. The response includes a Telnyx command plan derived from the generic voice response. Live Telnyx Call Control execution is disabled by default; set `TELNYX_EXECUTE_COMMANDS=true` and `TELNYX_API_KEY` to execute generated commands through the Telnyx client adapter.
 
 Telnyx live caller speech collection uses an explicit `gather_using_speak` command strategy so the opening prompt and gather settings remain inspectable before live execution. The Telnyx smoke script validates both a synthetic `call.initiated` event and a synthetic `call.ai_gather.ended` speech event.
+
+The Telnyx readiness endpoint combines tenant readiness with a sanitized provider preflight. It reports whether the server is in dry-run or live mode, whether Telnyx webhook signature verification is configured, whether live Call Control execution is enabled, and whether live traffic is ready without returning API keys or webhook secrets.
 
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 

@@ -36,6 +36,7 @@
 - Local human-testing runbook and smoke script.
 - Telnyx webhook testing runbook and smoke script.
 - Telnyx smoke script coverage for initiated calls and AI gather speech-turn handoff.
+- Telnyx readiness preflight endpoint for dry-run and controlled live testing.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 

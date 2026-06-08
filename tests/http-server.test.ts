@@ -16,6 +16,7 @@ import {
 import type { WebhookSignatureVerifier } from "../src/security/webhook-signature.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
+import type { TelnyxReadiness } from "../src/providers/telephony/telnyx-readiness.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -79,6 +80,33 @@ test("tenant readiness endpoint reports ready and blocked tenants", async () => 
     blocked.body.readiness.checks.find((check: { name: string }) => check.name === "voice_intake_enabled").ok,
     false,
   );
+});
+
+test("Telnyx readiness endpoint returns tenant and provider preflight status", async () => {
+  const response = await fetchJson("GET", "/v1/tenants/fh-demo/telephony/telnyx/readiness", undefined, {
+    telnyxReadiness: {
+      provider: "telnyx",
+      mode: "live",
+      readyForDryRun: true,
+      readyForLiveTraffic: true,
+      checks: [
+        {
+          name: "webhook_signature_configured",
+          ok: true,
+          severity: "info",
+          message: "Telnyx webhook signature verification is configured.",
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tenantReadiness.tenantId, "fh-demo");
+  assert.equal(response.body.tenantReadiness.ready, true);
+  assert.equal(response.body.telnyxReadiness.provider, "telnyx");
+  assert.equal(response.body.telnyxReadiness.mode, "live");
+  assert.equal(response.body.telnyxReadiness.readyForLiveTraffic, true);
+  assert.equal(response.body.telnyxReadiness.checks[0].name, "webhook_signature_configured");
 });
 
 test("tenant diagnostics activity endpoint returns authenticated recent summaries", async () => {
@@ -700,6 +728,7 @@ async function fetchJson(
     logger?: Logger;
     rateLimiter?: RateLimiter;
     webhookSignatureVerifier?: WebhookSignatureVerifier;
+    telnyxReadiness?: TelnyxReadiness;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -735,6 +764,8 @@ async function fetchJson(
     },
     options.idempotencyStore,
     options.webhookSignatureVerifier,
+    undefined,
+    options.telnyxReadiness,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

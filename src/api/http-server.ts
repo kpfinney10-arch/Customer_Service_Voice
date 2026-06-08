@@ -43,6 +43,8 @@ import {
 } from "../providers/telephony/telnyx-adapter.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import type { TelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
+import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
+import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -57,6 +59,7 @@ export type ApiServerOptions = {
   idempotencyStore?: IdempotencyStore;
   webhookSignatureVerifier?: WebhookSignatureVerifier;
   telnyxClient?: TelnyxCallControlClient;
+  telnyxReadiness?: TelnyxReadiness;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -76,6 +79,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const idempotencyStore = options.idempotencyStore ?? new InMemoryIdempotencyStore();
   const webhookSignatureVerifier = options.webhookSignatureVerifier ?? createWebhookSignatureVerifierFromEnv();
   const telnyxClient = options.telnyxClient ?? new NoopTelnyxCallControlClient();
+  const telnyxReadiness = options.telnyxReadiness ?? evaluateTelnyxReadinessFromEnv();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -102,6 +106,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         idempotencyStore,
         webhookSignatureVerifier,
         telnyxClient,
+        telnyxReadiness,
         request,
         response,
       );
@@ -173,6 +178,7 @@ export async function handleApiRequest(
   idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
   webhookSignatureVerifier: WebhookSignatureVerifier = new NoopWebhookSignatureVerifier(),
   telnyxClient: TelnyxCallControlClient = new NoopTelnyxCallControlClient(),
+  telnyxReadiness: TelnyxReadiness = evaluateTelnyxReadinessFromEnv(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -229,6 +235,25 @@ export async function handleApiRequest(
         throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
       }
       response = jsonResponse(200, { readiness: evaluateTenantReadiness(config) });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const telnyxReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/readiness$/);
+    if (request.method === "GET" && telnyxReadinessMatch?.[1]) {
+      const tenantId = decodeURIComponent(telnyxReadinessMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      if (!tenantConfigStore) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      const config = await tenantConfigStore.get(tenantId);
+      if (!config) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      response = jsonResponse(200, {
+        tenantReadiness: evaluateTenantReadiness(config),
+        telnyxReadiness,
+      });
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -607,6 +632,7 @@ async function routeRequest(
   idempotencyStore: IdempotencyStore,
   webhookSignatureVerifier: WebhookSignatureVerifier,
   telnyxClient: TelnyxCallControlClient,
+  telnyxReadiness: TelnyxReadiness,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -644,6 +670,21 @@ async function routeRequest(
       throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
     }
     sendJson(response, 200, { readiness: evaluateTenantReadiness(config) });
+    return;
+  }
+
+  const telnyxReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/readiness$/);
+  if (method === "GET" && telnyxReadinessMatch?.[1]) {
+    const tenantId = decodeURIComponent(telnyxReadinessMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const config = await tenantConfigStore.get(tenantId);
+    if (!config) {
+      throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+    }
+    sendJson(response, 200, {
+      tenantReadiness: evaluateTenantReadiness(config),
+      telnyxReadiness,
+    });
     return;
   }
 

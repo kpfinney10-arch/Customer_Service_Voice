@@ -18,6 +18,12 @@ await main();
 async function main() {
   console.log(`Telnyx webhook smoke check against ${baseUrl}`);
 
+  const readiness = await expectTenantJson("GET", `/v1/tenants/${tenantId}/telephony/telnyx/readiness`, undefined, 200);
+  assertEqual(readiness.telnyxReadiness?.readyForDryRun, true, "Telnyx dry-run readiness");
+  if (liveExpected) {
+    assertEqual(readiness.telnyxReadiness?.readyForLiveTraffic, true, "Telnyx live readiness");
+  }
+
   const initiatedPayload = {
     data: {
       id: eventId,

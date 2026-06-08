@@ -22,6 +22,7 @@ try {
     idempotencyStore: environment.idempotencyStore,
     webhookSignatureVerifier: environment.webhookSignatureVerifier,
     telnyxClient: environment.telnyxClient,
+    telnyxReadiness: environment.telnyxReadiness,
     logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");

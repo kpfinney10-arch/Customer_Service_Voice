@@ -27,6 +27,8 @@ export TENANT_API_KEY=replace-with-local-dev-key
 npm run smoke:telnyx
 ```
 
+The smoke check first calls `GET /v1/tenants/fh-demo/telephony/telnyx/readiness` and then runs the synthetic webhook flow.
+
 The smoke script posts a synthetic `call.initiated` webhook, verifies the generated `answer` plus `gather_using_speak` command plan, then posts a synthetic `call.ai_gather.ended` webhook and verifies the first-call workflow reaches human handoff.
 
 Expected result:
@@ -68,6 +70,12 @@ npm start
 ```
 
 Live command execution requires a real active Telnyx `call_control_id`. For this reason, do not run the smoke script against production traffic unless you are using a controlled Telnyx test call.
+
+Before live traffic, the Telnyx readiness endpoint should report `readyForLiveTraffic: true`. That requires:
+
+- `TELEPHONY_WEBHOOK_SECRETS` includes a `telnyx:<secret>` entry.
+- `TELNYX_EXECUTE_COMMANDS=true`.
+- `TELNYX_API_KEY` is configured.
 
 When testing against a real controlled call:
 
