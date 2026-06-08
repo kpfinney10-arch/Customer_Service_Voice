@@ -58,6 +58,16 @@ npm run smoke:telnyx
 
 The smoke check should pass. If `TELNYX_WEBHOOK_SECRET` is missing or wrong, the webhook should return `401 WEBHOOK_SIGNATURE_INVALID`.
 
+To inspect the command audit trail after the smoke check, use the smoke call control id as the session id:
+
+```bash
+curl -s \
+  -H "x-api-key: replace-with-local-dev-key" \
+  "http://127.0.0.1:3000/v1/tenants/fh-demo/first-call/sessions/telnyx-smoke-call-1/events"
+```
+
+The response should include `PROVIDER_COMMANDS_EXECUTED` events with sanitized Telnyx command names, status codes, dry-run flags, and failure names.
+
 ## 3. Controlled Live Execution
 
 Only use this after dry-run and signature verification pass.

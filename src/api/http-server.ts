@@ -42,7 +42,7 @@ import {
   translateTelnyxWebhook,
 } from "../providers/telephony/telnyx-adapter.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
-import type { TelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
+import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
@@ -1014,12 +1014,24 @@ async function handleTelnyxWebhook(
       translated.input.correlationId,
       true,
     );
+    const commandResults = await telnyxClient.execute(commands);
+    const providerCommandInput = {
+      tenantId,
+      sessionId: output.session.sessionId,
+      provider: "telnyx",
+      providerEventType: "call.initiated",
+      commandNames: commands.map((command) => command.command),
+      commandResults: summarizeTelnyxCommandResults(commandResults),
+    };
+    addIfPresent(providerCommandInput, "correlationId", translated.input.correlationId);
+    const providerCommandEvent = await service.recordProviderCommands(providerCommandInput);
     return {
       provider: "telnyx",
       eventType: "call.initiated",
       result: output,
       telnyxCommands: commands,
-      telnyxCommandResults: await telnyxClient.execute(commands),
+      telnyxCommandResults: commandResults,
+      providerCommandEventId: providerCommandEvent.event.eventId,
     };
   }
   if (translated.kind === "speech_turn") {
@@ -1030,12 +1042,24 @@ async function handleTelnyxWebhook(
       translated.input.correlationId,
       false,
     );
+    const commandResults = await telnyxClient.execute(commands);
+    const providerCommandInput = {
+      tenantId,
+      sessionId: output.session.sessionId,
+      provider: "telnyx",
+      providerEventType: "call.ai_gather.ended",
+      commandNames: commands.map((command) => command.command),
+      commandResults: summarizeTelnyxCommandResults(commandResults),
+    };
+    addIfPresent(providerCommandInput, "correlationId", translated.input.correlationId);
+    const providerCommandEvent = await service.recordProviderCommands(providerCommandInput);
     return {
       provider: "telnyx",
       eventType: "call.ai_gather.ended",
       result: output,
       telnyxCommands: commands,
-      telnyxCommandResults: await telnyxClient.execute(commands),
+      telnyxCommandResults: commandResults,
+      providerCommandEventId: providerCommandEvent.event.eventId,
     };
   }
   const output = await handleTelephonyCallEnd(service, translated.input);
@@ -1045,13 +1069,48 @@ async function handleTelnyxWebhook(
     translated.input.correlationId,
     false,
   );
+  const commandResults = await telnyxClient.execute(commands);
+  const providerCommandInput = {
+    tenantId,
+    sessionId: output.session.sessionId,
+    provider: "telnyx",
+    providerEventType: "call.hangup",
+    commandNames: commands.map((command) => command.command),
+    commandResults: summarizeTelnyxCommandResults(commandResults),
+  };
+  addIfPresent(providerCommandInput, "correlationId", translated.input.correlationId);
+  const providerCommandEvent = await service.recordProviderCommands(providerCommandInput);
   return {
     provider: "telnyx",
     eventType: "call.hangup",
     result: output,
     telnyxCommands: commands,
-    telnyxCommandResults: await telnyxClient.execute(commands),
+    telnyxCommandResults: commandResults,
+    providerCommandEventId: providerCommandEvent.event.eventId,
   };
+}
+
+function summarizeTelnyxCommandResults(results: TelnyxCommandResult[]): Array<{
+  command: string;
+  ok: boolean;
+  statusCode: number;
+  dryRun?: boolean;
+}> {
+  return results.map((result) => {
+    const summary = {
+      command: result.command,
+      ok: result.ok,
+      statusCode: result.statusCode,
+    };
+    addIfPresent(summary, "dryRun", telnyxResultDryRun(result.responseBody));
+    return summary;
+  });
+}
+
+function telnyxResultDryRun(value: unknown): boolean | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const dryRun = (value as Record<string, unknown>).dryRun;
+  return typeof dryRun === "boolean" ? dryRun : undefined;
 }
 
 function createTelnyxCommandsInput(

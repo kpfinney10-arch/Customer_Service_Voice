@@ -504,6 +504,18 @@ test("Telnyx webhook route starts first-call session and returns command plan", 
   assert.equal(response.body.telnyxCommands[0].callControlId, "telnyx-call-http-1");
   assert.equal(response.body.telnyxCommands[1].command, "gather_using_speak");
   assert.equal(response.body.telnyxCommandResults[0].responseBody.dryRun, true);
+  assert.equal(typeof response.body.providerCommandEventId, "string");
+
+  const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/telnyx-call-http-1/events");
+  const providerEvent = events.body.events.find(
+    (event: { eventType: string }) => event.eventType === "PROVIDER_COMMANDS_EXECUTED",
+  );
+  assert.equal(providerEvent.eventId, response.body.providerCommandEventId);
+  assert.equal(providerEvent.payload.provider, "telnyx");
+  assert.equal(providerEvent.payload.providerEventType, "call.initiated");
+  assert.deepEqual(providerEvent.payload.commandNames, ["answer", "gather_using_speak"]);
+  assert.equal(providerEvent.payload.allSucceeded, true);
+  assert.equal(providerEvent.payload.commandResults[0].dryRun, true);
 });
 
 test("Telnyx webhook route ignores unsupported events", async () => {

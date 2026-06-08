@@ -31,6 +31,7 @@ export type FirstCallService = {
   handleTranscript: (input: HandleFirstCallTranscriptInput) => Promise<HandleFirstCallTranscriptOutput>;
   interruptSession: (input: InterruptFirstCallSessionInput) => Promise<InterruptFirstCallSessionOutput>;
   endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
+  recordProviderCommands: (input: RecordProviderCommandsInput) => Promise<RecordProviderCommandsOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
   listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
@@ -91,6 +92,27 @@ export type EndFirstCallSessionInput = {
 export type EndFirstCallSessionOutput = {
   session: CallSession;
   events: CallEvent[];
+};
+
+export type RecordProviderCommandsInput = {
+  tenantId: string;
+  sessionId: string;
+  provider: string;
+  providerEventType: string;
+  commandNames: string[];
+  commandResults: ProviderCommandResultSummary[];
+  correlationId?: string;
+};
+
+export type ProviderCommandResultSummary = {
+  command: string;
+  ok: boolean;
+  statusCode: number;
+  dryRun?: boolean;
+};
+
+export type RecordProviderCommandsOutput = {
+  event: CallEvent;
 };
 
 export type ListFirstCallEventsInput = {
@@ -357,6 +379,36 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       await options.store.save(session);
       await options.eventStore?.append(events);
       return { session, events };
+    },
+
+    async recordProviderCommands(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const failedCommandNames = input.commandResults
+        .filter((result) => !result.ok)
+        .map((result) => result.command);
+      const event = createCallEvent({
+        eventId: idFactory(),
+        eventType: "PROVIDER_COMMANDS_EXECUTED",
+        callId: existingSession.callId,
+        sessionId: existingSession.sessionId,
+        tenantId: existingSession.tenantId,
+        correlationId: input.correlationId ?? idFactory(),
+        payload: {
+          provider: input.provider,
+          providerEventType: input.providerEventType,
+          commandCount: input.commandNames.length,
+          commandNames: input.commandNames,
+          resultCount: input.commandResults.length,
+          allSucceeded: failedCommandNames.length === 0,
+          failedCommandNames,
+          commandResults: input.commandResults,
+        },
+      });
+      await options.eventStore?.append([event]);
+      return { event };
     },
 
     async listEvents(input) {

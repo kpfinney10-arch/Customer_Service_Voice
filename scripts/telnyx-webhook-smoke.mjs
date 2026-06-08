@@ -42,6 +42,7 @@ async function main() {
   assertEqual(initiatedResponse.result?.session?.sessionId, callControlId, "session id");
   assertEqual(initiatedResponse.telnyxCommands?.[0]?.command, "answer", "first Telnyx command");
   assertEqual(initiatedResponse.telnyxCommands?.[1]?.command, "gather_using_speak", "second Telnyx command");
+  assertString(initiatedResponse.providerCommandEventId, "initiated provider command event id");
   assertCommandResults(initiatedResponse, "initiated command result");
 
   const speechPayload = {
@@ -71,6 +72,7 @@ async function main() {
   assertEqual(speechResponse.result?.session?.currentState, "ESCALATE", "speech session state");
   assertEqual(speechResponse.result?.nextExpectedInput, "human_handoff", "speech next expected input");
   assertEqual(speechResponse.telnyxCommands?.[0]?.command, "speak", "speech Telnyx command");
+  assertString(speechResponse.providerCommandEventId, "speech provider command event id");
   assertCommandResults(speechResponse, "speech command result");
 
   console.log("Telnyx webhook smoke check passed.");
@@ -128,6 +130,12 @@ function createSignature(input) {
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`${label} expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertString(actual, label) {
+  if (typeof actual !== "string" || actual.trim() === "") {
+    throw new Error(`${label} expected a non-empty string, got ${JSON.stringify(actual)}`);
   }
 }
 
