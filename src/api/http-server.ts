@@ -1095,6 +1095,7 @@ function summarizeTelnyxCommandResults(results: TelnyxCommandResult[]): Array<{
   ok: boolean;
   statusCode: number;
   dryRun?: boolean;
+  failureSummary?: string;
 }> {
   return results.map((result) => {
     const summary = {
@@ -1103,6 +1104,9 @@ function summarizeTelnyxCommandResults(results: TelnyxCommandResult[]): Array<{
       statusCode: result.statusCode,
     };
     addIfPresent(summary, "dryRun", telnyxResultDryRun(result.responseBody));
+    if (!result.ok) {
+      addIfPresent(summary, "failureSummary", telnyxFailureSummary(result.responseBody));
+    }
     return summary;
   });
 }
@@ -1111,6 +1115,36 @@ function telnyxResultDryRun(value: unknown): boolean | undefined {
   if (!value || typeof value !== "object") return undefined;
   const dryRun = (value as Record<string, unknown>).dryRun;
   return typeof dryRun === "boolean" ? dryRun : undefined;
+}
+
+function telnyxFailureSummary(value: unknown): string | undefined {
+  const message = telnyxFailureMessage(value);
+  if (!message) return undefined;
+  return message.length > 240 ? `${message.slice(0, 237)}...` : message;
+}
+
+function telnyxFailureMessage(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim() || undefined;
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const direct = optionalFailureString(record.message) ?? optionalFailureString(record.error);
+  if (direct) return direct;
+  const errors = record.errors;
+  if (Array.isArray(errors)) {
+    for (const item of errors) {
+      const message = telnyxFailureMessage(item);
+      if (message) return message;
+    }
+  }
+  const data = record.data;
+  if (data && typeof data === "object") {
+    return telnyxFailureMessage(data);
+  }
+  return undefined;
+}
+
+function optionalFailureString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function createTelnyxCommandsInput(

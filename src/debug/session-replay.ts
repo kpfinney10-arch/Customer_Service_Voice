@@ -37,6 +37,7 @@ export type ReplayProviderCommandResultSummary = {
   ok: boolean;
   statusCode: number;
   dryRun?: boolean;
+  failureSummary?: string;
 };
 
 export function createSessionReplaySnapshot(input: {
@@ -110,6 +111,10 @@ function commandResultsFromPayload(value: unknown): ReplayProviderCommandResultS
       };
       const dryRun = item.dryRun;
       if (typeof dryRun === "boolean") result.dryRun = dryRun;
+      const failureSummary = item.failureSummary;
+      if (typeof failureSummary === "string" && failureSummary.trim()) {
+        result.failureSummary = failureSummary;
+      }
       return result;
     });
 }

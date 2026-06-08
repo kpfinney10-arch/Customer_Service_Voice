@@ -16,6 +16,7 @@ import {
 import type { WebhookSignatureVerifier } from "../src/security/webhook-signature.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
+import type { TelnyxCallControlClient } from "../src/providers/telephony/telnyx-client.js";
 import type { TelnyxReadiness } from "../src/providers/telephony/telnyx-readiness.js";
 
 test("health endpoint reports ready", async () => {
@@ -526,6 +527,60 @@ test("Telnyx webhook route starts first-call session and returns command plan", 
   assert.equal(replay.body.snapshot.providerCommandBatches[0].commandResults[0].dryRun, true);
 });
 
+test("Telnyx webhook route records sanitized command failure summaries", async () => {
+  const response = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/telnyx/webhook",
+    {
+      data: {
+        id: "telnyx-event-failure-1",
+        event_type: "call.initiated",
+        payload: {
+          call_control_id: "telnyx-call-http-failure-1",
+          from: "+15551230000",
+          to: "+15559870000",
+        },
+      },
+    },
+    {
+      telnyxClient: {
+        execute: async (commands) =>
+          commands.map((command) => ({
+            command: command.command,
+            callControlId: command.callControlId,
+            ok: false,
+            statusCode: 422,
+            responseBody: {
+              errors: [
+                {
+                  message: "Call control id is no longer active.",
+                },
+              ],
+            },
+          })),
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.telnyxCommandResults[0].ok, false);
+
+  const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/telnyx-call-http-failure-1/events");
+  const providerEvent = events.body.events.find(
+    (event: { eventType: string }) => event.eventType === "PROVIDER_COMMANDS_EXECUTED",
+  );
+  assert.equal(providerEvent.payload.allSucceeded, false);
+  assert.deepEqual(providerEvent.payload.failedCommandNames, ["answer", "gather_using_speak"]);
+  assert.equal(providerEvent.payload.commandResults[0].failureSummary, "Call control id is no longer active.");
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/telnyx-call-http-failure-1/replay");
+  assert.equal(replay.body.snapshot.providerCommandBatches[0].allSucceeded, false);
+  assert.equal(
+    replay.body.snapshot.providerCommandBatches[0].commandResults[0].failureSummary,
+    "Call control id is no longer active.",
+  );
+});
+
 test("Telnyx webhook route ignores unsupported events", async () => {
   const response = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
     data: {
@@ -748,6 +803,7 @@ async function fetchJson(
     logger?: Logger;
     rateLimiter?: RateLimiter;
     webhookSignatureVerifier?: WebhookSignatureVerifier;
+    telnyxClient?: TelnyxCallControlClient;
     telnyxReadiness?: TelnyxReadiness;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
@@ -784,7 +840,7 @@ async function fetchJson(
     },
     options.idempotencyStore,
     options.webhookSignatureVerifier,
-    undefined,
+    options.telnyxClient,
     options.telnyxReadiness,
   );
   const responseHeaders: Record<string, string> = {};

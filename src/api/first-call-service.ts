@@ -109,6 +109,7 @@ export type ProviderCommandResultSummary = {
   ok: boolean;
   statusCode: number;
   dryRun?: boolean;
+  failureSummary?: string;
 };
 
 export type RecordProviderCommandsOutput = {

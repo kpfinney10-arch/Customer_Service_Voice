@@ -40,6 +40,7 @@
 - Telnyx provider command audit events for dry-run and controlled live diagnostics.
 - Replay snapshot provider command summaries for live-test troubleshooting.
 - Telnyx smoke script replay verification for handoff and provider command summaries.
+- Sanitized Telnyx command failure summaries for live-test troubleshooting.
 - Session replay snapshot endpoint for debugging and future replay tooling.
 - Scenario tests.
 
