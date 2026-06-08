@@ -14,6 +14,8 @@ import type { IdempotencyStore } from "../security/idempotency.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
 import { createWebhookSignatureVerifierFromEnv } from "../security/webhook-signature.js";
 import type { WebhookSignatureVerifier } from "../security/webhook-signature.js";
+import { createTelnyxCallControlClientFromEnv } from "../providers/telephony/telnyx-client.js";
+import type { TelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 
@@ -31,6 +33,7 @@ export type ServerEnvironment = {
   eventStore: EventStore;
   idempotencyStore: IdempotencyStore;
   webhookSignatureVerifier: WebhookSignatureVerifier;
+  telnyxClient: TelnyxCallControlClient;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -65,6 +68,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     eventStore: persistence.eventStore,
     idempotencyStore: persistence.idempotencyStore,
     webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
+    telnyxClient: createTelnyxCallControlClientFromEnv(env),
   };
 }
 

@@ -41,6 +41,8 @@ import {
   createTelnyxCommands,
   translateTelnyxWebhook,
 } from "../providers/telephony/telnyx-adapter.js";
+import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
+import type { TelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -54,6 +56,7 @@ export type ApiServerOptions = {
   buildInfo?: BuildInfo;
   idempotencyStore?: IdempotencyStore;
   webhookSignatureVerifier?: WebhookSignatureVerifier;
+  telnyxClient?: TelnyxCallControlClient;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -72,6 +75,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const buildInfo = options.buildInfo ?? createBuildInfoFromEnv();
   const idempotencyStore = options.idempotencyStore ?? new InMemoryIdempotencyStore();
   const webhookSignatureVerifier = options.webhookSignatureVerifier ?? createWebhookSignatureVerifierFromEnv();
+  const telnyxClient = options.telnyxClient ?? new NoopTelnyxCallControlClient();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -97,6 +101,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         buildInfo,
         idempotencyStore,
         webhookSignatureVerifier,
+        telnyxClient,
         request,
         response,
       );
@@ -167,6 +172,7 @@ export async function handleApiRequest(
   buildInfo: BuildInfo = createBuildInfoFromEnv(),
   idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
   webhookSignatureVerifier: WebhookSignatureVerifier = new NoopWebhookSignatureVerifier(),
+  telnyxClient: TelnyxCallControlClient = new NoopTelnyxCallControlClient(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -284,7 +290,7 @@ export async function handleApiRequest(
         body,
         execute: async () => ({
           statusCode: 200,
-          body: await handleTelnyxWebhook(service, tenantId, body),
+          body: await handleTelnyxWebhook(service, telnyxClient, tenantId, body),
         }),
       });
       response = idempotentJsonResponse(output);
@@ -600,6 +606,7 @@ async function routeRequest(
   buildInfo: BuildInfo,
   idempotencyStore: IdempotencyStore,
   webhookSignatureVerifier: WebhookSignatureVerifier,
+  telnyxClient: TelnyxCallControlClient,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -695,7 +702,7 @@ async function routeRequest(
       body,
       execute: async () => ({
         statusCode: 200,
-        body: await handleTelnyxWebhook(service, tenantId, body),
+        body: await handleTelnyxWebhook(service, telnyxClient, tenantId, body),
       }),
     });
     sendIdempotentJson(response, output);
@@ -943,6 +950,7 @@ async function routeRequest(
 
 async function handleTelnyxWebhook(
   service: FirstCallService,
+  telnyxClient: TelnyxCallControlClient,
   tenantId: string,
   body: Record<string, unknown>,
 ): Promise<object> {
@@ -959,27 +967,33 @@ async function handleTelnyxWebhook(
   }
   if (translated.kind === "inbound_call") {
     const output = await handleInboundTelephonyCall(service, translated.input);
+    const commands = createTelnyxCommandsInput(
+      translated.input.providerCallId,
+      output.voiceResponse,
+      translated.input.correlationId,
+      true,
+    );
     return {
       provider: "telnyx",
       eventType: "call.initiated",
       result: output,
-      telnyxCommands: createTelnyxCommandsInput(
-        translated.input.providerCallId,
-        output.voiceResponse,
-        translated.input.correlationId,
-      ),
+      telnyxCommands: commands,
+      telnyxCommandResults: await telnyxClient.execute(commands),
     };
   }
   const output = await handleTelephonyCallEnd(service, translated.input);
+  const commands = createTelnyxCommandsInput(
+    translated.input.providerCallId,
+    output.voiceResponse,
+    translated.input.correlationId,
+    false,
+  );
   return {
     provider: "telnyx",
     eventType: "call.hangup",
     result: output,
-    telnyxCommands: createTelnyxCommandsInput(
-      translated.input.providerCallId,
-      output.voiceResponse,
-      translated.input.correlationId,
-    ),
+    telnyxCommands: commands,
+    telnyxCommandResults: await telnyxClient.execute(commands),
   };
 }
 
@@ -987,10 +1001,12 @@ function createTelnyxCommandsInput(
   callControlId: string,
   voiceResponse: Parameters<typeof createTelnyxCommands>[0]["voiceResponse"],
   commandIdPrefix: string | undefined,
+  answerFirst: boolean,
 ): ReturnType<typeof createTelnyxCommands> {
   const input = {
     callControlId,
     voiceResponse,
+    answerFirst,
   };
   addIfPresent(input, "commandIdPrefix", commandIdPrefix);
   return createTelnyxCommands(input);

@@ -15,6 +15,7 @@ export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
 export STORAGE_DRIVER=file
 export STORAGE_DATA_DIR=.voice-ai-data-human-test
 export TELEPHONY_WEBHOOK_SECRETS=
+export TELNYX_EXECUTE_COMMANDS=false
 export RATE_LIMIT_PER_WINDOW=120
 export RATE_LIMIT_WINDOW_MS=60000
 export SERVICE_VERSION=human-test-local

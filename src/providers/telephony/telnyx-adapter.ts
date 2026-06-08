@@ -28,6 +28,13 @@ export type TelnyxWebhookTranslation =
 
 export type TelnyxCommand =
   | {
+      command: "answer";
+      callControlId: string;
+      payload: {
+        command_id?: string;
+      };
+    }
+  | {
       command: "speak";
       callControlId: string;
       payload: {
@@ -115,9 +122,23 @@ export function createTelnyxCommands(input: {
   callControlId: string;
   voiceResponse: VoiceResponse;
   commandIdPrefix?: string;
+  answerFirst?: boolean;
 }): TelnyxCommand[] {
   const commands: TelnyxCommand[] = [];
   let lastSay: string | undefined;
+
+  if (input.answerFirst) {
+    commands.push({
+      command: "answer",
+      callControlId: input.callControlId,
+      payload: addOptionalFields(
+        {},
+        {
+          command_id: commandId(input.commandIdPrefix, commands.length + 1),
+        },
+      ),
+    });
+  }
 
   for (const action of input.voiceResponse.actions) {
     if (action.type === "say") {

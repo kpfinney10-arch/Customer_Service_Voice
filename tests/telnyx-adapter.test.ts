@@ -103,15 +103,23 @@ test("Telnyx command adapter maps listen voice responses to gather_using_speak",
     callControlId: "telnyx-call-1",
     voiceResponse: createListenVoiceResponse("I am sorry. I will help get this to the right person."),
     commandIdPrefix: "cmd-1",
+    answerFirst: true,
   });
 
   assert.deepEqual(commands, [
+    {
+      command: "answer",
+      callControlId: "telnyx-call-1",
+      payload: {
+        command_id: "cmd-1-1",
+      },
+    },
     {
       command: "gather_using_speak",
       callControlId: "telnyx-call-1",
       payload: {
         payload: "I am sorry. I will help get this to the right person.",
-        command_id: "cmd-1-1",
+        command_id: "cmd-1-2",
       },
     },
   ]);

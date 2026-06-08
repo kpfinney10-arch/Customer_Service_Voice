@@ -32,6 +32,7 @@ test("server environment loads validated startup dependencies", async () => {
     STORAGE_DRIVER: "file",
     STORAGE_DATA_DIR: "/tmp/voice-ai-platform-test",
     TELEPHONY_WEBHOOK_SECRETS: "generic:secret-1",
+    TELNYX_EXECUTE_COMMANDS: "false",
   });
 
   assert.equal(environment.port, 4000);
@@ -41,6 +42,7 @@ test("server environment loads validated startup dependencies", async () => {
   assert.equal(environment.storage.dataDir, "/tmp/voice-ai-platform-test");
   assert.equal(typeof environment.idempotencyStore.get, "function");
   assert.equal(typeof environment.webhookSignatureVerifier.verify, "function");
+  assert.equal(typeof environment.telnyxClient.execute, "function");
   assert.equal(await environment.apiKeyVerifier.verify("fh-demo", "demo-api-key"), true);
   assert.equal((await environment.tenantConfigStore.get("fh-demo"))?.displayName, "Demo Funeral Home");
   assert.equal(environment.rateLimiter.check({ key: "fh-demo", method: "GET", path: "/config" }).allowed, true);
