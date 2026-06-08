@@ -1,0 +1,83 @@
+# Telnyx Webhook Testing Runbook
+
+Use this runbook to validate the Telnyx webhook adapter before connecting real caller traffic.
+
+## 1. Dry-Run Webhook Test
+
+Start the server with Telnyx command execution disabled:
+
+```bash
+export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
+export STORAGE_DRIVER=file
+export STORAGE_DATA_DIR=.voice-ai-data-telnyx-test
+export TELEPHONY_WEBHOOK_SECRETS=
+export TELNYX_EXECUTE_COMMANDS=false
+export RATE_LIMIT_PER_WINDOW=120
+export RATE_LIMIT_WINDOW_MS=60000
+npm run build
+npm start
+```
+
+In a second terminal:
+
+```bash
+export TENANT_API_KEY=replace-with-local-dev-key
+npm run smoke:telnyx
+```
+
+Expected result:
+
+```text
+Telnyx webhook smoke check passed.
+Mode: dry-run expected
+```
+
+## 2. Dry-Run With Signature Verification
+
+Restart the server with a local Telnyx webhook secret:
+
+```bash
+export TELEPHONY_WEBHOOK_SECRETS=telnyx:local-webhook-secret
+export TELNYX_EXECUTE_COMMANDS=false
+npm start
+```
+
+Run the smoke check with the matching secret:
+
+```bash
+export TENANT_API_KEY=replace-with-local-dev-key
+export TELNYX_WEBHOOK_SECRET=local-webhook-secret
+npm run smoke:telnyx
+```
+
+The smoke check should pass. If `TELNYX_WEBHOOK_SECRET` is missing or wrong, the webhook should return `401 WEBHOOK_SIGNATURE_INVALID`.
+
+## 3. Controlled Live Execution
+
+Only use this after dry-run and signature verification pass.
+
+```bash
+export TELEPHONY_WEBHOOK_SECRETS=telnyx:<real-webhook-secret>
+export TELNYX_EXECUTE_COMMANDS=true
+export TELNYX_API_KEY=<real-telnyx-api-key>
+npm start
+```
+
+Live command execution requires a real active Telnyx `call_control_id`. For this reason, do not run the smoke script against production traffic unless you are using a controlled Telnyx test call.
+
+When testing against a real controlled call:
+
+```bash
+export TENANT_API_KEY=replace-with-local-dev-key
+export TELNYX_WEBHOOK_SECRET=<real-webhook-secret>
+export TELNYX_SMOKE_CALL_CONTROL_ID=<active-call-control-id>
+export TELNYX_EXPECT_LIVE_EXECUTION=true
+npm run smoke:telnyx
+```
+
+## Safety Notes
+
+- Keep `TELNYX_EXECUTE_COMMANDS=false` until you are intentionally testing a controlled live call.
+- Never commit real Telnyx API keys or webhook secrets.
+- The Telnyx smoke script uses synthetic caller numbers unless you override them.
+- The adapter returns generated command plans and command results so you can inspect behavior before production use.

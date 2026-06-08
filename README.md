@@ -95,6 +95,12 @@ For a repeatable local human-testing check with file persistence, see `docs/runb
 npm run smoke:human-test
 ```
 
+For Telnyx webhook adapter testing, see `docs/runbooks/telnyx-webhook-testing.md` and run:
+
+```bash
+npm run smoke:telnyx
+```
+
 Endpoints:
 
 - `GET /health`
