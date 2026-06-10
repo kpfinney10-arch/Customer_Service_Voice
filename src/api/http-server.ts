@@ -297,7 +297,6 @@ export async function handleApiRequest(
     const telnyxWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/webhook$/);
     if (request.method === "POST" && telnyxWebhookMatch?.[1]) {
       const tenantId = decodeURIComponent(telnyxWebhookMatch[1]);
-      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
       const { body, rawBody } = await readWebJsonPayload(request);
       await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
         provider: "telnyx",
@@ -725,7 +724,6 @@ async function routeRequest(
   const telnyxWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/telnyx\/webhook$/);
   if (method === "POST" && telnyxWebhookMatch?.[1]) {
     const tenantId = decodeURIComponent(telnyxWebhookMatch[1]);
-    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
     const { body, rawBody } = await readJsonPayload(request);
     await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
       provider: "telnyx",

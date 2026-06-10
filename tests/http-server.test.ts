@@ -483,18 +483,25 @@ test("telephony routes accept valid webhook signatures", async () => {
   assert.equal(response.body.providerCallId, "provider-signed-valid-1");
 });
 
-test("Telnyx webhook route starts first-call session and returns command plan", async () => {
-  const response = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/telnyx/webhook", {
-    data: {
-      id: "telnyx-event-1",
-      event_type: "call.initiated",
-      payload: {
-        call_control_id: "telnyx-call-http-1",
-        from: "+15551230000",
-        to: "+15559870000",
+test("Telnyx webhook route starts first-call session without tenant API key and returns command plan", async () => {
+  const response = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/telnyx/webhook",
+    {
+      data: {
+        id: "telnyx-event-1",
+        event_type: "call.initiated",
+        payload: {
+          call_control_id: "telnyx-call-http-1",
+          from: "+15551230000",
+          to: "+15559870000",
+        },
       },
     },
-  });
+    {
+      apiKey: null,
+    },
+  );
 
   assert.equal(response.status, 200);
   assert.equal(response.body.provider, "telnyx");
