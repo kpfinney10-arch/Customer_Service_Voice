@@ -4,6 +4,7 @@ export type WebhookSignatureInput = {
   provider: string;
   method: string;
   path: string;
+  url?: string;
   rawBody: string;
   headers: Headers;
 };
@@ -29,6 +30,11 @@ export class HmacWebhookSignatureVerifier implements WebhookSignatureVerifier {
   verify(input: WebhookSignatureInput): void {
     const secret = this.secretsByProvider[input.provider];
     if (!secret) return;
+
+    if (input.provider === "twilio") {
+      verifyTwilioSignature(input, secret);
+      return;
+    }
 
     const provided = input.headers.get("x-webhook-signature")?.trim();
     if (!provided) {
@@ -58,6 +64,15 @@ export function createWebhookSignature(input: {
     .update(`${input.method.toUpperCase()} ${input.path}\n${input.rawBody}`)
     .digest("hex");
   return `sha256=${digest}`;
+}
+
+export function createTwilioWebhookSignature(input: {
+  authToken: string;
+  url: string;
+  rawBody: string;
+}): string {
+  const signedPayload = `${input.url}${twilioSortedFormPayload(input.rawBody)}`;
+  return crypto.createHmac("sha1", input.authToken).update(signedPayload).digest("base64");
 }
 
 export function createWebhookSignatureVerifierFromEnv(
@@ -94,4 +109,30 @@ function constantTimeEqual(left: string, right: string): boolean {
   const rightBuffer = Buffer.from(right);
   if (leftBuffer.length !== rightBuffer.length) return false;
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function verifyTwilioSignature(input: WebhookSignatureInput, authToken: string): void {
+  const provided = input.headers.get("x-twilio-signature")?.trim();
+  if (!provided) {
+    throw new WebhookSignatureError("Twilio webhook signature is required.");
+  }
+  if (!input.url) {
+    throw new WebhookSignatureError("Twilio webhook signature verification requires the public request URL.");
+  }
+  const expected = createTwilioWebhookSignature({
+    authToken,
+    url: input.url,
+    rawBody: input.rawBody,
+  });
+  if (!constantTimeEqual(provided, expected)) {
+    throw new WebhookSignatureError("Twilio webhook signature is invalid.");
+  }
+}
+
+function twilioSortedFormPayload(rawBody: string): string {
+  const params = new URLSearchParams(rawBody);
+  return Array.from(params.keys())
+    .sort()
+    .map((key) => `${key}${params.getAll(key).join("")}`)
+    .join("");
 }

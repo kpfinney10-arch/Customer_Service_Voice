@@ -41,6 +41,11 @@ import {
   createTelnyxCommands,
   translateTelnyxWebhook,
 } from "../providers/telephony/telnyx-adapter.js";
+import {
+  createTwilioTwiMl,
+  translateTwilioWebhook,
+  TwilioWebhookError,
+} from "../providers/telephony/twilio-adapter.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
@@ -133,6 +138,14 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         errorCode = "WEBHOOK_SIGNATURE_INVALID";
         sendJson(response, 401, {
           error: "WEBHOOK_SIGNATURE_INVALID",
+          message: error.message,
+        });
+        return;
+      }
+      if (error instanceof TwilioWebhookError) {
+        errorCode = "TWILIO_WEBHOOK_INVALID";
+        sendJson(response, 400, {
+          error: "TWILIO_WEBHOOK_INVALID",
           message: error.message,
         });
         return;
@@ -318,6 +331,23 @@ export async function handleApiRequest(
         }),
       });
       response = idempotentJsonResponse(output);
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const twilioWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/webhook$/);
+    if (request.method === "POST" && twilioWebhookMatch?.[1]) {
+      const tenantId = decodeURIComponent(twilioWebhookMatch[1]);
+      const { body, rawBody } = await readWebFormPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider: "twilio",
+        method: request.method,
+        path: url.pathname,
+        url: request.url,
+        rawBody,
+        headers: request.headers,
+      });
+      response = twimlResponse(await handleTwilioWebhook(service, tenantId, body, url.pathname));
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -601,6 +631,15 @@ export async function handleApiRequest(
       response.headers.set("x-request-id", requestId);
       return response;
     }
+    if (error instanceof TwilioWebhookError) {
+      errorCode = "TWILIO_WEBHOOK_INVALID";
+      response = jsonResponse(400, {
+        error: "TWILIO_WEBHOOK_INVALID",
+        message: error.message,
+      });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
     errorCode = "INTERNAL_SERVER_ERROR";
     response = jsonResponse(500, {
       error: "INTERNAL_SERVER_ERROR",
@@ -745,6 +784,22 @@ async function routeRequest(
       }),
     });
     sendIdempotentJson(response, output);
+    return;
+  }
+
+  const twilioWebhookMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/webhook$/);
+  if (method === "POST" && twilioWebhookMatch?.[1]) {
+    const tenantId = decodeURIComponent(twilioWebhookMatch[1]);
+    const { body, rawBody } = await readFormPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider: "twilio",
+      method,
+      path: url.pathname,
+      url: publicRequestUrlFromIncomingMessage(request),
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
+    sendTwiml(response, 200, await handleTwilioWebhook(service, tenantId, body, url.pathname));
     return;
   }
 
@@ -1088,6 +1143,41 @@ async function handleTelnyxWebhook(
   };
 }
 
+async function handleTwilioWebhook(
+  service: FirstCallService,
+  tenantId: string,
+  body: Record<string, string>,
+  path: string,
+): Promise<string> {
+  const translated = translateTwilioWebhook({
+    tenantId,
+    fields: body,
+  });
+  const actionUrl = path;
+
+  if (translated.kind === "inbound_call") {
+    const output = await handleInboundTelephonyCall(service, translated.input);
+    return createTwilioTwiMl({
+      voiceResponse: output.voiceResponse,
+      options: { actionUrl },
+    });
+  }
+
+  if (translated.kind === "speech_turn") {
+    const output = await handleTelephonySpeechTurn(service, translated.input);
+    return createTwilioTwiMl({
+      voiceResponse: output.voiceResponse,
+      options: { actionUrl },
+    });
+  }
+
+  const output = await handleTelephonyCallEnd(service, translated.input);
+  return createTwilioTwiMl({
+    voiceResponse: output.voiceResponse,
+    options: { actionUrl },
+  });
+}
+
 function summarizeTelnyxCommandResults(results: TelnyxCommandResult[]): Array<{
   command: string;
   ok: boolean;
@@ -1176,6 +1266,18 @@ async function readJsonPayload(request: http.IncomingMessage): Promise<{ body: R
   };
 }
 
+async function readFormPayload(request: http.IncomingMessage): Promise<{ body: Record<string, string>; rawBody: string }> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return {
+    body: parseFormObject(raw),
+    rawBody: raw,
+  };
+}
+
 async function readWebJsonObject(request: Request): Promise<Record<string, unknown>> {
   return (await readWebJsonPayload(request)).body;
 }
@@ -1184,6 +1286,14 @@ async function readWebJsonPayload(request: Request): Promise<{ body: Record<stri
   const raw = (await request.text()).trim();
   return {
     body: parseJsonObject(raw),
+    rawBody: raw,
+  };
+}
+
+async function readWebFormPayload(request: Request): Promise<{ body: Record<string, string>; rawBody: string }> {
+  const raw = await request.text();
+  return {
+    body: parseFormObject(raw),
     rawBody: raw,
   };
 }
@@ -1202,12 +1312,22 @@ function parseJsonObject(raw: string): Record<string, unknown> {
   }
 }
 
+function parseFormObject(raw: string): Record<string, string> {
+  const params = new URLSearchParams(raw);
+  const fields: Record<string, string> = {};
+  for (const [key, value] of params.entries()) {
+    fields[key] = value;
+  }
+  return fields;
+}
+
 async function verifyTelephonyWebhookSignature(
   verifier: WebhookSignatureVerifier,
   input: {
     provider: string;
     method: string;
     path: string;
+    url?: string;
     rawBody: string;
     headers: Headers;
   },
@@ -1305,6 +1425,15 @@ function headersFromIncomingMessage(request: http.IncomingMessage): Headers {
   return headers;
 }
 
+function publicRequestUrlFromIncomingMessage(request: http.IncomingMessage): string {
+  const headers = headersFromIncomingMessage(request);
+  const forwardedProto = headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || "http";
+  const forwardedHost = headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || headers.get("host") || "localhost";
+  return `${proto}://${host}${request.url ?? "/"}`;
+}
+
 function headerValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
@@ -1333,6 +1462,14 @@ function sendJson(
   response.end(JSON.stringify(body));
 }
 
+function sendTwiml(response: http.ServerResponse, statusCode: number, body: string): void {
+  response.writeHead(statusCode, {
+    "content-type": "text/xml; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  response.end(body);
+}
+
 function idempotentJsonResponse(output: {
   statusCode: number;
   body: object;
@@ -1350,6 +1487,16 @@ function jsonResponse(statusCode: number, body: object, headers: Record<string, 
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
       ...headers,
+    },
+  });
+}
+
+function twimlResponse(body: string): Response {
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": "text/xml; charset=utf-8",
+      "cache-control": "no-store",
     },
   });
 }

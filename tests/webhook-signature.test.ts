@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createTwilioWebhookSignature,
   createWebhookSignature,
   createWebhookSignatureVerifierFromEnv,
   HmacWebhookSignatureVerifier,
@@ -28,6 +29,66 @@ test("webhook signature verifier accepts valid HMAC signatures", () => {
       }),
     }),
   });
+});
+
+test("webhook signature verifier accepts valid Twilio signatures", () => {
+  const verifier = new HmacWebhookSignatureVerifier({
+    twilio: "twilio-auth-token",
+  });
+  const rawBody = new URLSearchParams({
+    CallSid: "CA123",
+    From: "+15551230000",
+    To: "+15559870000",
+  }).toString();
+  const url = "https://example.com/v1/tenants/fh-demo/telephony/twilio/webhook";
+
+  verifier.verify({
+    provider: "twilio",
+    method: "POST",
+    path: "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    url,
+    rawBody,
+    headers: new Headers({
+      "x-twilio-signature": createTwilioWebhookSignature({
+        authToken: "twilio-auth-token",
+        url,
+        rawBody,
+      }),
+    }),
+  });
+});
+
+test("webhook signature verifier rejects missing or invalid Twilio signatures", () => {
+  const verifier = new HmacWebhookSignatureVerifier({
+    twilio: "twilio-auth-token",
+  });
+
+  assert.throws(
+    () =>
+      verifier.verify({
+        provider: "twilio",
+        method: "POST",
+        path: "/v1/tenants/fh-demo/telephony/twilio/webhook",
+        url: "https://example.com/v1/tenants/fh-demo/telephony/twilio/webhook",
+        rawBody: "CallSid=CA123",
+        headers: new Headers(),
+      }),
+    WebhookSignatureError,
+  );
+  assert.throws(
+    () =>
+      verifier.verify({
+        provider: "twilio",
+        method: "POST",
+        path: "/v1/tenants/fh-demo/telephony/twilio/webhook",
+        url: "https://example.com/v1/tenants/fh-demo/telephony/twilio/webhook",
+        rawBody: "CallSid=CA123",
+        headers: new Headers({
+          "x-twilio-signature": "bad",
+        }),
+      }),
+    WebhookSignatureError,
+  );
 });
 
 test("webhook signature verifier rejects missing or invalid signatures", () => {

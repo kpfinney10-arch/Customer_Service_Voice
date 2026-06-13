@@ -224,10 +224,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
 
       const redacted = redactText(input.transcript);
       const extraction = await extractor.extract(input.transcript);
-      const facts: Partial<FirstCallFacts> = {
-        ...existingSession.facts,
-        ...extraction.facts,
-      };
+      const contextualFacts = inferContextualFacts(existingSession, input.transcript);
+      const facts = mergeFirstCallFacts(existingSession.facts as Partial<FirstCallFacts>, extraction.facts, contextualFacts);
       const sessionFacts: StructuredFacts = {
         ...facts,
         reasonForCall: "first_call_death_report",
@@ -293,6 +291,11 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         decision,
         registry,
       };
+      addIfPresent(
+        toolInput,
+        "completedToolNames",
+        completedToolNamesFromEvents((await options.eventStore?.listBySession(session.tenantId, session.sessionId)) ?? []),
+      );
       addIfPresent(toolInput, "enabledToolNames", enabledToolNamesForTenant(tenantConfig));
       const toolOutput = await executeFirstCallTools(toolInput);
       await options.store.save(session);
@@ -533,6 +536,15 @@ function enabledToolNamesForTenant(config: TenantConfig | undefined): Set<string
   return toolNames;
 }
 
+function completedToolNamesFromEvents(events: CallEvent[]): Set<string> {
+  return new Set(
+    events
+      .filter((event) => event.eventType === "TOOL_EXECUTED")
+      .map((event) => event.payload.toolName)
+      .filter((toolName): toolName is string => typeof toolName === "string" && toolName.trim().length > 0),
+  );
+}
+
 function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
   if (config && !config.features.voiceIntake) {
     throw new FirstCallServiceError(
@@ -541,6 +553,71 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
     );
   }
 }
+
+function inferContextualFacts(session: CallSession, transcript: string): Partial<FirstCallFacts> {
+  const facts: Partial<FirstCallFacts> = {};
+  if (!session.facts.decedent_name) {
+    const decedentName = nameOnlyAnswer(transcript);
+    if (decedentName) facts.decedent_name = decedentName;
+  }
+  if (!session.facts.pickup_address && !session.facts.facility_name) {
+    const pickupAddress = addressOnlyAnswer(transcript);
+    if (pickupAddress) {
+      facts.pickup_address = pickupAddress;
+      facts.place_of_death_type = "residence";
+    }
+  }
+  return facts;
+}
+
+function mergeFirstCallFacts(
+  existing: Partial<FirstCallFacts>,
+  extracted: Partial<FirstCallFacts>,
+  contextual: Partial<FirstCallFacts>,
+): Partial<FirstCallFacts> {
+  const merged: Partial<FirstCallFacts> = {
+    ...existing,
+    ...extracted,
+    ...contextual,
+  };
+  if (existing.death_reported === true && extracted.death_reported === false && contextual.death_reported !== false) {
+    merged.death_reported = true;
+  }
+  return merged;
+}
+
+function nameOnlyAnswer(transcript: string): string | undefined {
+  const trimmed = transcript.trim().replace(/[.?!]+$/, "");
+  if (!/^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}$/.test(trimmed)) return undefined;
+  if (COMMON_NON_NAME_ANSWERS.has(trimmed.toLowerCase())) return undefined;
+  return trimmed;
+}
+
+function addressOnlyAnswer(transcript: string): string | undefined {
+  const normalized = transcript
+    .trim()
+    .replace(/[.?!]+$/, "")
+    .replaceAll(",", "")
+    .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
+    .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
+  const address = normalized.match(
+    /^(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Z][A-Za-z\s]+)*)/,
+  )?.[1];
+  return address?.trim();
+}
+
+const COMMON_NON_NAME_ANSWERS = new Set([
+  "yes",
+  "no",
+  "sure",
+  "okay",
+  "ok",
+  "hello",
+  "hi",
+  "home",
+  "hospital",
+  "hospice",
+]);
 
 function addIfPresent<T extends object, K extends string, V>(
   target: T,

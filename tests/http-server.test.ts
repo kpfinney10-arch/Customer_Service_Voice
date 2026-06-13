@@ -10,6 +10,7 @@ import { InMemoryRateLimiter } from "../src/security/rate-limit.js";
 import type { RateLimiter } from "../src/security/rate-limit.js";
 import { InMemoryTenantApiKeyVerifier } from "../src/security/tenant-auth.js";
 import {
+  createTwilioWebhookSignature,
   createWebhookSignature,
   HmacWebhookSignatureVerifier,
 } from "../src/security/webhook-signature.js";
@@ -647,6 +648,135 @@ test("Telnyx webhook route advances speech gather events through first-call work
   assert.equal(response.body.telnyxCommands[0].command, "speak");
 });
 
+test("Twilio webhook route starts first-call session without tenant API key and returns TwiML", async () => {
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-1",
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers["content-type"], "text/xml; charset=utf-8");
+  assert.equal(
+    response.body,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="auto" timeout="8"><Say>I am sorry. I will help get this to the right person.</Say></Gather></Response>',
+  );
+
+  const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-1/events");
+  assert.equal(events.body.events[0].eventType, "CALL_STARTED");
+});
+
+test("Twilio webhook route accepts valid Twilio signatures when configured", async () => {
+  const path = "/v1/tenants/fh-demo/telephony/twilio/webhook";
+  const body = new URLSearchParams({
+    CallSid: "twilio-call-http-signed-1",
+    From: "+15551230000",
+    To: "+15559870000",
+    CallStatus: "ringing",
+  });
+  const rawBody = body.toString();
+  const url = `http://localhost${path}`;
+
+  const response = await fetchText("POST", path, body, {
+    apiKey: null,
+    webhookSignatureVerifier: new HmacWebhookSignatureVerifier({
+      twilio: "twilio-auth-token",
+    }),
+    extraHeaders: {
+      "content-type": "application/x-www-form-urlencoded",
+      "x-twilio-signature": createTwilioWebhookSignature({
+        authToken: "twilio-auth-token",
+        url,
+        rawBody,
+      }),
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /<Response>/);
+});
+
+test("Twilio webhook route rejects missing Twilio signatures when configured", async () => {
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-unsigned-1",
+      From: "+15551230000",
+      To: "+15559870000",
+    }),
+    {
+      apiKey: null,
+      webhookSignatureVerifier: new HmacWebhookSignatureVerifier({
+        twilio: "twilio-auth-token",
+      }),
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 401);
+  assert.match(response.body, /WEBHOOK_SIGNATURE_INVALID/);
+});
+
+test("Twilio webhook route advances speech callbacks through first-call workflow", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-speech-1",
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-speech-1",
+      SpeechResult:
+        "My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street, Springfield. My phone is 555-212-3434.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.body,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Hangup/></Response>',
+  );
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-speech-1/replay");
+  assert.equal(replay.body.snapshot.currentState, "ESCALATE");
+  assert.equal(replay.body.snapshot.latestEventType, "TOOL_EXECUTED");
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",
@@ -735,6 +865,93 @@ test("first-call API omits handoff before escalation", async () => {
   assert.equal(turn.body.decision.step, "collect_decedent");
   assert.equal(turn.body.handoff, undefined);
   assert.equal(turn.body.handoffRouting, undefined);
+});
+
+test("first-call API uses short name answers to fill the active decedent-name slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-1/transcript", {
+    transcript: "My name is Kyle. My father drawn passed away at 12 3 Main Street. My phone is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-1/transcript", {
+    transcript: "John.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "John");
+  assert.notEqual(turn.body.decision.step, "collect_decedent");
+});
+
+test("first-call API uses address-only answers to fill the active pickup-address slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-2",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-2/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-2/transcript", {
+    transcript: "123 Main Street.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.death_reported, true);
+  assert.equal(turn.body.session.facts.pickup_address, "123 Main Street");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API normalizes spaced digit address-only answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-3",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-3/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-3/transcript", {
+    transcript: "1, 2 3 Main Street.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "123 Main Street");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API does not re-run completed CRM intake on repeated follow-up turns", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-no-duplicate-tools-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-no-duplicate-tools-1/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-no-duplicate-tools-1/transcript", {
+    transcript: "123 Main Street.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-no-duplicate-tools-1/transcript", {
+    transcript: "123 Main Street.",
+  });
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/session-no-duplicate-tools-1/replay");
+  const crmExecutedEvents = replay.body.events.filter(
+    (event: { eventType: string; payload: { toolName?: string } }) =>
+      event.eventType === "TOOL_EXECUTED" && event.payload.toolName === "crm.create_intake_lead",
+  );
+  const crmSkippedEvents = replay.body.events.filter(
+    (event: { eventType: string; payload: { toolName?: string; reason?: string } }) =>
+      event.eventType === "TOOL_SKIPPED" &&
+      event.payload.toolName === "crm.create_intake_lead" &&
+      event.payload.reason === "already_completed",
+  );
+
+  assert.equal(crmExecutedEvents.length, 1);
+  assert.equal(crmSkippedEvents.length >= 1, true);
 });
 
 test("first-call API skips disabled tenant handoff tools", async () => {
@@ -857,6 +1074,65 @@ async function fetchJson(
   return {
     status: response.status,
     body: await response.json(),
+    requestId: response.headers.get("x-request-id"),
+    headers: responseHeaders,
+  };
+}
+
+async function fetchText(
+  method: string,
+  path: string,
+  body?: URLSearchParams,
+  options: {
+    apiKey?: string | null;
+    requestId?: string;
+    extraHeaders?: Record<string, string>;
+    logger?: Logger;
+    rateLimiter?: RateLimiter;
+    webhookSignatureVerifier?: WebhookSignatureVerifier;
+    telnyxClient?: TelnyxCallControlClient;
+    telnyxReadiness?: TelnyxReadiness;
+  } = {},
+): Promise<{ status: number; body: string; requestId: string | null; headers: Record<string, string> }> {
+  const init: RequestInit = { method };
+  const headers: Record<string, string> = {};
+  const apiKey = options.apiKey === undefined ? "demo-api-key" : options.apiKey;
+  if (apiKey) headers["x-api-key"] = apiKey;
+  if (options.requestId) headers["x-request-id"] = options.requestId;
+  Object.assign(headers, options.extraHeaders);
+  if (body) init.body = body;
+  if (Object.keys(headers).length > 0) init.headers = headers;
+  const service = createFirstCallService({
+    store: sharedStore,
+    eventStore: sharedEventStore,
+    tenantConfigStore: sharedTenantConfigStore,
+  });
+  const response = await handleApiRequest(
+    service,
+    new Request(`http://localhost${path}`, init),
+    apiKeyVerifier,
+    undefined,
+    sharedTenantConfigStore,
+    options.logger,
+    options.rateLimiter,
+    {
+      serviceName: "voice-ai-platform",
+      version: "test-version",
+      commit: "test-commit",
+      buildTime: "2026-06-06T12:00:00.000Z",
+    },
+    undefined,
+    options.webhookSignatureVerifier,
+    options.telnyxClient,
+    options.telnyxReadiness,
+  );
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+  return {
+    status: response.status,
+    body: await response.text(),
     requestId: response.headers.get("x-request-id"),
     headers: responseHeaders,
   };

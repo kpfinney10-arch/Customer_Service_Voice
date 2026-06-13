@@ -39,9 +39,28 @@ for (const file of readdirSync(fixtureDir).filter((name) => name.endsWith(".json
   });
 }
 
+test("first-call extractor handles Twilio speech callback phrasing for a father with first name only", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "My name is Kyle. My name is Kyle, My Father, John passed away at 1:23 Main Street. My phone is 603-731-5845.",
+  );
+
+  assert.equal(extraction.facts.caller_name, "Kyle");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "father");
+  assert.equal(extraction.facts.decedent_name, "John");
+  assert.equal(extraction.facts.pickup_address, "123 Main Street");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
+test("first-call extractor treats pronoun name answers as decedent names", () => {
+  const extraction = extractFirstCallFactsDeterministic("His name is John.");
+
+  assert.equal(extraction.facts.decedent_name, "John");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
 function assertFacts(extraction: FirstCallExtraction, expectedFacts: Record<string, unknown>) {
   for (const [key, expected] of Object.entries(expectedFacts)) {
     assert.equal(extraction.facts[key as keyof typeof extraction.facts], expected, key);
   }
 }
-

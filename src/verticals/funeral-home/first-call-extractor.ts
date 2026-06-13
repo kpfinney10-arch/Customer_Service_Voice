@@ -58,7 +58,9 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (relationship) facts.caller_relationship_to_decedent = normalizeRelationship(relationship);
 
   const decedentName = matchFirst(text, [
-    /\b(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
+    /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
+    /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
+    /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
     /\b(?:decedent|patient|resident)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/,
     /\b(?:decedent|patient|resident)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:was\s+)?(?:pronounced|released|ready)\b/,
     /\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/,
@@ -72,10 +74,11 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (facilityName) facts.facility_name = facilityName.trim();
 
   const address = matchFirst(text, [
+    /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
     /\bat\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
     /\baddress is\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
   ]);
-  if (address) facts.pickup_address = address.trim();
+  if (address) facts.pickup_address = normalizeSpokenStreetNumber(address.trim());
 
   const placeOfDeath = placeTerms.find(([, pattern]) => pattern.test(text))?.[0] ?? (address ? "residence" : undefined);
   facts.place_of_death_type = placeOfDeath ?? "unknown";
@@ -116,6 +119,12 @@ function matchFirst(input: string, patterns: RegExp[]): string | undefined {
     if (value) return value.replace(/[,.]$/, "");
   }
   return undefined;
+}
+
+function normalizeSpokenStreetNumber(value: string): string {
+  return value
+    .replace(/^(\d{1,3}):(\d{2})\b/, "$1$2")
+    .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
 }
 
 function matchRelationship(input: string): string | undefined {

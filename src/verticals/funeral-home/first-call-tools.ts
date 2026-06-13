@@ -15,6 +15,7 @@ export type FirstCallToolExecutionInput = {
   decision: FirstCallFlowDecision;
   registry: ToolRegistry;
   enabledToolNames?: Set<string>;
+  completedToolNames?: Set<string>;
 };
 
 export type FirstCallToolExecutionOutput = {
@@ -29,8 +30,12 @@ export async function executeFirstCallTools(
   const results: ToolResult<object>[] = [];
 
   for (const toolName of input.decision.toolNames) {
+    if (input.completedToolNames?.has(toolName)) {
+      events.push(createToolSkippedEvent(input, toolName, "already_completed"));
+      continue;
+    }
     if (input.enabledToolNames && !input.enabledToolNames.has(toolName)) {
-      events.push(createToolSkippedEvent(input, toolName));
+      events.push(createToolSkippedEvent(input, toolName, "tenant_feature_disabled"));
       continue;
     }
 
@@ -46,7 +51,11 @@ export async function executeFirstCallTools(
   return { events, results };
 }
 
-function createToolSkippedEvent(input: FirstCallToolExecutionInput, toolName: string): CallEvent {
+function createToolSkippedEvent(
+  input: FirstCallToolExecutionInput,
+  toolName: string,
+  reason: "already_completed" | "tenant_feature_disabled",
+): CallEvent {
   return createCallEvent({
     eventId: input.eventIdFactory(),
     eventType: "TOOL_SKIPPED",
@@ -56,7 +65,7 @@ function createToolSkippedEvent(input: FirstCallToolExecutionInput, toolName: st
     correlationId: input.correlationId,
     payload: {
       toolName,
-      reason: "tenant_feature_disabled",
+      reason,
     },
   });
 }
