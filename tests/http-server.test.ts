@@ -408,7 +408,13 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(speechTurn.body.responseText, "I am going to connect you with a funeral home team member now.");
   assert.deepEqual(speechTurn.body.voiceResponse.actions, [
     { type: "say", text: "I am going to connect you with a funeral home team member now." },
-    { type: "handoff", reason: "urgent_death_report" },
+    {
+      type: "handoff",
+      reason: "urgent_death_report",
+      destinationType: "on_call_phone",
+      destination: "+15555550100",
+      queue: "first-call-after-hours",
+    },
   ]);
   assert.equal(speechTurn.body.session.currentState, "ESCALATE");
   assert.equal(speechTurn.body.handoff.caller.name, "Michael Turner");
@@ -769,7 +775,7 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
   assert.equal(response.status, 200);
   assert.equal(
     response.body,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Hangup/></Response>',
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Dial timeout="25" answerOnBridge="true"><Number>+15555550100</Number></Dial></Response>',
   );
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-speech-1/replay");

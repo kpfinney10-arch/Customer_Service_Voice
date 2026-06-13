@@ -28,6 +28,7 @@ export type TwilioTwiMlOptions = {
   language?: string;
   speechTimeout?: "auto" | number;
   timeoutSeconds?: number;
+  dialTimeoutSeconds?: number;
 };
 
 export class TwilioWebhookError extends Error {
@@ -111,7 +112,7 @@ export function createTwilioTwiMl(input: {
         body.push(sayElement(pendingSay, input.options));
         pendingSay = undefined;
       }
-      body.push(hangupElement());
+      body.push(handoffElement(action, input.options));
       continue;
     }
     if (action.type === "hangup") {
@@ -151,6 +152,21 @@ function hangupElement(): string {
   return "<Hangup/>";
 }
 
+function handoffElement(action: Extract<VoiceResponseAction, { type: "handoff" }>, options: TwilioTwiMlOptions): string {
+  if (isPhoneHandoff(action)) {
+    return dialElement(action.destination, options);
+  }
+  return hangupElement();
+}
+
+function dialElement(phoneNumber: string, options: TwilioTwiMlOptions): string {
+  const attributes = {
+    timeout: String(options.dialTimeoutSeconds ?? 25),
+    answerOnBridge: "true",
+  };
+  return `<Dial${xmlAttributes(attributes)}><Number>${escapeXml(phoneNumber)}</Number></Dial>`;
+}
+
 function xmlResponse(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
 }
@@ -177,6 +193,17 @@ function isCompletedCallStatus(status: string | undefined): boolean {
 
 function handleStopAction(_action: Extract<VoiceResponseAction, { type: "stop" }>): void {
   // TwiML is request/response based; there is no current server-side media stream to stop here.
+}
+
+function isPhoneHandoff(action: Extract<VoiceResponseAction, { type: "handoff" }>): action is Extract<
+  VoiceResponseAction,
+  { type: "handoff" }
+> & { destination: string } {
+  return (
+    (action.destinationType === "on_call_phone" || action.destinationType === "dispatch_desk_phone") &&
+    typeof action.destination === "string" &&
+    action.destination.trim().length > 0
+  );
 }
 
 function requiredString(value: unknown, field: string): string {

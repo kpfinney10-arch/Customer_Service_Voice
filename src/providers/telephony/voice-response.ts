@@ -10,6 +10,9 @@ export type VoiceResponseAction =
   | {
       type: "handoff";
       reason: string;
+      destinationType?: "on_call_phone" | "dispatch_desk_phone" | "dispatch_queue" | "manual_review";
+      destination?: string;
+      queue?: string;
     }
   | {
       type: "hangup";
@@ -35,12 +38,29 @@ export function createListenVoiceResponse(text: string): VoiceResponse {
   };
 }
 
-export function createHandoffVoiceResponse(text: string, reason: string): VoiceResponse {
+export function createHandoffVoiceResponse(
+  text: string,
+  reason: string,
+  routing?: {
+    destinationType: "on_call_phone" | "dispatch_desk_phone" | "dispatch_queue" | "manual_review";
+    destination: string;
+    queue: string;
+  },
+): VoiceResponse {
+  const handoffAction: VoiceResponseAction = {
+    type: "handoff",
+    reason,
+  };
+  if (routing) {
+    handoffAction.destinationType = routing.destinationType;
+    handoffAction.destination = routing.destination;
+    handoffAction.queue = routing.queue;
+  }
   return {
     contentType: "application/json",
     actions: [
       { type: "say", text },
-      { type: "handoff", reason },
+      handoffAction,
     ],
   };
 }

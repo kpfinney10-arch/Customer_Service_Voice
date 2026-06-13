@@ -164,7 +164,7 @@ export async function handleTelephonySpeechTurn(
     decision: output.decision,
     toolResults: output.toolResults,
     voiceResponse: output.handoff
-      ? createHandoffVoiceResponse(output.responseText, output.handoff.reason)
+      ? createHandoffVoiceResponse(output.responseText, output.handoff.reason, output.handoffRouting)
       : createListenVoiceResponse(output.responseText),
   };
   if (output.handoff) response.handoff = output.handoff;

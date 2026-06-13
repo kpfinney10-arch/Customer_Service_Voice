@@ -128,3 +128,40 @@ test("Twilio TwiML escapes XML text and hangs up for handoff and hangup response
   );
   assert.equal(hangup, '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
 });
+
+test("Twilio TwiML dials phone destinations for human handoff", () => {
+  const twiml = createTwilioTwiMl({
+    voiceResponse: createHandoffVoiceResponse("I am connecting you now.", "urgent_death_report", {
+      destinationType: "on_call_phone",
+      destination: "+15555550100",
+      queue: "first-call-after-hours",
+    }),
+    options: {
+      actionUrl: "/twilio",
+      dialTimeoutSeconds: 18,
+    },
+  });
+
+  assert.equal(
+    twiml,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="18" answerOnBridge="true"><Number>+15555550100</Number></Dial></Response>',
+  );
+});
+
+test("Twilio TwiML keeps non-phone handoffs as safe hangups", () => {
+  const twiml = createTwilioTwiMl({
+    voiceResponse: createHandoffVoiceResponse("I am sending this to the dispatch queue.", "urgent_death_report", {
+      destinationType: "dispatch_queue",
+      destination: "first-call-dispatch",
+      queue: "first-call-dispatch",
+    }),
+    options: {
+      actionUrl: "/twilio",
+    },
+  });
+
+  assert.equal(
+    twiml,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am sending this to the dispatch queue.</Say><Hangup/></Response>',
+  );
+});

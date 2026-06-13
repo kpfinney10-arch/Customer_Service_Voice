@@ -74,7 +74,7 @@ curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/webho
   --data-urlencode 'Confidence=0.92'
 ```
 
-Expected response escalates the call and returns TwiML with `<Say>` and `<Hangup/>`.
+Expected response escalates the call and, when the tenant has an on-call or dispatch-desk phone configured, returns TwiML with `<Say>` followed by `<Dial><Number>...</Number></Dial>`.
 
 Inspect diagnostics:
 
@@ -86,4 +86,4 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 ## Current Limitations
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
-- Handoff currently speaks the escalation line and hangs up; live transfer/conference should be added as a follow-up.
+- Handoff currently uses direct TwiML `<Dial>` for phone destinations. Warm transfer/conference behavior should be added as a follow-up.

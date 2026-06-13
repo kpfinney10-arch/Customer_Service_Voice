@@ -23,7 +23,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `116/116` passing.
+Recent known-good test count from this session: `118/118` passing.
 
 ## Important Local Runtime Commands
 
@@ -258,6 +258,7 @@ The endpoint:
 - Starts a first-call session from `CallSid`, `From`, `To`, and `CallStatus`.
 - Advances the workflow from Twilio speech callbacks using `SpeechResult` and `Confidence`.
 - Returns TwiML XML directly instead of issuing separate provider command API calls.
+- Dials configured phone handoff destinations with TwiML `<Dial><Number>...</Number></Dial>` after escalation.
 - Does not require the tenant `x-api-key`, matching public provider webhook behavior.
 
 Twilio local testing runbook:
@@ -269,7 +270,7 @@ docs/runbooks/twilio-webhook-testing.md
 Current Twilio limitations:
 
 - This first pass uses Twilio `<Gather input="speech">`, not media streams.
-- Handoff currently speaks the escalation message and hangs up; live transfer/conference is a follow-up.
+- Twilio phone handoff uses a direct `<Dial>` transfer; warm conference handoff, whisper prompts, and operator accept/reject are follow-ups.
 - Speech recognition with Twilio `<Gather>` is still somewhat brittle for natural free-form answers.
 
 Twilio webhook signature validation:
@@ -321,7 +322,7 @@ Recent failed Call UUIDs from screenshots:
 
 1. Commit and push the current Twilio connector, live-call hardening, tests, runbook, and handoff notes.
 2. Improve speech reliability for first-call intake, either with tighter TwiML prompt/reprompt handling or an LLM-backed extraction pass for natural answers.
-3. Replace the current escalation `Say + Hangup` behavior with a real transfer/conference handoff to the configured funeral home destination.
+3. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
 6. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
