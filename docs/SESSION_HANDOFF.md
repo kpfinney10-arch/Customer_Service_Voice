@@ -27,6 +27,27 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 
 Recent known-good test count from this session: `131/131` passing.
 
+## Progress Snapshot
+
+Status as of 2026-06-16:
+
+- Overall MVP progress: roughly 70% complete for a local/dev funeral-home first-call voice intake pilot.
+- Backend platform scaffold: complete for MVP local testing.
+- First-call death report workflow: complete for current MVP scope, with deterministic extraction plus optional OpenAI fallback.
+- Tenant routing/readiness: complete for demo tenant and ready for per-funeral-home configuration expansion.
+- Twilio live inbound path: working in local tunnel testing; next major improvement is warm handoff with whisper and accept/reject.
+- Telnyx live inbound path: backend adapter and API client are built, but inbound PSTN traffic is blocked by Telnyx `D61` / SIP `486` before webhook delivery.
+- OpenAI extraction validation: live smoke passed with `13/13` expected facts matched.
+- Security/compliance basics: tenant API keys, redaction, idempotency, rate limits, webhook signature verification, and no-secret logging are in place for MVP.
+- Persistence: file-backed local persistence is working; durable database persistence is still a production-hardening item.
+- Funeral-home onboarding materials: separate local workspace contains routing spec, First Call schema, profile schema, onboarding questionnaire, fillable PDF generator, and seed/eval datasets.
+
+Current maintained project size:
+
+- Voice platform repo: 109 maintained files and 12,359 lines, excluding `.git`, `node_modules`, `dist`, and local `.voice-ai-data*`.
+- Funeral-home module materials workspace: 8 maintained source/document files and 1,255 lines, excluding generated PDF and `.git`.
+- Combined maintained source/docs/data total across both workspaces: 117 files and 13,614 lines.
+
 ## Important Local Runtime Commands
 
 Run from:
@@ -364,11 +385,11 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Commit and push the current extraction smoke script and OpenAI env documentation.
-2. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
-3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-4. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
-5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+1. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
+2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
+3. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
+4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+5. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
 ## Production Hardening Notes
 
