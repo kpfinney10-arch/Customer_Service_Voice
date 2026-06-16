@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "node --test dist/tests/*.test.js",
     "start": "node dist/src/api/main.js",
+    "smoke:extraction": "node scripts/first-call-extraction-smoke.mjs",
     "smoke:human-test": "node scripts/human-testing-smoke.mjs",
     "smoke:telnyx": "node scripts/telnyx-webhook-smoke.mjs"
   },

@@ -59,6 +59,25 @@ test("first-call extractor treats pronoun name answers as decedent names", () =>
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor handles capitalized patient release phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "This is Megan Walsh from North Ridge Hospital. Patient Samuel Price was pronounced and is ready for release.",
+  );
+
+  assert.equal(extraction.facts.decedent_name, "Samuel Price");
+  assert.equal(extraction.facts.facility_name, "North Ridge Hospital");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
+test("first-call extractor handles capitalized address is phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "My name is Amanda. My mother Patricia passed away. Address is 44 Cedar Road.",
+  );
+
+  assert.equal(extraction.facts.pickup_address, "44 Cedar Road");
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 function assertFacts(extraction: FirstCallExtraction, expectedFacts: Record<string, unknown>) {
   for (const [key, expected] of Object.entries(expectedFacts)) {
     assert.equal(extraction.facts[key as keyof typeof extraction.facts], expected, key);

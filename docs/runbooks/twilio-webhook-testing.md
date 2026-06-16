@@ -33,6 +33,19 @@ env TENANT_API_KEYS=fh-demo:replace-with-local-dev-key STORAGE_DRIVER=file STORA
 
 The OpenAI fallback only fills missing extracted facts and does not overwrite deterministic facts. Keep it disabled for baseline deterministic debugging.
 
+Before using OpenAI extraction on live Twilio calls, run the local extraction smoke check:
+
+```sh
+npm run build
+npm run smoke:extraction
+```
+
+To test OpenAI-backed extraction:
+
+```sh
+FIRST_CALL_EXTRACTOR=openai OPENAI_API_KEY=<OPENAI_API_KEY> npm run smoke:extraction
+```
+
 Start a public tunnel:
 
 ```sh

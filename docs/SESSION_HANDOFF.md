@@ -23,7 +23,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `127/127` passing.
+Recent known-good test count from this session: `129/129` passing.
 
 ## Important Local Runtime Commands
 
@@ -292,6 +292,8 @@ Recent Twilio intake improvements:
 - Twilio empty speech callbacks now return a retry prompt instead of starting a duplicate session.
 - Twilio `<Gather>` now includes first-call-specific speech hints for names, relationships, death-report phrasing, and address/location terms.
 - Optional LLM-backed first-call fact extraction is wired through `FIRST_CALL_EXTRACTOR=openai`; deterministic extraction remains the default.
+- Local extraction smoke script is available via `npm run smoke:extraction`.
+- Current deterministic extraction smoke baseline: `10/10` expected facts matched.
 
 LLM extraction modes:
 
@@ -335,7 +337,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Commit and push the current LLM-backed extraction wiring.
+1. Commit and push the current extraction smoke script and deterministic hardening.
 2. Add live OpenAI extraction smoke testing with a real API key and a small transcript set.
 3. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
