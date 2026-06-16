@@ -25,6 +25,14 @@ env TENANT_API_KEYS=fh-demo:replace-with-local-dev-key STORAGE_DRIVER=file STORA
 
 Do not commit or paste the Auth Token into chat. For unsigned local `curl` requests, keep `TELEPHONY_WEBHOOK_SECRETS=` empty.
 
+Optional OpenAI-backed first-call extraction can be enabled when testing natural answer formats:
+
+```sh
+env TENANT_API_KEYS=fh-demo:replace-with-local-dev-key STORAGE_DRIVER=file STORAGE_DATA_DIR=.voice-ai-data-twilio-test TELEPHONY_WEBHOOK_SECRETS= FIRST_CALL_EXTRACTOR=openai OPENAI_API_KEY=<OPENAI_API_KEY> RATE_LIMIT_PER_WINDOW=120 RATE_LIMIT_WINDOW_MS=60000 SERVICE_VERSION=local-twilio-openai-test SERVICE_COMMIT=local SERVICE_BUILD_TIME=local npm start
+```
+
+The OpenAI fallback only fills missing extracted facts and does not overwrite deterministic facts. Keep it disabled for baseline deterministic debugging.
+
 Start a public tunnel:
 
 ```sh
@@ -99,4 +107,4 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
 - Handoff currently uses direct TwiML `<Dial>` for phone destinations. Warm transfer/conference behavior should be added as a follow-up.
-- Speech recognition is improved with Twilio hints and empty-result reprompting, but deeper natural-language extraction is still a follow-up.
+- Speech recognition is improved with Twilio hints and empty-result reprompting. OpenAI-backed fact extraction is available behind `FIRST_CALL_EXTRACTOR=openai`, but live API smoke testing is still a follow-up.

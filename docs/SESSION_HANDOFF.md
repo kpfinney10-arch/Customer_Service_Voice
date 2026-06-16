@@ -23,7 +23,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `120/120` passing.
+Recent known-good test count from this session: `127/127` passing.
 
 ## Important Local Runtime Commands
 
@@ -291,6 +291,17 @@ Recent Twilio intake improvements:
 - Completed handoff tools are now skipped on repeated turns so CRM leads and dispatch requests are not recreated during prompt loops.
 - Twilio empty speech callbacks now return a retry prompt instead of starting a duplicate session.
 - Twilio `<Gather>` now includes first-call-specific speech hints for names, relationships, death-report phrasing, and address/location terms.
+- Optional LLM-backed first-call fact extraction is wired through `FIRST_CALL_EXTRACTOR=openai`; deterministic extraction remains the default.
+
+LLM extraction modes:
+
+- Default: `FIRST_CALL_EXTRACTOR=deterministic` or unset.
+- Fake local fallback for tests/smoke work: `FIRST_CALL_EXTRACTOR=fake_llm` with `FIRST_CALL_FAKE_LLM_OUTPUT_JSON`.
+- OpenAI structured output fallback: `FIRST_CALL_EXTRACTOR=openai` with `OPENAI_API_KEY`.
+- Optional model override: `OPENAI_MODEL`; default is `gpt-5.5`.
+- Optional timeout override: `OPENAI_TIMEOUT_MS`.
+- The fallback fills missing facts only and does not overwrite deterministic facts.
+- Provider failures are converted into warnings so live calls continue on deterministic extraction.
 
 ## Telnyx Support Ticket Sent
 
@@ -324,8 +335,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Commit and push the current Twilio speech reliability changes.
-2. Add LLM-backed extraction for natural first-call answers that deterministic regexes miss.
+1. Commit and push the current LLM-backed extraction wiring.
+2. Add live OpenAI extraction smoke testing with a real API key and a small transcript set.
 3. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.

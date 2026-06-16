@@ -20,6 +20,8 @@ import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-re
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
+import { createFirstCallExtractorFromEnv } from "./first-call-extractor-environment.js";
+import type { FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
 
 export type ServerEnvironment = {
   port: number;
@@ -37,6 +39,7 @@ export type ServerEnvironment = {
   webhookSignatureVerifier: WebhookSignatureVerifier;
   telnyxClient: TelnyxCallControlClient;
   telnyxReadiness: TelnyxReadiness;
+  firstCallExtractor: FirstCallExtractor;
 };
 
 export class ServerEnvironmentError extends Error {
@@ -73,6 +76,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
     telnyxClient: createTelnyxCallControlClientFromEnv(env),
     telnyxReadiness: evaluateTelnyxReadinessFromEnv(env),
+    firstCallExtractor: createFirstCallExtractorFromEnv(env),
   };
 }
 

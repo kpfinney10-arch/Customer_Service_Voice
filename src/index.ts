@@ -1,4 +1,5 @@
 export * from "./config/build-info.js";
+export * from "./config/first-call-extractor-environment.js";
 export * from "./config/server-environment.js";
 export * from "./domain/call-types.js";
 export * from "./debug/session-replay.js";
@@ -11,6 +12,7 @@ export * from "./orchestrator/orchestrator.js";
 export * from "./providers/speech/fake-speech-adapters.js";
 export * from "./providers/speech/speech-adapters.js";
 export * from "./providers/model/fake-structured-output-adapter.js";
+export * from "./providers/model/openai-structured-output-adapter.js";
 export * from "./providers/model/structured-output-adapter.js";
 export * from "./providers/telephony/inbound-call.js";
 export * from "./providers/telephony/telnyx-adapter.js";

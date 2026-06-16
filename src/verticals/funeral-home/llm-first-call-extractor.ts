@@ -10,18 +10,28 @@ export type LlmFallbackFirstCallExtractorOptions = {
   minBaseConfidenceForSkip?: number;
 };
 
-const firstCallFactsSchema = {
+export const firstCallFactsSchema = {
   type: "object",
   additionalProperties: false,
+  required: [
+    "caller_name",
+    "caller_phone",
+    "caller_relationship_to_decedent",
+    "decedent_name",
+    "pickup_address",
+    "facility_name",
+    "place_of_death_type",
+    "urgency",
+  ],
   properties: {
-    caller_name: { type: "string" },
-    caller_phone: { type: "string" },
-    caller_relationship_to_decedent: { type: "string" },
-    decedent_name: { type: "string" },
-    pickup_address: { type: "string" },
-    facility_name: { type: "string" },
-    place_of_death_type: { type: "string" },
-    urgency: { type: "string" },
+    caller_name: { type: ["string", "null"] },
+    caller_phone: { type: ["string", "null"] },
+    caller_relationship_to_decedent: { type: ["string", "null"] },
+    decedent_name: { type: ["string", "null"] },
+    pickup_address: { type: ["string", "null"] },
+    facility_name: { type: ["string", "null"] },
+    place_of_death_type: { type: ["string", "null"] },
+    urgency: { type: ["string", "null"] },
   },
 };
 
@@ -38,11 +48,9 @@ export function createLlmFallbackFirstCallExtractor(
         return base;
       }
 
-      const structured = await options.adapter.generateStructuredOutput<Partial<FirstCallFacts>>({
+      const structured = await generateFallbackFacts(options.adapter, {
         tenantId: options.tenantId,
-        taskName: "funeral_home.first_call_fact_extraction",
         transcript,
-        schema: firstCallFactsSchema,
       });
       const facts = mergeMissingFacts(base.facts, structured.output);
       return {
@@ -56,6 +64,30 @@ export function createLlmFallbackFirstCallExtractor(
       };
     },
   };
+}
+
+async function generateFallbackFacts(
+  adapter: StructuredOutputAdapter,
+  input: {
+    tenantId: string;
+    transcript: string;
+  },
+) {
+  try {
+    return await adapter.generateStructuredOutput<Partial<FirstCallFacts>>({
+      tenantId: input.tenantId,
+      taskName: "funeral_home.first_call_fact_extraction",
+      transcript: input.transcript,
+      schema: firstCallFactsSchema,
+    });
+  } catch (error) {
+    return {
+      output: {},
+      confidence: 0,
+      provider: "structured-output-error",
+      warnings: [`provider_error:${error instanceof Error ? error.name : "unknown"}`],
+    };
+  }
 }
 
 function mergeMissingFacts(

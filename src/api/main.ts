@@ -12,6 +12,7 @@ try {
     store: environment.sessionStore,
     eventStore: environment.eventStore,
     tenantConfigStore: environment.tenantConfigStore,
+    extractor: environment.firstCallExtractor,
   });
   const server = createApiServer({
     service,
