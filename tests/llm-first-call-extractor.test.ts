@@ -50,3 +50,50 @@ test("LLM fallback does not overwrite deterministic facts", async () => {
   assert.equal(output.facts.decedent_name, "Robert Miller");
   assert.equal(output.facts.pickup_address, "44 Birch Street, Frisco");
 });
+
+test("LLM fallback normalizes controlled fact values", async () => {
+  const transcript = "This is Megan from the hospital. The patient died and we need help.";
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      outputByTranscript: {
+        [transcript]: {
+          caller_relationship_to_decedent: "hospital staff",
+          place_of_death_type: "nursing home",
+          urgency: "URGENT",
+        },
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript);
+
+  assert.equal(output.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(output.facts.place_of_death_type, "hospital");
+  assert.equal(output.facts.urgency, "urgent");
+});
+
+test("LLM fallback discards invalid controlled fact values", async () => {
+  const transcript = "The caller gave a confusing report and I need help.";
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      outputByTranscript: {
+        [transcript]: {
+          caller_relationship_to_decedent: "billing manager",
+          place_of_death_type: "spaceship",
+          urgency: "eventually",
+        },
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript);
+
+  assert.equal(output.facts.caller_relationship_to_decedent, undefined);
+  assert.equal(output.facts.place_of_death_type, "unknown");
+  assert.equal(output.facts.urgency, "unknown");
+  assert.equal(output.warnings.includes("llm:discarded_invalid_relationship"), true);
+  assert.equal(output.warnings.includes("llm:discarded_invalid_place_of_death_type"), true);
+  assert.equal(output.warnings.includes("llm:discarded_invalid_urgency"), true);
+});

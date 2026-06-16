@@ -46,6 +46,8 @@ To test OpenAI-backed extraction:
 FIRST_CALL_EXTRACTOR=openai OPENAI_API_KEY=<OPENAI_API_KEY> npm run smoke:extraction
 ```
 
+The OpenAI-backed smoke test has passed against the current fixture set. The fallback only fills missing facts, does not overwrite deterministic facts, and normalizes controlled values such as caller relationship, place of death type, and urgency before merging them into the intake.
+
 Start a public tunnel:
 
 ```sh
@@ -120,4 +122,4 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
 - Handoff currently uses direct TwiML `<Dial>` for phone destinations. Warm transfer/conference behavior should be added as a follow-up.
-- Speech recognition is improved with Twilio hints and empty-result reprompting. OpenAI-backed fact extraction is available behind `FIRST_CALL_EXTRACTOR=openai`, but live API smoke testing is still a follow-up.
+- Speech recognition is improved with Twilio hints and empty-result reprompting. OpenAI-backed fact extraction is available behind `FIRST_CALL_EXTRACTOR=openai`; production deployment still needs stable hosting, secrets management, and webhook signature enforcement.

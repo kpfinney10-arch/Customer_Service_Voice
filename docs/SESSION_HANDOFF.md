@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-13
+Last updated: 2026-06-16
 
 ## Project
 
@@ -21,9 +21,11 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Telnyx inbound webhook adapter.
 - Telnyx Call Control client with dry-run and live execution modes.
 - Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
+- Optional OpenAI-backed first-call extraction fallback using strict structured output.
+- LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `129/129` passing.
+Recent known-good test count from this session: `131/131` passing.
 
 ## Important Local Runtime Commands
 
