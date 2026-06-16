@@ -62,7 +62,7 @@ curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/webho
   --data-urlencode 'CallStatus=ringing'
 ```
 
-Expected response is TwiML with `<Say>` and `<Gather input="speech">`.
+Expected response is TwiML with `<Say>` and `<Gather input="speech">`. The gather includes first-call speech hints and `actionOnEmptyResult="true"` so Twilio calls back even when it does not recognize speech.
 
 Speech callback:
 
@@ -76,6 +76,18 @@ curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/webho
 
 Expected response escalates the call and, when the tenant has an on-call or dispatch-desk phone configured, returns TwiML with `<Say>` followed by `<Dial><Number>...</Number></Dial>`.
 
+Empty speech callback:
+
+```sh
+curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/webhook' \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  --data-urlencode 'CallSid=twilio-local-call-1' \
+  --data-urlencode 'CallStatus=in-progress' \
+  --data-urlencode 'SpeechResult='
+```
+
+Expected response is TwiML that reprompts the caller and gathers speech again without restarting the active session.
+
 Inspect diagnostics:
 
 ```sh
@@ -87,3 +99,4 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
 - Handoff currently uses direct TwiML `<Dial>` for phone destinations. Warm transfer/conference behavior should be added as a follow-up.
+- Speech recognition is improved with Twilio hints and empty-result reprompting, but deeper natural-language extraction is still a follow-up.

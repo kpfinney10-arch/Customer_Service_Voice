@@ -19,6 +19,11 @@ export type TwilioWebhookTranslation =
   | {
       kind: "call_end";
       input: TelephonyCallEndInput;
+    }
+  | {
+      kind: "empty_speech";
+      providerCallId: string;
+      correlationId: string;
     };
 
 export type TwilioTwiMlOptions = {
@@ -29,7 +34,34 @@ export type TwilioTwiMlOptions = {
   speechTimeout?: "auto" | number;
   timeoutSeconds?: number;
   dialTimeoutSeconds?: number;
+  actionOnEmptyResult?: boolean;
+  hints?: string[];
 };
+
+export const DEFAULT_TWILIO_SPEECH_HINTS = [
+  "caller name",
+  "decedent name",
+  "passed away",
+  "died",
+  "death",
+  "father",
+  "mother",
+  "husband",
+  "wife",
+  "son",
+  "daughter",
+  "address",
+  "street",
+  "road",
+  "avenue",
+  "drive",
+  "lane",
+  "boulevard",
+  "hospital",
+  "hospice",
+  "nursing home",
+  "funeral home",
+];
 
 export class TwilioWebhookError extends Error {
   constructor(message: string) {
@@ -46,6 +78,14 @@ export function translateTwilioWebhook(input: {
   const callStatus = optionalString(input.fields.CallStatus);
   const speechResult = optionalString(input.fields.SpeechResult);
   const correlationId = optionalString(input.fields.SmsSid) ?? optionalString(input.fields.MessageSid) ?? callSid;
+
+  if (isEmptyGatherCallback(input.fields, callStatus, speechResult)) {
+    return {
+      kind: "empty_speech",
+      providerCallId: callSid,
+      correlationId,
+    };
+  }
 
   if (isCompletedCallStatus(callStatus) && !speechResult) {
     const callEndInput: TelephonyCallEndInput = {
@@ -137,6 +177,8 @@ function gatherElement(prompt: string, options: TwilioTwiMlOptions): string {
     method: options.method ?? "POST",
     speechTimeout: String(options.speechTimeout ?? "auto"),
     timeout: String(options.timeoutSeconds ?? 8),
+    actionOnEmptyResult: String(options.actionOnEmptyResult ?? true),
+    hints: (options.hints ?? DEFAULT_TWILIO_SPEECH_HINTS).join(","),
   };
   return `<Gather${xmlAttributes(attributes)}>${prompt ? sayElement(prompt, options) : ""}</Gather>`;
 }
@@ -189,6 +231,16 @@ function escapeXml(value: string): string {
 
 function isCompletedCallStatus(status: string | undefined): boolean {
   return status === "completed" || status === "busy" || status === "failed" || status === "no-answer" || status === "canceled";
+}
+
+function isEmptyGatherCallback(
+  fields: TwilioWebhookFields,
+  callStatus: string | undefined,
+  speechResult: string | undefined,
+): boolean {
+  if (speechResult) return false;
+  if (Object.hasOwn(fields, "SpeechResult")) return true;
+  return callStatus === "in-progress" && !optionalString(fields.From) && !optionalString(fields.To);
 }
 
 function handleStopAction(_action: Extract<VoiceResponseAction, { type: "stop" }>): void {

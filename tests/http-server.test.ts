@@ -674,10 +674,10 @@ test("Twilio webhook route starts first-call session without tenant API key and 
 
   assert.equal(response.status, 200);
   assert.equal(response.headers["content-type"], "text/xml; charset=utf-8");
-  assert.equal(
-    response.body,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="auto" timeout="8"><Say>I am sorry. I will help get this to the right person.</Say></Gather></Response>',
-  );
+  assert.match(response.body, /<Gather /);
+  assert.match(response.body, /actionOnEmptyResult="true"/);
+  assert.match(response.body, /hints="[^"]*decedent name[^"]*address[^"]*hospice/);
+  assert.match(response.body, /<Say>I am sorry\. I will help get this to the right person\.<\/Say>/);
 
   const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-1/events");
   assert.equal(events.body.events[0].eventType, "CALL_STARTED");
@@ -735,6 +735,49 @@ test("Twilio webhook route rejects missing Twilio signatures when configured", a
 
   assert.equal(response.status, 401);
   assert.match(response.body, /WEBHOOK_SIGNATURE_INVALID/);
+});
+
+test("Twilio webhook route reprompts on empty speech callbacks", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-empty-1",
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-empty-1",
+      CallStatus: "in-progress",
+      SpeechResult: "",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am sorry, I did not catch that\. Please say that again\./);
+  assert.match(response.body, /<Gather /);
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-empty-1/replay");
+  assert.equal(replay.body.snapshot.eventCount, 1);
+  assert.equal(replay.body.snapshot.latestEventType, "CALL_STARTED");
 });
 
 test("Twilio webhook route advances speech callbacks through first-call workflow", async () => {

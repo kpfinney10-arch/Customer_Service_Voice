@@ -23,7 +23,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `118/118` passing.
+Recent known-good test count from this session: `120/120` passing.
 
 ## Important Local Runtime Commands
 
@@ -259,6 +259,8 @@ The endpoint:
 - Advances the workflow from Twilio speech callbacks using `SpeechResult` and `Confidence`.
 - Returns TwiML XML directly instead of issuing separate provider command API calls.
 - Dials configured phone handoff destinations with TwiML `<Dial><Number>...</Number></Dial>` after escalation.
+- Adds Twilio speech recognition hints and `actionOnEmptyResult="true"` to reduce missed first-call intake answers.
+- Reprompts safely on empty Twilio speech callbacks without restarting or overwriting the active intake session.
 - Does not require the tenant `x-api-key`, matching public provider webhook behavior.
 
 Twilio local testing runbook:
@@ -271,7 +273,7 @@ Current Twilio limitations:
 
 - This first pass uses Twilio `<Gather input="speech">`, not media streams.
 - Twilio phone handoff uses a direct `<Dial>` transfer; warm conference handoff, whisper prompts, and operator accept/reject are follow-ups.
-- Speech recognition with Twilio `<Gather>` is still somewhat brittle for natural free-form answers.
+- Twilio `<Gather>` reliability is improved with hints and empty-result reprompting, but natural free-form answers still need deeper LLM-backed extraction and eventually streaming audio.
 
 Twilio webhook signature validation:
 
@@ -287,6 +289,8 @@ Recent Twilio intake improvements:
 - Address normalization handles Twilio transcripts such as `1, 2 3 Main Street.`
 - Later short-answer turns no longer overwrite `death_reported: true` back to false.
 - Completed handoff tools are now skipped on repeated turns so CRM leads and dispatch requests are not recreated during prompt loops.
+- Twilio empty speech callbacks now return a retry prompt instead of starting a duplicate session.
+- Twilio `<Gather>` now includes first-call-specific speech hints for names, relationships, death-report phrasing, and address/location terms.
 
 ## Telnyx Support Ticket Sent
 
@@ -320,8 +324,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Commit and push the current Twilio connector, live-call hardening, tests, runbook, and handoff notes.
-2. Improve speech reliability for first-call intake, either with tighter TwiML prompt/reprompt handling or an LLM-backed extraction pass for natural answers.
+1. Commit and push the current Twilio speech reliability changes.
+2. Add LLM-backed extraction for natural first-call answers that deterministic regexes miss.
 3. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.

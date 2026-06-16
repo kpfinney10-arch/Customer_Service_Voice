@@ -46,6 +46,7 @@ import {
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../providers/telephony/twilio-adapter.js";
+import { createListenVoiceResponse } from "../providers/telephony/voice-response.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
@@ -1167,6 +1168,13 @@ async function handleTwilioWebhook(
     const output = await handleTelephonySpeechTurn(service, translated.input);
     return createTwilioTwiMl({
       voiceResponse: output.voiceResponse,
+      options: { actionUrl },
+    });
+  }
+
+  if (translated.kind === "empty_speech") {
+    return createTwilioTwiMl({
+      voiceResponse: createListenVoiceResponse("I am sorry, I did not catch that. Please say that again."),
       options: { actionUrl },
     });
   }

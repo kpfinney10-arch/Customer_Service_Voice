@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createTwilioTwiMl,
+  DEFAULT_TWILIO_SPEECH_HINTS,
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../src/providers/telephony/twilio-adapter.js";
@@ -79,6 +80,23 @@ test("Twilio adapter translates completed calls into call-end input", () => {
   });
 });
 
+test("Twilio adapter translates empty gather callbacks without restarting intake", () => {
+  const translated = translateTwilioWebhook({
+    tenantId: "fh-demo",
+    fields: {
+      CallSid: "twilio-call-empty-1",
+      CallStatus: "in-progress",
+      SpeechResult: "",
+    },
+  });
+
+  assert.deepEqual(translated, {
+    kind: "empty_speech",
+    providerCallId: "twilio-call-empty-1",
+    correlationId: "twilio-call-empty-1",
+  });
+});
+
 test("Twilio adapter rejects missing CallSid", () => {
   assert.throws(
     () =>
@@ -104,7 +122,7 @@ test("Twilio TwiML maps listen responses to Say plus speech Gather", () => {
 
   assert.equal(
     twiml,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="auto" timeout="8"><Say voice="alice" language="en-US">I am sorry. I will help get this to the right person.</Say></Gather></Response>',
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="auto" timeout="8" actionOnEmptyResult="true" hints="${DEFAULT_TWILIO_SPEECH_HINTS.join(",")}"><Say voice="alice" language="en-US">I am sorry. I will help get this to the right person.</Say></Gather></Response>`,
   );
 });
 
