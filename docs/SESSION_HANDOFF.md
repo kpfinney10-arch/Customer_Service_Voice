@@ -307,6 +307,31 @@ LLM extraction modes:
 - The fallback fills missing facts only and does not overwrite deterministic facts.
 - Provider failures are converted into warnings so live calls continue on deterministic extraction.
 
+OpenAI extraction smoke status:
+
+- `scripts/first-call-extraction-smoke.mjs` now loads ignored local `.env.local` and `.env` files before reading environment variables.
+- In `FIRST_CALL_EXTRACTOR=openai` mode, the smoke script forces `FIRST_CALL_LLM_MIN_BASE_CONFIDENCE=1` when unset so the OpenAI fallback path is actually exercised during validation.
+- Deterministic smoke remains the clean local baseline: `npm run smoke:extraction` currently reports `10/10` expected facts matched.
+- Live OpenAI smoke passed on 2026-06-16 using the OpenAI API key from the macOS clipboard without printing or storing it.
+- Result: `FIRST_CALL_EXTRACTOR=openai OPENAI_TIMEOUT_MS=20000 npm run smoke:extraction` reported `13/13` expected facts matched.
+- The fallback-only case filled `facility_name`, `decedent_name`, and `caller_phone` through OpenAI structured output.
+- Clipboard access from the default sandbox returned empty during restart recovery, but escalated clipboard access worked. Prefer ignored `.env.local` for repeatability.
+
+Ignored `.env.local` example:
+
+```sh
+FIRST_CALL_EXTRACTOR=openai
+OPENAI_API_KEY=<OPENAI_API_KEY>
+OPENAI_MODEL=
+OPENAI_TIMEOUT_MS=20000
+```
+
+Run live OpenAI extraction smoke:
+
+```sh
+FIRST_CALL_EXTRACTOR=openai npm run smoke:extraction
+```
+
 ## Telnyx Support Ticket Sent
 
 A support request was sent to Telnyx with this core issue:
@@ -339,12 +364,11 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Commit and push the current extraction smoke script and deterministic hardening.
-2. Add live OpenAI extraction smoke testing with a real API key and a small transcript set.
-3. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
-4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-5. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
-6. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+1. Commit and push the current extraction smoke script and OpenAI env documentation.
+2. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
+3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
+4. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
+5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
 
 ## Production Hardening Notes
 
