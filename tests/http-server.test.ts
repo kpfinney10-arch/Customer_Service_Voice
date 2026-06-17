@@ -818,12 +818,52 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
   assert.equal(response.status, 200);
   assert.equal(
     response.body,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Dial timeout="25" answerOnBridge="true"><Number>+15555550100</Number></Dial></Response>',
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Dial timeout="25" answerOnBridge="true"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
   );
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-speech-1/replay");
   assert.equal(replay.body.snapshot.currentState, "ESCALATE");
   assert.equal(replay.body.snapshot.latestEventType, "TOOL_EXECUTED");
+
+  const screening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-screen",
+    new URLSearchParams({
+      CallSid: "outbound-called-party-1",
+      ParentCallSid: "twilio-call-http-speech-1",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(screening.status, 200);
+  assert.match(screening.body, /<Gather input="dtmf" numDigits="1"/);
+  assert.match(screening.body, /Caller Sarah Miller/);
+  assert.match(screening.body, /Deceased Robert Miller/);
+  assert.match(screening.body, /Press 1 to accept this call/);
+
+  const accepted = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
+    new URLSearchParams({
+      CallSid: "outbound-called-party-1",
+      ParentCallSid: "twilio-call-http-speech-1",
+      Digits: "1",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(accepted.status, 200);
+  assert.equal(accepted.body, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
 });
 
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {

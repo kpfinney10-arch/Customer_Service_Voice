@@ -36,6 +36,7 @@ export type TwilioTwiMlOptions = {
   dialTimeoutSeconds?: number;
   actionOnEmptyResult?: boolean;
   hints?: string[];
+  handoffScreeningUrl?: string;
 };
 
 export const DEFAULT_TWILIO_SPEECH_HINTS = [
@@ -194,6 +195,44 @@ function hangupElement(): string {
   return "<Hangup/>";
 }
 
+export function createTwilioHandoffScreeningTwiMl(input: {
+  summaryText: string;
+  acceptUrl: string;
+  acceptDigit?: string;
+  timeoutSeconds?: number;
+  voice?: string;
+  language?: string;
+}): string {
+  const acceptDigit = input.acceptDigit ?? "1";
+  const gatherAttributes = {
+    input: "dtmf",
+    numDigits: "1",
+    action: input.acceptUrl,
+    method: "POST",
+    timeout: String(input.timeoutSeconds ?? 8),
+  };
+  const options = {
+    actionUrl: input.acceptUrl,
+  };
+  addIfPresent(options, "voice", input.voice);
+  addIfPresent(options, "language", input.language);
+  return xmlResponse(
+    `<Gather${xmlAttributes(gatherAttributes)}>${sayElement(`${input.summaryText} Press ${acceptDigit} to accept this call.`, options)}</Gather>` +
+      `${sayElement("No input received. Goodbye.", options)}${hangupElement()}`,
+  );
+}
+
+export function createTwilioHandoffAcceptedTwiMl(input: {
+  text?: string;
+  voice?: string;
+  language?: string;
+} = {}): string {
+  const options = { actionUrl: "" };
+  addIfPresent(options, "voice", input.voice);
+  addIfPresent(options, "language", input.language);
+  return xmlResponse(sayElement(input.text ?? "Connecting now.", options));
+}
+
 function handoffElement(action: Extract<VoiceResponseAction, { type: "handoff" }>, options: TwilioTwiMlOptions): string {
   if (isPhoneHandoff(action)) {
     return dialElement(action.destination, options);
@@ -206,7 +245,11 @@ function dialElement(phoneNumber: string, options: TwilioTwiMlOptions): string {
     timeout: String(options.dialTimeoutSeconds ?? 25),
     answerOnBridge: "true",
   };
-  return `<Dial${xmlAttributes(attributes)}><Number>${escapeXml(phoneNumber)}</Number></Dial>`;
+  const numberAttributes = {
+    url: options.handoffScreeningUrl,
+    method: options.handoffScreeningUrl ? options.method ?? "POST" : undefined,
+  };
+  return `<Dial${xmlAttributes(attributes)}><Number${xmlAttributes(numberAttributes)}>${escapeXml(phoneNumber)}</Number></Dial>`;
 }
 
 function xmlResponse(body: string): string {

@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-16
+Last updated: 2026-06-17
 
 ## Project
 
@@ -20,22 +20,22 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Redaction, idempotency, rate limiting, tenant API key checks, and webhook signature scaffolding.
 - Telnyx inbound webhook adapter.
 - Telnyx Call Control client with dry-run and live execution modes.
-- Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, and `<Hangup>`.
+- Twilio inbound webhook adapter with TwiML responses for `<Say>`, speech `<Gather>`, warm `<Dial>` handoff screening, and `<Hangup>`.
 - Optional OpenAI-backed first-call extraction fallback using strict structured output.
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `131/131` passing.
+Recent known-good test count from this session: `133/133` passing.
 
 ## Progress Snapshot
 
-Status as of 2026-06-16:
+Status as of 2026-06-17:
 
-- Overall MVP progress: roughly 70% complete for a local/dev funeral-home first-call voice intake pilot.
+- Overall MVP progress: roughly 75% complete for a local/dev funeral-home first-call voice intake pilot.
 - Backend platform scaffold: complete for MVP local testing.
 - First-call death report workflow: complete for current MVP scope, with deterministic extraction plus optional OpenAI fallback.
 - Tenant routing/readiness: complete for demo tenant and ready for per-funeral-home configuration expansion.
-- Twilio live inbound path: working in local tunnel testing; next major improvement is warm handoff with whisper and accept/reject.
+- Twilio live inbound path: working in local tunnel testing; warm handoff screening is now implemented in TwiML and covered by tests. Next step is live validation through a public tunnel.
 - Telnyx live inbound path: backend adapter and API client are built, but inbound PSTN traffic is blocked by Telnyx `D61` / SIP `486` before webhook delivery.
 - OpenAI extraction validation: live smoke passed with `13/13` expected facts matched.
 - Security/compliance basics: tenant API keys, redaction, idempotency, rate limits, webhook signature verification, and no-secret logging are in place for MVP.
@@ -282,6 +282,7 @@ The endpoint:
 - Advances the workflow from Twilio speech callbacks using `SpeechResult` and `Confidence`.
 - Returns TwiML XML directly instead of issuing separate provider command API calls.
 - Dials configured phone handoff destinations with TwiML `<Dial><Number>...</Number></Dial>` after escalation.
+- Adds Twilio called-party screening for phone handoffs with a funeral-home rep whisper summary and press-1 acceptance prompt.
 - Adds Twilio speech recognition hints and `actionOnEmptyResult="true"` to reduce missed first-call intake answers.
 - Reprompts safely on empty Twilio speech callbacks without restarting or overwriting the active intake session.
 - Does not require the tenant `x-api-key`, matching public provider webhook behavior.
@@ -295,7 +296,8 @@ docs/runbooks/twilio-webhook-testing.md
 Current Twilio limitations:
 
 - This first pass uses Twilio `<Gather input="speech">`, not media streams.
-- Twilio phone handoff uses a direct `<Dial>` transfer; warm conference handoff, whisper prompts, and operator accept/reject are follow-ups.
+- Twilio phone handoff now uses called-party screening with a whisper summary and press-1 acceptance prompt before bridging.
+- Warm conference handoff, operator reject/retry routing, and richer accept/reject logging are follow-ups.
 - Twilio `<Gather>` reliability is improved with hints and empty-result reprompting, but natural free-form answers still need deeper LLM-backed extraction and eventually streaming audio.
 
 Twilio webhook signature validation:
@@ -314,6 +316,7 @@ Recent Twilio intake improvements:
 - Completed handoff tools are now skipped on repeated turns so CRM leads and dispatch requests are not recreated during prompt loops.
 - Twilio empty speech callbacks now return a retry prompt instead of starting a duplicate session.
 - Twilio `<Gather>` now includes first-call-specific speech hints for names, relationships, death-report phrasing, and address/location terms.
+- Twilio warm handoff now sets a called-party screening URL on `<Number>`, reads the session replay handoff summary, speaks key facts to the funeral home rep, and prompts them to press `1` before bridging.
 - Optional LLM-backed first-call fact extraction is wired through `FIRST_CALL_EXTRACTOR=openai`; deterministic extraction remains the default.
 - Local extraction smoke script is available via `npm run smoke:extraction`.
 - Current deterministic extraction smoke baseline: `10/10` expected facts matched.
@@ -385,7 +388,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Add warm handoff behavior for Twilio: whisper summary to the funeral home rep, require keypress acceptance, then bridge the caller.
+1. Live-test Twilio warm handoff through a fresh Cloudflare tunnel and verify the funeral home rep hears the summary and can press `1` to bridge.
 2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 3. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.

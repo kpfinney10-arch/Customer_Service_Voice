@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createTwilioHandoffAcceptedTwiMl,
+  createTwilioHandoffScreeningTwiMl,
   createTwilioTwiMl,
   DEFAULT_TWILIO_SPEECH_HINTS,
   translateTwilioWebhook,
@@ -164,6 +166,39 @@ test("Twilio TwiML dials phone destinations for human handoff", () => {
     twiml,
     '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="18" answerOnBridge="true"><Number>+15555550100</Number></Dial></Response>',
   );
+});
+
+test("Twilio TwiML adds called-party screening URL for warm handoff", () => {
+  const twiml = createTwilioTwiMl({
+    voiceResponse: createHandoffVoiceResponse("I am connecting you now.", "urgent_death_report", {
+      destinationType: "on_call_phone",
+      destination: "+15555550100",
+      queue: "first-call-after-hours",
+    }),
+    options: {
+      actionUrl: "/twilio",
+      handoffScreeningUrl: "/v1/tenants/fh-demo/telephony/twilio/handoff-screen",
+    },
+  });
+
+  assert.equal(
+    twiml,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="25" answerOnBridge="true"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
+  );
+});
+
+test("Twilio handoff screening TwiML prompts called party to accept", () => {
+  const screening = createTwilioHandoffScreeningTwiMl({
+    summaryText: "Incoming funeral home handoff. Caller Sarah. Deceased Robert.",
+    acceptUrl: "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
+  });
+  const accepted = createTwilioHandoffAcceptedTwiMl();
+
+  assert.equal(
+    screening,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="dtmf" numDigits="1" action="/v1/tenants/fh-demo/telephony/twilio/handoff-accept" method="POST" timeout="8"><Say>Incoming funeral home handoff. Caller Sarah. Deceased Robert. Press 1 to accept this call.</Say></Gather><Say>No input received. Goodbye.</Say><Hangup/></Response>',
+  );
+  assert.equal(accepted, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
 });
 
 test("Twilio TwiML keeps non-phone handoffs as safe hangups", () => {
