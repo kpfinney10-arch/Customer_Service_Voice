@@ -321,6 +321,17 @@ Recent Twilio intake improvements:
 - Local extraction smoke script is available via `npm run smoke:extraction`.
 - Current deterministic extraction smoke baseline: `10/10` expected facts matched.
 
+Twilio warm handoff tunnel smoke:
+
+- Date: 2026-06-17.
+- Temporary tunnel used: `https://juan-sale-verified-kde.trycloudflare.com`.
+- Health check through tunnel passed.
+- Synthetic public Twilio initial-call request returned speech gather TwiML.
+- Synthetic public Twilio speech/escalation request returned screened `<Dial><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">...`.
+- Synthetic public handoff-screen request returned the full funeral-home rep summary after the escalation turn was saved.
+- Synthetic public handoff-accept request returned `Connecting now.`
+- Actual live phone-call validation still needs the Twilio number's Voice webhook pointed to the current tunnel URL while the local server/tunnel are running.
+
 LLM extraction modes:
 
 - Default: `FIRST_CALL_EXTRACTOR=deterministic` or unset.
@@ -388,7 +399,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Live-test Twilio warm handoff through a fresh Cloudflare tunnel and verify the funeral home rep hears the summary and can press `1` to bridge.
+1. Live-test Twilio warm handoff with an actual phone call after pointing the Twilio number's Voice webhook at the current tunnel or stable deployment URL.
 2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 3. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.

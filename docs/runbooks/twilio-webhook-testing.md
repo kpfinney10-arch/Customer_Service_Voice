@@ -56,6 +56,18 @@ npx -y cloudflared tunnel --url http://127.0.0.1:3000
 
 Use the printed Cloudflare URL to configure Twilio.
 
+Latest public tunnel smoke checkpoint:
+
+- Date: 2026-06-17
+- Temporary tunnel URL: `https://juan-sale-verified-kde.trycloudflare.com`
+- Health check through tunnel: passed.
+- Public Twilio webhook synthetic initial-call request: passed.
+- Public Twilio webhook synthetic speech/escalation request: returned screened `<Dial><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">...`.
+- Public handoff-screen request after escalation save: returned full funeral-home rep summary with caller, callback, deceased, pickup address, and missing facts.
+- Public handoff-accept request: returned `Connecting now.`
+
+This tunnel is temporary and will go stale when the local `cloudflared` process stops.
+
 ## Twilio Console Settings
 
 In Twilio Console, configure the trial phone number's Voice webhook:
@@ -98,6 +110,34 @@ curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/webho
 ```
 
 Expected response escalates the call and, when the tenant has an on-call or dispatch-desk phone configured, returns TwiML with `<Say>` followed by `<Dial><Number>...</Number></Dial>`.
+The `<Number>` element should include a called-party screening URL:
+
+```xml
+<Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number>
+```
+
+Handoff screen callback:
+
+```sh
+curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/handoff-screen' \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  --data-urlencode 'CallSid=outbound-called-party-1' \
+  --data-urlencode 'ParentCallSid=twilio-local-call-1'
+```
+
+Expected response is TwiML that speaks a funeral-home rep summary from the session replay and prompts the called party to press `1` before bridging.
+
+Handoff accept callback:
+
+```sh
+curl -s -X POST 'http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/handoff-accept' \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  --data-urlencode 'CallSid=outbound-called-party-1' \
+  --data-urlencode 'ParentCallSid=twilio-local-call-1' \
+  --data-urlencode 'Digits=1'
+```
+
+Expected response is TwiML that tells the called party the bridge is connecting.
 
 Empty speech callback:
 
@@ -121,5 +161,6 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 ## Current Limitations
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
-- Handoff currently uses direct TwiML `<Dial>` for phone destinations. Warm transfer/conference behavior should be added as a follow-up.
+- Handoff uses Twilio called-party screening on `<Dial><Number>` for phone destinations. The funeral home rep hears a session replay summary and presses `1` to accept before bridging.
+- Warm conference handoff, reject/retry routing, and richer operator accept/reject audit events should be added as follow-ups.
 - Speech recognition is improved with Twilio hints and empty-result reprompting. OpenAI-backed fact extraction is available behind `FIRST_CALL_EXTRACTOR=openai`; production deployment still needs stable hosting, secrets management, and webhook signature enforcement.
