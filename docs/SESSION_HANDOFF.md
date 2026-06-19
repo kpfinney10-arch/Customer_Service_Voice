@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-17
+Last updated: 2026-06-19
 
 ## Project
 
@@ -26,6 +26,13 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - Diagnostic activity and replay endpoints.
 
 Recent known-good test count from this session: `133/133` passing.
+
+Most recent local prompt fix:
+
+- The first Twilio/Telnyx intake response now asks the first question immediately:
+  `I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?`
+- This fixes the prior behavior where the voice agent apologized and said it would get the call to the right person, then waited without asking a question.
+- Local precheck confirmed the corrected TwiML response on `2026-06-19`.
 
 ## Progress Snapshot
 
@@ -158,14 +165,21 @@ The Cloudflare URL above is temporary and may be stale in a later session. Gener
 Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
-- Current temporary Cloudflare tunnel URL used during the successful test: `https://electro-infinite-ion-businesses.trycloudflare.com`
+- Current temporary Cloudflare tunnel URL in the latest test session: `https://dollar-heating-large-petite.trycloudflare.com`
 - Twilio webhook URL configured during the successful test:
 
 ```text
-https://electro-infinite-ion-businesses.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
+https://dollar-heating-large-petite.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
 ```
 
 The Cloudflare URL is temporary. If the tunnel is restarted, update the Twilio number's Voice Configuration with the new URL.
+
+Important Twilio URL note from the latest live attempt:
+
+- If Twilio is set to only the tunnel root, it will `POST /` and the app returns `404`.
+- The Voice webhook field must include the full path:
+  `https://<current-cloudflare-subdomain>.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`
+- Method must be `HTTP POST`.
 
 Known-good local Twilio test server command:
 

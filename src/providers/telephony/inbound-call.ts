@@ -15,6 +15,9 @@ import {
 } from "./voice-response.js";
 import type { VoiceResponse } from "./voice-response.js";
 
+export const INITIAL_FIRST_CALL_VOICE_PROMPT =
+  "I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?";
+
 export type InboundTelephonyCallInput = {
   tenantId: string;
   provider: string;
@@ -127,7 +130,7 @@ export async function handleInboundTelephonyCall(
   addIfPresent(sessionInput, "callerPhone", input.fromPhone);
   addIfPresent(sessionInput, "correlationId", input.correlationId);
   const started = await service.startSession(sessionInput);
-  const responseText = firstCallPromptForStep("acknowledge");
+  const responseText = INITIAL_FIRST_CALL_VOICE_PROMPT;
 
   return {
     session: started.session,

@@ -377,9 +377,15 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(inbound.body.providerCallId, "provider-call-1");
   assert.equal(inbound.body.route, "first_call_intake");
   assert.equal(inbound.body.nextExpectedInput, "caller_speech");
-  assert.equal(inbound.body.responseText, "I am sorry. I will help get this to the right person.");
+  assert.equal(
+    inbound.body.responseText,
+    "I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?",
+  );
   assert.deepEqual(inbound.body.voiceResponse.actions, [
-    { type: "say", text: "I am sorry. I will help get this to the right person." },
+    {
+      type: "say",
+      text: "I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?",
+    },
     { type: "listen", expectedInput: "caller_speech" },
   ]);
   assert.equal(inbound.body.session.callId, "provider-call-1");
@@ -633,7 +639,8 @@ test("Telnyx webhook route advances speech gather events through first-call work
         message_history: [
           {
             role: "assistant",
-            content: "I am sorry. I will help get this to the right person.",
+            content:
+              "I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?",
           },
           {
             role: "user",
@@ -677,7 +684,7 @@ test("Twilio webhook route starts first-call session without tenant API key and 
   assert.match(response.body, /<Gather /);
   assert.match(response.body, /actionOnEmptyResult="true"/);
   assert.match(response.body, /hints="[^"]*decedent name[^"]*address[^"]*hospice/);
-  assert.match(response.body, /<Say>I am sorry\. I will help get this to the right person\.<\/Say>/);
+  assert.match(response.body, /<Say>I am sorry\. I will help get this to the right person\. May I have your name/);
 
   const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-1/events");
   assert.equal(events.body.events[0].eventType, "CALL_STARTED");
