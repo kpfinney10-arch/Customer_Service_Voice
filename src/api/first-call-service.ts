@@ -559,11 +559,13 @@ function inferContextualFacts(session: CallSession, transcript: string): Partial
   if (!session.facts.caller_name || !session.facts.caller_phone) {
     Object.assign(facts, callerAnswerFacts(transcript));
   }
-  if (!session.facts.decedent_name) {
+  const afterCallerFacts = { ...(session.facts as Partial<FirstCallFacts>), ...facts };
+  if (afterCallerFacts.caller_name && afterCallerFacts.caller_phone && !afterCallerFacts.decedent_name) {
     const decedentName = nameOnlyAnswer(transcript);
-    if (decedentName) facts.decedent_name = decedentName;
+    if (decedentName && decedentName !== afterCallerFacts.caller_name) facts.decedent_name = decedentName;
   }
-  if (!session.facts.pickup_address && !session.facts.facility_name) {
+  const afterDecedentFacts = { ...afterCallerFacts, ...facts };
+  if (afterDecedentFacts.decedent_name && !afterDecedentFacts.pickup_address && !afterDecedentFacts.facility_name) {
     const pickupAddress = addressOnlyAnswer(transcript);
     if (pickupAddress) {
       facts.pickup_address = pickupAddress;
@@ -625,10 +627,11 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .trim()
     .replace(/[.?!]+$/, "")
     .replaceAll(",", "")
+    .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
   const address = normalized.match(
-    /^(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Z][A-Za-z\s]+)*)/,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Z][A-Za-z\s]+)*)/i,
   )?.[1];
   return address?.trim();
 }

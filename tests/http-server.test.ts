@@ -1028,6 +1028,29 @@ test("first-call API uses short name answers to fill the active decedent-name sl
   assert.notEqual(turn.body.decision.step, "collect_decedent");
 });
 
+test("first-call API does not treat repeated caller name as decedent while caller identity is incomplete", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-repeat-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-repeat-1/transcript", {
+    transcript: "My name is Kyle.",
+  });
+
+  const repeatedName = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-repeat-1/transcript",
+    {
+      transcript: "Kyle Finny.",
+    },
+  );
+
+  assert.equal(repeatedName.status, 200);
+  assert.equal(repeatedName.body.session.facts.caller_name, "Kyle Finny");
+  assert.equal(repeatedName.body.session.facts.decedent_name, undefined);
+  assert.equal(repeatedName.body.decision.step, "collect_caller");
+});
+
 test("first-call API uses address-only answers to fill the active pickup-address slot", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-2",
@@ -1063,6 +1086,24 @@ test("first-call API normalizes spaced digit address-only answers", async () => 
 
   assert.equal(turn.status, 200);
   assert.equal(turn.body.session.facts.pickup_address, "123 Main Street");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API accepts lowercase and prefixed address-only answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-4",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-4/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-4/transcript", {
+    transcript: "My loved one is at 1 2 3, main Street.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "123 main Street");
   assert.equal(turn.body.decision.step, "escalate");
 });
 
