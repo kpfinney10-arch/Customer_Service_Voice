@@ -627,11 +627,12 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .trim()
     .replace(/[.?!]+$/, "")
     .replaceAll(",", "")
+    .replace(/\b(\d{2,6})[.?!]+\s+([A-Za-z])/g, "$1 $2")
     .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Z][A-Za-z\s]+)*)/i,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Za-z][A-Za-z\s]+)*)/i,
   )?.[1];
   return address?.trim();
 }

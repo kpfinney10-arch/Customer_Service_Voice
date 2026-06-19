@@ -1107,6 +1107,24 @@ test("first-call API accepts lowercase and prefixed address-only answers", async
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API preserves city from punctuated spoken address answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-5",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-5/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-5/transcript", {
+    transcript: "1683. Maple Street Fort Worth.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "1683 Maple Street Fort Worth");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
 test("first-call API does not re-run completed CRM intake on repeated follow-up turns", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-no-duplicate-tools-1",

@@ -39,6 +39,8 @@ export type TwilioTwiMlOptions = {
   handoffScreeningUrl?: string;
 };
 
+export const DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS = 2;
+
 export const DEFAULT_TWILIO_SPEECH_HINTS = [
   "caller name",
   "decedent name",
@@ -176,7 +178,7 @@ function gatherElement(prompt: string, options: TwilioTwiMlOptions): string {
     input: "speech",
     action: options.actionUrl,
     method: options.method ?? "POST",
-    speechTimeout: String(options.speechTimeout ?? "auto"),
+    speechTimeout: String(options.speechTimeout ?? DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS),
     timeout: String(options.timeoutSeconds ?? 8),
     actionOnEmptyResult: String(options.actionOnEmptyResult ?? true),
     hints: (options.hints ?? DEFAULT_TWILIO_SPEECH_HINTS).join(","),
