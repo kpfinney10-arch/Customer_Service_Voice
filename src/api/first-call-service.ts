@@ -556,6 +556,9 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
 
 function inferContextualFacts(session: CallSession, transcript: string): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
+  if (!session.facts.caller_name || !session.facts.caller_phone) {
+    Object.assign(facts, callerAnswerFacts(transcript));
+  }
   if (!session.facts.decedent_name) {
     const decedentName = nameOnlyAnswer(transcript);
     if (decedentName) facts.decedent_name = decedentName;
@@ -584,6 +587,30 @@ function mergeFirstCallFacts(
     merged.death_reported = true;
   }
   return merged;
+}
+
+function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
+  const facts: Partial<FirstCallFacts> = {};
+  const phone = transcript.match(/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/)?.[0];
+  if (phone) {
+    facts.caller_phone = phone;
+    facts.preferred_callback_number = phone;
+    facts.pickup_contact_phone = phone;
+  }
+
+  const nameCandidate = transcript
+    .replace(/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g, " ")
+    .replace(/\b(?:phone|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
+    .replace(/[,.?!]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const name = nameOnlyAnswer(nameCandidate);
+  if (name) {
+    facts.caller_name = name;
+    facts.pickup_contact_name = name;
+  }
+  return facts;
 }
 
 function nameOnlyAnswer(transcript: string): string | undefined {
