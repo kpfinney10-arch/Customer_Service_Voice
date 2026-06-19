@@ -1051,6 +1051,44 @@ test("first-call API does not treat repeated caller name as decedent while calle
   assert.equal(repeatedName.body.decision.step, "collect_caller");
 });
 
+test("first-call API asks only for phone after caller gives name phrase", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-name-only-1",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-name-only-1/transcript",
+    {
+      transcript: "My name is Kyle.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Kyle");
+  assert.equal(turn.body.decision.step, "collect_caller");
+  assert.equal(turn.body.responseText, "What is the best phone number in case we are disconnected?");
+});
+
+test("first-call API asks only for phone after caller gives bare name", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-name-only-2",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-name-only-2/transcript",
+    {
+      transcript: "Kyle.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Kyle");
+  assert.equal(turn.body.decision.step, "collect_caller");
+  assert.equal(turn.body.responseText, "What is the best phone number in case we are disconnected?");
+});
+
 test("first-call API uses address-only answers to fill the active pickup-address slot", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-2",

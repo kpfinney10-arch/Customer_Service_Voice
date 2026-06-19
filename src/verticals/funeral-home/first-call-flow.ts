@@ -85,3 +85,18 @@ export function firstCallPromptForStep(step: FirstCallStep): string {
       return "I am going to connect you with a funeral home team member now.";
   }
 }
+
+export function firstCallPromptForDecision(
+  decision: FirstCallFlowDecision,
+  facts: Partial<FirstCallFacts>,
+): string {
+  if (decision.step === "collect_caller") {
+    if (facts.caller_name && !facts.caller_phone) {
+      return "What is the best phone number in case we are disconnected?";
+    }
+    if (!facts.caller_name && facts.caller_phone) {
+      return "May I have your name?";
+    }
+  }
+  return firstCallPromptForStep(decision.step);
+}

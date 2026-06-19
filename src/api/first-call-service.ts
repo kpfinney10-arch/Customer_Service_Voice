@@ -16,7 +16,11 @@ import { deterministicFirstCallExtractor } from "../verticals/funeral-home/first
 import type { FirstCallExtraction, FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
 import { createFirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import type { FirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
-import { decideFirstCallNextStep, firstCallPromptForStep } from "../verticals/funeral-home/first-call-flow.js";
+import {
+  decideFirstCallNextStep,
+  firstCallPromptForDecision,
+  firstCallPromptForStep,
+} from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFlowDecision } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.js";
 import { executeFirstCallTools } from "../verticals/funeral-home/first-call-tools.js";
@@ -313,7 +317,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         session,
         extraction,
         decision,
-        responseText: firstCallPromptForStep(decision.step),
+        responseText: firstCallPromptForDecision(decision, facts),
         events,
         toolResults: toolOutput.results,
       };
