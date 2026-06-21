@@ -605,7 +605,7 @@ function mergeFirstCallFacts(
 
 function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
-  const phone = transcript.match(/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/)?.[0];
+  const phone = extractContextualPhone(transcript);
   if (phone) {
     facts.caller_phone = phone;
     facts.preferred_callback_number = phone;
@@ -613,7 +613,7 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
   }
 
   const nameCandidate = transcript
-    .replace(/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g, " ")
+    .replace(contextualPhonePattern, " ")
     .replace(/\b(?:phone|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
     .replace(/[,.?!]+/g, " ")
     .replace(/\s+/g, " ")
@@ -625,6 +625,17 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
     facts.pickup_contact_name = name;
   }
   return facts;
+}
+
+const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
+
+function extractContextualPhone(transcript: string): string | undefined {
+  const raw = transcript.match(contextualPhonePattern)?.[0];
+  if (!raw) return undefined;
+  const digits = raw.replace(/\D/g, "");
+  const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (tenDigits.length !== 10) return raw.trim();
+  return `${tenDigits.slice(0, 3)}-${tenDigits.slice(3, 6)}-${tenDigits.slice(6)}`;
 }
 
 function nameOnlyAnswer(transcript: string): string | undefined {
@@ -643,6 +654,9 @@ function nameOnlyAnswer(transcript: string): string | undefined {
 
 function normalizeNameWord(word: string): string {
   if (/^[A-Z]{2,3}$/.test(word)) return word;
+  if (/^mc[a-z]+$/i.test(word) && word.length > 2) {
+    return `Mc${word[2]?.toUpperCase() ?? ""}${word.slice(3).toLowerCase()}`;
+  }
   return `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`;
 }
 
