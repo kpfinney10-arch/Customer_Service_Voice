@@ -664,13 +664,17 @@ function addressOnlyAnswer(transcript: string): string | undefined {
   const normalized = transcript
     .trim()
     .replace(/[.?!]+$/, "")
-    .replaceAll(",", "")
+    .replace(/[.?!]+/g, " ")
+    .replaceAll(",", " ")
+    .replace(/\band\s+its\s+apartment\b/gi, "apartment")
     .replace(/\b(\d{2,6})[.?!]+\s+([A-Za-z])/g, "$1 $2")
     .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
-    .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
+    .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
+    .replace(/\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\s+in\s+/gi, "$1 ")
+    .replace(/\s+/g, " ");
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+[A-Za-z][A-Za-z\s]+)*)/i,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
   )?.[1];
   return address?.trim();
 }

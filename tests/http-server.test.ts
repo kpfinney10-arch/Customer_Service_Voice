@@ -1391,6 +1391,42 @@ test("first-call API preserves city from punctuated spoken address answers", asy
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API preserves city after street punctuation and in phrase", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-6",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-6/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-6/transcript", {
+    transcript: "5817. Television Street. In Fort Worth.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "5817 Television Street Fort Worth");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API preserves apartment details from spoken address answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-7",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-7/transcript", {
+    transcript: "My name is Kyle. My father John passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-7/transcript", {
+    transcript: "6426. Oak, Street Denton, Texas and its apartment 413.",
+  });
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "6426 Oak Street Denton Texas apartment 413");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
 test("first-call API does not re-run completed CRM intake on repeated follow-up turns", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-no-duplicate-tools-1",
