@@ -1051,6 +1051,28 @@ test("first-call API accepts punctuated decedent name answers", async () => {
   assert.equal(turn.body.decision.step, "collect_location");
 });
 
+test("first-call API accepts lowercase words in decedent name answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-decedent-lowercase-name",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-lowercase-name/transcript", {
+    transcript: "My name is Kyle. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-lowercase-name/transcript",
+    {
+      transcript: "Applejack MC pinky butt.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "Applejack MC Pinky Butt");
+  assert.equal(turn.body.decision.step, "collect_location");
+});
+
 test("first-call API accepts name-is decedent answers", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-decedent-name-is-1",
@@ -1200,6 +1222,25 @@ test("first-call API asks only for phone after caller gives bare name", async ()
 
   assert.equal(turn.status, 200);
   assert.equal(turn.body.session.facts.caller_name, "Kyle");
+  assert.equal(turn.body.decision.step, "collect_caller");
+  assert.equal(turn.body.responseText, "What is the best phone number in case we are disconnected?");
+});
+
+test("first-call API accepts lowercase words in caller name answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-lowercase-name",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-lowercase-name/transcript",
+    {
+      transcript: "Bob poodle.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Bob Poodle");
   assert.equal(turn.body.decision.step, "collect_caller");
   assert.equal(turn.body.responseText, "What is the best phone number in case we are disconnected?");
 });

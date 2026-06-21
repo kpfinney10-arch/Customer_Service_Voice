@@ -634,9 +634,16 @@ function nameOnlyAnswer(transcript: string): string | undefined {
     .replace(/[.?!]+$/, "")
     .replace(/[.?!]+\s+/g, " ")
     .replace(/\s+/g, " ");
-  if (!/^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}$/.test(trimmed)) return undefined;
-  if (COMMON_NON_NAME_ANSWERS.has(trimmed.toLowerCase())) return undefined;
-  return trimmed;
+  const words = trimmed.split(" ").filter(Boolean);
+  if (words.length < 1 || words.length > 4) return undefined;
+  if (!words.every((word) => /^[A-Za-z]+$/.test(word))) return undefined;
+  if (words.some((word) => COMMON_NON_NAME_ANSWERS.has(word.toLowerCase()))) return undefined;
+  return words.map(normalizeNameWord).join(" ");
+}
+
+function normalizeNameWord(word: string): string {
+  if (/^[A-Z]{2,3}$/.test(word)) return word;
+  return `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`;
 }
 
 function addressOnlyAnswer(transcript: string): string | undefined {
@@ -665,6 +672,26 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "home",
   "hospital",
   "hospice",
+  "address",
+  "apartment",
+  "at",
+  "callback",
+  "call",
+  "disconnected",
+  "he",
+  "her",
+  "him",
+  "in",
+  "is",
+  "it",
+  "located",
+  "location",
+  "my",
+  "number",
+  "phone",
+  "she",
+  "there",
+  "we",
 ]);
 
 function addIfPresent<T extends object, K extends string, V>(
