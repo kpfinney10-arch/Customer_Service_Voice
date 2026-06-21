@@ -620,7 +620,12 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
 }
 
 function nameOnlyAnswer(transcript: string): string | undefined {
-  const trimmed = transcript.trim().replace(/[.?!]+$/, "");
+  const trimmed = transcript
+    .trim()
+    .replace(/^(?:the\s+)?name\s+is\s+/i, "")
+    .replace(/[.?!]+$/, "")
+    .replace(/[.?!]+\s+/g, " ")
+    .replace(/\s+/g, " ");
   if (!/^[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}$/.test(trimmed)) return undefined;
   if (COMMON_NON_NAME_ANSWERS.has(trimmed.toLowerCase())) return undefined;
   return trimmed;

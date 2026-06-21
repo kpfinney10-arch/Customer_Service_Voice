@@ -1028,6 +1028,50 @@ test("first-call API uses short name answers to fill the active decedent-name sl
   assert.notEqual(turn.body.decision.step, "collect_decedent");
 });
 
+test("first-call API accepts punctuated decedent name answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-decedent-punctuated-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-punctuated-1/transcript", {
+    transcript: "My name is Kyle. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-punctuated-1/transcript",
+    {
+      transcript: "Amy. Lee.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "Amy Lee");
+  assert.equal(turn.body.decision.step, "collect_location");
+});
+
+test("first-call API accepts name-is decedent answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-decedent-name-is-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-name-is-1/transcript", {
+    transcript: "My name is Kyle. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-decedent-name-is-1/transcript",
+    {
+      transcript: "The name is Amy Lee.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "Amy Lee");
+  assert.equal(turn.body.decision.step, "collect_location");
+});
+
 test("first-call API does not treat repeated caller name as decedent while caller identity is incomplete", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-repeat-1",
