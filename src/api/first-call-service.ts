@@ -238,6 +238,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       const facts = mergeFirstCallFacts(existingSession.facts as Partial<FirstCallFacts>, extraction.facts, contextualFacts);
       const sessionFacts: StructuredFacts = {
         ...facts,
+        death_reported: true,
         reasonForCall: "first_call_death_report",
       };
       const decision = decideFirstCallNextStep(facts);

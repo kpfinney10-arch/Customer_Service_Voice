@@ -1224,6 +1224,33 @@ test("first-call API uses address-only answers to fill the active pickup-address
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API keeps death report fact true across contextual slot answers", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-slot-death-report",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-death-report/transcript", {
+    transcript: "Bob Jones 621 563 2430.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-death-report/transcript", {
+    transcript: "Jimbo Jones.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-death-report/transcript",
+    {
+      transcript: "129 Up the Creek Road Denton, Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.death_reported, true);
+  assert.equal(turn.body.session.facts.reasonForCall, "first_call_death_report");
+  assert.equal(turn.body.session.facts.decedent_name, "Jimbo Jones");
+  assert.equal(turn.body.session.facts.pickup_address, "129 Up the Creek Road Denton Texas");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+});
+
 test("first-call API normalizes spaced digit address-only answers", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-3",
