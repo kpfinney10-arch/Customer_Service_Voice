@@ -90,6 +90,10 @@ test("OpenAI structured output adapter parses nested output content", async () =
 
 test("OpenAI structured output adapter rejects missing key and failed responses", async () => {
   assert.throws(() => createOpenAiStructuredOutputAdapter({ apiKey: "" }), OpenAiStructuredOutputError);
+  assert.throws(
+    () => createOpenAiStructuredOutputAdapter({ apiKey: "https://example.trycloudflare.com/webhook" }),
+    OpenAiStructuredOutputError,
+  );
 
   const adapter = createOpenAiStructuredOutputAdapter({
     apiKey: "test-key",

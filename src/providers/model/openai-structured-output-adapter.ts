@@ -26,6 +26,9 @@ export function createOpenAiStructuredOutputAdapter(
   if (!apiKey) {
     throw new OpenAiStructuredOutputError("OpenAI API key is required for structured output extraction.");
   }
+  if (/^https?:\/\//i.test(apiKey)) {
+    throw new OpenAiStructuredOutputError("OpenAI API key appears to be a URL. Check the OPENAI_API_KEY value.");
+  }
   const model = options.model?.trim() || "gpt-5.5";
   const baseUrl = (options.baseUrl?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
   const timeoutMs = options.timeoutMs ?? 12_000;
