@@ -385,6 +385,11 @@ Latest OpenAI-backed Twilio live status:
 - Caller feedback after that test: language handling was clean, but pauses between questions were too long.
 - Follow-up latency hardening skips the OpenAI structured-output request when local contextual parsing already fills the active slot, such as name-only, phone-only, decedent-name-only, or address-only answers. OpenAI remains available for ambiguous turns.
 - Validation after latency hardening: `npm run build && npm test` passed `146/146`.
+- Additional latency refinements on 2026-06-21 added local parsing for mixed/lowercase active-slot names and noisy Twilio phone spacing such as `214.  689 1283`.
+- Latest live session `CAd6c8fa80d8056613fc33ff5f94460684` on commit `c4600f8` had speech-turn response durations of `8 ms`, `6 ms`, and `4 ms`, plus `3 ms` for `handoff-screen`.
+- Captured facts included caller `Robert Adams`, callback `214-689-1283`, decedent `Charles Daniels`, and pickup address `5817 Television Street`.
+- Follow-up accuracy hardening commit `7aa2a07` preserves local address city phrases like `Street. In Fort Worth` and apartment/unit details like `apartment 413`.
+- Validation after address hardening: `npm run build && npm test` passed `151/151`.
 
 Ignored `.env.local` example:
 
