@@ -28,6 +28,12 @@ test("OpenAI structured output adapter sends schema request and parses output_te
     tenantId: "fh-demo",
     taskName: "funeral_home.first_call_fact_extraction",
     transcript: "Dad passed and I need help.",
+    context: {
+      activeStep: "collect_decedent",
+      currentFacts: {
+        caller_name: "Amanda Reed",
+      },
+    },
     schema: {
       type: "object",
       properties: {
@@ -43,6 +49,8 @@ test("OpenAI structured output adapter sends schema request and parses output_te
   assert.equal(requestBody.text.format.type, "json_schema");
   assert.equal(requestBody.text.format.strict, true);
   assert.equal(requestBody.text.format.name, "funeral_home_first_call_fact_extraction");
+  assert.match(requestBody.input[1].content, /"activeStep": "collect_decedent"/);
+  assert.match(requestBody.input[2].content, /Dad passed and I need help/);
   assert.equal(response.provider, "openai");
   assert.equal((response.output as { caller_name: string }).caller_name, "Amanda Reed");
 });

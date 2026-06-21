@@ -19,6 +19,7 @@ import { InMemorySessionStore } from "../src/session/in-memory-session-store.js"
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
 import type { TelnyxCallControlClient } from "../src/providers/telephony/telnyx-client.js";
 import type { TelnyxReadiness } from "../src/providers/telephony/telnyx-readiness.js";
+import type { FirstCallExtractor } from "../src/verticals/funeral-home/first-call-extractor.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -1072,6 +1073,76 @@ test("first-call API accepts name-is decedent answers", async () => {
   assert.equal(turn.body.decision.step, "collect_location");
 });
 
+test("first-call API passes current facts and active step into extractor", async () => {
+  const seenContexts: Array<{
+    activeStep?: string;
+    currentFacts?: Record<string, unknown>;
+    missingTargetFacts?: string[];
+  }> = [];
+  const extractor: FirstCallExtractor = {
+    extract(transcript, context) {
+      seenContexts.push({
+        ...(context?.activeStep ? { activeStep: context.activeStep } : {}),
+        ...(context?.currentFacts ? { currentFacts: context.currentFacts } : {}),
+        ...(context?.missingTargetFacts ? { missingTargetFacts: context.missingTargetFacts } : {}),
+      });
+      if (/kyle/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            caller_name: "Kyle Finny",
+            caller_phone: "817-463-5280",
+          },
+          sentiment: "unknown",
+          confidence: 0.82,
+          warnings: ["decedent_name_not_found", "pickup_context_not_found"],
+        };
+      }
+      return {
+        intent: "unknown",
+        facts: context?.activeStep === "collect_decedent" ? { decedent_name: "Amy Lee" } : {},
+        sentiment: "unknown",
+        confidence: 0.82,
+        warnings: [],
+      };
+    },
+  };
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      sessionId: "session-contextual-extractor-1",
+      callerPhone: "817-463-5280",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-extractor-1/transcript",
+    {
+      transcript: "My name is Kyle Finny. My number is 817-463-5280.",
+    },
+    { extractor },
+  );
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-extractor-1/transcript",
+    {
+      transcript: "The name is Amy Lee.",
+    },
+    { extractor },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "Amy Lee");
+  assert.equal(seenContexts.at(-1)?.activeStep, "collect_decedent");
+  assert.equal(seenContexts.at(-1)?.currentFacts?.caller_name, "Kyle Finny");
+  assert.equal(seenContexts.at(-1)?.currentFacts?.caller_phone, "817-463-5280");
+  assert.deepEqual(seenContexts.at(-1)?.missingTargetFacts?.includes("decedent_name"), true);
+});
+
 test("first-call API does not treat repeated caller name as decedent while caller identity is incomplete", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-repeat-1",
@@ -1313,6 +1384,7 @@ async function fetchJson(
     webhookSignatureVerifier?: WebhookSignatureVerifier;
     telnyxClient?: TelnyxCallControlClient;
     telnyxReadiness?: TelnyxReadiness;
+    extractor?: FirstCallExtractor;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -1327,11 +1399,13 @@ async function fetchJson(
     init.body = JSON.stringify(body);
   }
   if (Object.keys(headers).length > 0) init.headers = headers;
-  const service = createFirstCallService({
+  const serviceOptions = {
     store: sharedStore,
     eventStore: sharedEventStore,
     tenantConfigStore: sharedTenantConfigStore,
-  });
+  };
+  if (options.extractor) Object.assign(serviceOptions, { extractor: options.extractor });
+  const service = createFirstCallService(serviceOptions);
   const response = await handleApiRequest(
     service,
     new Request(`http://localhost${path}`, init),

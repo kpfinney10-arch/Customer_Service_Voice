@@ -11,7 +11,17 @@ export type FirstCallExtraction = {
 };
 
 export type FirstCallExtractor = {
-  extract: (transcript: string) => Promise<FirstCallExtraction> | FirstCallExtraction;
+  extract: (
+    transcript: string,
+    context?: FirstCallExtractionContext,
+  ) => Promise<FirstCallExtraction> | FirstCallExtraction;
+};
+
+export type FirstCallExtractionContext = {
+  tenantId?: string;
+  currentFacts?: Partial<FirstCallFacts>;
+  activeStep?: string;
+  missingTargetFacts?: string[];
 };
 
 const phonePattern = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/;

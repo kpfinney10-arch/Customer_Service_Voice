@@ -97,3 +97,34 @@ test("LLM fallback discards invalid controlled fact values", async () => {
   assert.equal(output.warnings.includes("llm:discarded_invalid_place_of_death_type"), true);
   assert.equal(output.warnings.includes("llm:discarded_invalid_urgency"), true);
 });
+
+test("LLM fallback sends active intake context to structured adapter", async () => {
+  const transcript = "The name is Amy Lee.";
+  let seenContext: Record<string, unknown> | undefined;
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      defaultOutput: {
+        decedent_name: "Amy Lee",
+      },
+      onRequest: (request) => {
+        seenContext = request.context;
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript, {
+    tenantId: "fh-demo",
+    activeStep: "collect_decedent",
+    currentFacts: {
+      caller_name: "Kyle Finny",
+      caller_phone: "817-463-5280",
+    },
+    missingTargetFacts: ["decedent_name", "pickup_address"],
+  });
+
+  assert.equal(output.facts.decedent_name, "Amy Lee");
+  assert.equal(seenContext?.activeStep, "collect_decedent");
+  assert.deepEqual((seenContext?.currentFacts as Record<string, string>).caller_name, "Kyle Finny");
+  assert.deepEqual(seenContext?.missingTargetFacts, ["decedent_name", "pickup_address"]);
+});

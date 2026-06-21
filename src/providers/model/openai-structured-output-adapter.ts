@@ -79,11 +79,17 @@ function createResponseRequest(model: string, request: StructuredOutputRequest):
         role: "system",
         content:
           "Extract only the requested structured facts from a funeral home first-call death report transcript. " +
-          "Use null for unknown fields. Do not infer operational routing, pricing, billing, staffing, or dispatch decisions.",
+          "Use null for unknown fields. Treat the transcript as the caller's answer to the active intake step when context is provided. " +
+          "Do not overwrite confirmed current facts unless the caller clearly corrects them. " +
+          "Do not infer operational routing, pricing, billing, staffing, or dispatch decisions.",
       },
       {
         role: "user",
-        content: request.transcript,
+        content: `Current context:\n${JSON.stringify(request.context ?? {}, null, 2)}`,
+      },
+      {
+        role: "user",
+        content: `Caller transcript:\n${request.transcript}`,
       },
     ],
     text: {

@@ -7,6 +7,7 @@ import type {
 export type FakeStructuredOutputAdapterOptions = {
   outputByTranscript?: Record<string, object>;
   defaultOutput?: object;
+  onRequest?: (request: StructuredOutputRequest) => void;
 };
 
 export function createFakeStructuredOutputAdapter(
@@ -16,6 +17,7 @@ export function createFakeStructuredOutputAdapter(
     async generateStructuredOutput<TOutput extends object>(
       request: StructuredOutputRequest,
     ): Promise<StructuredOutputResponse<TOutput>> {
+      options.onRequest?.(request);
       const output = options.outputByTranscript?.[request.transcript] ?? options.defaultOutput ?? {};
       return {
         output: output as TOutput,

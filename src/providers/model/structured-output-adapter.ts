@@ -4,6 +4,7 @@ export type StructuredOutputRequest<TSchema extends object = Record<string, unkn
   transcript: string;
   schema: TSchema;
   correlationId?: string;
+  context?: Record<string, unknown>;
 };
 
 export type StructuredOutputResponse<TOutput extends object = Record<string, unknown>> = {

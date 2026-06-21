@@ -1,5 +1,9 @@
 import type { StructuredOutputAdapter } from "../../providers/model/structured-output-adapter.js";
-import type { FirstCallExtraction, FirstCallExtractor } from "./first-call-extractor.js";
+import type {
+  FirstCallExtraction,
+  FirstCallExtractionContext,
+  FirstCallExtractor,
+} from "./first-call-extractor.js";
 import { deterministicFirstCallExtractor } from "./first-call-extractor.js";
 import type { FirstCallFacts, FirstCallUrgency, PlaceOfDeathType } from "./first-call-facts.js";
 
@@ -52,15 +56,16 @@ export function createLlmFallbackFirstCallExtractor(
   const minBaseConfidenceForSkip = options.minBaseConfidenceForSkip ?? 0.8;
 
   return {
-    async extract(transcript: string): Promise<FirstCallExtraction> {
+    async extract(transcript: string, context: FirstCallExtractionContext = {}): Promise<FirstCallExtraction> {
       const base = await baseExtractor.extract(transcript);
       if (base.confidence >= minBaseConfidenceForSkip && base.warnings.length === 0) {
         return base;
       }
 
       const structured = await generateFallbackFacts(options.adapter, {
-        tenantId: options.tenantId,
+        tenantId: context.tenantId ?? options.tenantId,
         transcript,
+        context,
       });
       const sanitizedOutput = sanitizeFallbackFacts(structured.output);
       const facts = mergeMissingFacts(base.facts, sanitizedOutput.facts);
@@ -83,6 +88,7 @@ async function generateFallbackFacts(
   input: {
     tenantId: string;
     transcript: string;
+    context: FirstCallExtractionContext;
   },
 ) {
   try {
@@ -91,6 +97,11 @@ async function generateFallbackFacts(
       taskName: "funeral_home.first_call_fact_extraction",
       transcript: input.transcript,
       schema: firstCallFactsSchema,
+      context: {
+        activeStep: input.context.activeStep ?? null,
+        currentFacts: input.context.currentFacts ?? {},
+        missingTargetFacts: input.context.missingTargetFacts ?? [],
+      },
     });
   } catch (error) {
     return {
