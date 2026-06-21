@@ -58,6 +58,12 @@ export function createLlmFallbackFirstCallExtractor(
   return {
     async extract(transcript: string, context: FirstCallExtractionContext = {}): Promise<FirstCallExtraction> {
       const base = await baseExtractor.extract(transcript);
+      if (shouldSkipFallbackForLocalSlot(context)) {
+        return {
+          ...base,
+          facts: mergeMissingFacts(base.facts, context.localFacts ?? {}),
+        };
+      }
       if (base.confidence >= minBaseConfidenceForSkip && base.warnings.length === 0) {
         return base;
       }
@@ -81,6 +87,21 @@ export function createLlmFallbackFirstCallExtractor(
       };
     },
   };
+}
+
+function shouldSkipFallbackForLocalSlot(context: FirstCallExtractionContext): boolean {
+  const localFacts = context.localFacts;
+  if (!localFacts || Object.keys(localFacts).length === 0) return false;
+  switch (context.activeStep) {
+    case "collect_caller":
+      return Boolean(localFacts.caller_name || localFacts.caller_phone);
+    case "collect_decedent":
+      return Boolean(localFacts.decedent_name);
+    case "collect_location":
+      return Boolean(localFacts.pickup_address || localFacts.facility_name);
+    default:
+      return false;
+  }
 }
 
 async function generateFallbackFacts(

@@ -382,6 +382,9 @@ Latest OpenAI-backed Twilio live status:
 - Latest-code confirmation on 2026-06-21 used commit `570a5c1` with tunnel `https://charged-photographs-loves-poetry.trycloudflare.com`.
 - Live session `CA64e858f3b3a43ede6745ce4f4eb1763b` reached `ESCALATE`, persisted `death_reported: true`, executed CRM and dispatch tools, and loaded the Twilio `handoff-screen` endpoint successfully.
 - Captured facts included caller transcript `Piper MC tank`, callback `6234286124`, decedent `Katherine Johnson`, and pickup address `12641 Pinkie Pie Way, Dallas, Texas`.
+- Caller feedback after that test: language handling was clean, but pauses between questions were too long.
+- Follow-up latency hardening skips the OpenAI structured-output request when local contextual parsing already fills the active slot, such as name-only, phone-only, decedent-name-only, or address-only answers. OpenAI remains available for ambiguous turns.
+- Validation after latency hardening: `npm run build && npm test` passed `146/146`.
 
 Ignored `.env.local` example:
 

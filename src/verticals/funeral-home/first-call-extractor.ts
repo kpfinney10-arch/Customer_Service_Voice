@@ -20,6 +20,7 @@ export type FirstCallExtractor = {
 export type FirstCallExtractionContext = {
   tenantId?: string;
   currentFacts?: Partial<FirstCallFacts>;
+  localFacts?: Partial<FirstCallFacts>;
   activeStep?: string;
   missingTargetFacts?: string[];
 };

@@ -128,3 +128,67 @@ test("LLM fallback sends active intake context to structured adapter", async () 
   assert.deepEqual((seenContext?.currentFacts as Record<string, string>).caller_name, "Kyle Finny");
   assert.deepEqual(seenContext?.missingTargetFacts, ["decedent_name", "pickup_address"]);
 });
+
+test("LLM fallback skips structured adapter when local facts resolve active slot", async () => {
+  const transcript = "The name is Amy Lee.";
+  let requestCount = 0;
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      defaultOutput: {
+        decedent_name: "Should Not Be Used",
+      },
+      onRequest: () => {
+        requestCount += 1;
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript, {
+    tenantId: "fh-demo",
+    activeStep: "collect_decedent",
+    currentFacts: {
+      caller_name: "Kyle Finny",
+      caller_phone: "817-463-5280",
+    },
+    localFacts: {
+      decedent_name: "Amy Lee",
+    },
+    missingTargetFacts: ["decedent_name", "pickup_address"],
+  });
+
+  assert.equal(output.facts.decedent_name, "Amy Lee");
+  assert.equal(requestCount, 0);
+});
+
+test("LLM fallback still calls structured adapter when local facts do not resolve active slot", async () => {
+  const transcript = "It is confusing.";
+  let requestCount = 0;
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      defaultOutput: {
+        decedent_name: "Amy Lee",
+      },
+      onRequest: () => {
+        requestCount += 1;
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript, {
+    tenantId: "fh-demo",
+    activeStep: "collect_decedent",
+    currentFacts: {
+      caller_name: "Kyle Finny",
+      caller_phone: "817-463-5280",
+    },
+    localFacts: {
+      caller_name: "Kyle Finny",
+    },
+    missingTargetFacts: ["decedent_name", "pickup_address"],
+  });
+
+  assert.equal(output.facts.decedent_name, "Amy Lee");
+  assert.equal(requestCount, 1);
+});
