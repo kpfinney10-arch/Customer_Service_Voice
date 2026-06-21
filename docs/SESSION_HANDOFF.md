@@ -366,6 +366,20 @@ OpenAI extraction smoke status:
 - The fallback-only case filled `facility_name`, `decedent_name`, and `caller_phone` through OpenAI structured output.
 - Clipboard access from the default sandbox returned empty during restart recovery, but escalated clipboard access worked. Prefer ignored `.env.local` for repeatability.
 
+Latest OpenAI-backed Twilio live status:
+
+- Date: 2026-06-21.
+- OpenAI key was validated from the macOS clipboard without printing or storing it.
+- Direct context extraction check passed: active `collect_decedent` turn extracted `decedent_name: Amy Lee`.
+- Temporary tunnel used: `https://maritime-dip-medieval-immediately.trycloudflare.com`.
+- Twilio webhook used: `/v1/tenants/fh-demo/telephony/twilio/webhook`.
+- Live session `CA8b07f8e5032eab9ca459b6da8e302125` completed intake and reached `ESCALATE`.
+- Captured facts included caller `Bob Jones`, callback `621 563 2430`, decedent `Jimbo Jones`, residence address `129 Up the Creek Road Denton Texas`.
+- CRM lead and dispatch removal request both executed successfully; no OpenAI provider errors appeared in replay.
+- Follow-up hardening commit `06a4e4e` persists `death_reported: true` for first-call death-report sessions and adds a regression test matching this multi-turn shape.
+- Full suite after the hardening change: `npm run build && npm test` passed `144/144`.
+- Note: any already-running local server started before commit `06a4e4e` must be restarted with a valid `OPENAI_API_KEY` in the environment before retesting that exact fix live.
+
 Ignored `.env.local` example:
 
 ```sh
@@ -413,7 +427,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Live-test Twilio warm handoff with an actual phone call after pointing the Twilio number's Voice webhook at the current tunnel or stable deployment URL.
+1. Restart the local Twilio/OpenAI server from commit `06a4e4e` and run one more live phone call to confirm the persisted `death_reported` fact appears correctly in replay.
 2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 3. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
