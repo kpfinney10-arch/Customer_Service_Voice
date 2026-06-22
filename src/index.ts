@@ -18,6 +18,7 @@ export * from "./providers/telephony/inbound-call.js";
 export * from "./providers/telephony/telnyx-adapter.js";
 export * from "./providers/telephony/telnyx-client.js";
 export * from "./providers/telephony/telnyx-readiness.js";
+export * from "./providers/telephony/twilio-readiness.js";
 export * from "./providers/telephony/voice-response.js";
 export * from "./persistence/file-event-store.js";
 export * from "./persistence/file-idempotency-store.js";

@@ -53,6 +53,8 @@ import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-clien
 import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
+import { evaluateTwilioReadinessFromEnv } from "../providers/telephony/twilio-readiness.js";
+import type { TwilioReadiness } from "../providers/telephony/twilio-readiness.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 
@@ -68,6 +70,7 @@ export type ApiServerOptions = {
   webhookSignatureVerifier?: WebhookSignatureVerifier;
   telnyxClient?: TelnyxCallControlClient;
   telnyxReadiness?: TelnyxReadiness;
+  twilioReadiness?: TwilioReadiness;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -88,6 +91,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const webhookSignatureVerifier = options.webhookSignatureVerifier ?? createWebhookSignatureVerifierFromEnv();
   const telnyxClient = options.telnyxClient ?? new NoopTelnyxCallControlClient();
   const telnyxReadiness = options.telnyxReadiness ?? evaluateTelnyxReadinessFromEnv();
+  const twilioReadiness = options.twilioReadiness ?? evaluateTwilioReadinessFromEnv();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -115,6 +119,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         webhookSignatureVerifier,
         telnyxClient,
         telnyxReadiness,
+        twilioReadiness,
         request,
         response,
       );
@@ -195,6 +200,7 @@ export async function handleApiRequest(
   webhookSignatureVerifier: WebhookSignatureVerifier = new NoopWebhookSignatureVerifier(),
   telnyxClient: TelnyxCallControlClient = new NoopTelnyxCallControlClient(),
   telnyxReadiness: TelnyxReadiness = evaluateTelnyxReadinessFromEnv(),
+  twilioReadiness: TwilioReadiness = evaluateTwilioReadinessFromEnv(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -269,6 +275,25 @@ export async function handleApiRequest(
       response = jsonResponse(200, {
         tenantReadiness: evaluateTenantReadiness(config),
         telnyxReadiness,
+      });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const twilioReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/readiness$/);
+    if (request.method === "GET" && twilioReadinessMatch?.[1]) {
+      const tenantId = decodeURIComponent(twilioReadinessMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      if (!tenantConfigStore) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      const config = await tenantConfigStore.get(tenantId);
+      if (!config) {
+        throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+      }
+      response = jsonResponse(200, {
+        tenantReadiness: evaluateTenantReadiness(config),
+        twilioReadiness,
       });
       response.headers.set("x-request-id", requestId);
       return response;
@@ -707,6 +732,7 @@ async function routeRequest(
   webhookSignatureVerifier: WebhookSignatureVerifier,
   telnyxClient: TelnyxCallControlClient,
   telnyxReadiness: TelnyxReadiness,
+  twilioReadiness: TwilioReadiness,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -758,6 +784,21 @@ async function routeRequest(
     sendJson(response, 200, {
       tenantReadiness: evaluateTenantReadiness(config),
       telnyxReadiness,
+    });
+    return;
+  }
+
+  const twilioReadinessMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/readiness$/);
+  if (method === "GET" && twilioReadinessMatch?.[1]) {
+    const tenantId = decodeURIComponent(twilioReadinessMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    const config = await tenantConfigStore.get(tenantId);
+    if (!config) {
+      throw new ApiError(404, "TENANT_CONFIG_NOT_FOUND", "Tenant config was not found.");
+    }
+    sendJson(response, 200, {
+      tenantReadiness: evaluateTenantReadiness(config),
+      twilioReadiness,
     });
     return;
   }

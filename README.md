@@ -158,6 +158,8 @@ Telnyx live caller speech collection uses an explicit `gather_using_speak` comma
 
 The Telnyx readiness endpoint combines tenant readiness with a sanitized provider preflight. It reports whether the server is in dry-run or live mode, whether Telnyx webhook signature verification is configured, whether live Call Control execution is enabled, and whether live traffic is ready without returning API keys or webhook secrets.
 
+The Twilio readiness endpoint combines tenant readiness with a sanitized provider preflight at `GET /v1/tenants/:tenantId/telephony/twilio/readiness`. It reports whether local unsigned testing is available, whether Twilio signature verification is configured, and whether the webhook is ready for persistent public traffic without returning the Twilio Auth Token.
+
 The generic speech-turn endpoint accepts provider/STT transcript text, advances the first-call workflow, and returns the next spoken response. When escalation is reached, it returns `nextExpectedInput: "human_handoff"` plus the handoff summary and tenant-specific routing decision.
 
 The generic audio-turn endpoint accepts base64 audio, runs STT, advances the first-call workflow, and returns TTS audio for the response. The default local server uses fake STT/TTS adapters.

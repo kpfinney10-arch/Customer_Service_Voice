@@ -19,6 +19,7 @@ import { InMemorySessionStore } from "../src/session/in-memory-session-store.js"
 import { InMemoryTenantConfigStore } from "../src/tenants/tenant-config.js";
 import type { TelnyxCallControlClient } from "../src/providers/telephony/telnyx-client.js";
 import type { TelnyxReadiness } from "../src/providers/telephony/telnyx-readiness.js";
+import type { TwilioReadiness } from "../src/providers/telephony/twilio-readiness.js";
 import type { FirstCallExtractor } from "../src/verticals/funeral-home/first-call-extractor.js";
 
 test("health endpoint reports ready", async () => {
@@ -110,6 +111,33 @@ test("Telnyx readiness endpoint returns tenant and provider preflight status", a
   assert.equal(response.body.telnyxReadiness.mode, "live");
   assert.equal(response.body.telnyxReadiness.readyForLiveTraffic, true);
   assert.equal(response.body.telnyxReadiness.checks[0].name, "webhook_signature_configured");
+});
+
+test("Twilio readiness endpoint returns tenant and provider preflight status", async () => {
+  const response = await fetchJson("GET", "/v1/tenants/fh-demo/telephony/twilio/readiness", undefined, {
+    twilioReadiness: {
+      provider: "twilio",
+      mode: "signed_webhook",
+      readyForLocalTesting: true,
+      readyForPublicTraffic: true,
+      checks: [
+        {
+          name: "webhook_signature_configured",
+          ok: true,
+          severity: "info",
+          message: "Twilio webhook signature verification is configured.",
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tenantReadiness.tenantId, "fh-demo");
+  assert.equal(response.body.tenantReadiness.ready, true);
+  assert.equal(response.body.twilioReadiness.provider, "twilio");
+  assert.equal(response.body.twilioReadiness.mode, "signed_webhook");
+  assert.equal(response.body.twilioReadiness.readyForPublicTraffic, true);
+  assert.equal(response.body.twilioReadiness.checks[0].name, "webhook_signature_configured");
 });
 
 test("tenant diagnostics activity endpoint returns authenticated recent summaries", async () => {
@@ -1533,6 +1561,7 @@ async function fetchJson(
     webhookSignatureVerifier?: WebhookSignatureVerifier;
     telnyxClient?: TelnyxCallControlClient;
     telnyxReadiness?: TelnyxReadiness;
+    twilioReadiness?: TwilioReadiness;
     extractor?: FirstCallExtractor;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
@@ -1573,6 +1602,7 @@ async function fetchJson(
     options.webhookSignatureVerifier,
     options.telnyxClient,
     options.telnyxReadiness,
+    options.twilioReadiness,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
@@ -1599,6 +1629,7 @@ async function fetchText(
     webhookSignatureVerifier?: WebhookSignatureVerifier;
     telnyxClient?: TelnyxCallControlClient;
     telnyxReadiness?: TelnyxReadiness;
+    twilioReadiness?: TwilioReadiness;
   } = {},
 ): Promise<{ status: number; body: string; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -1632,6 +1663,7 @@ async function fetchText(
     options.webhookSignatureVerifier,
     options.telnyxClient,
     options.telnyxReadiness,
+    options.twilioReadiness,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

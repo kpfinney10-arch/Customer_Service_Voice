@@ -24,6 +24,7 @@ try {
     webhookSignatureVerifier: environment.webhookSignatureVerifier,
     telnyxClient: environment.telnyxClient,
     telnyxReadiness: environment.telnyxReadiness,
+    twilioReadiness: environment.twilioReadiness,
     logger,
   });
   const url = await listen(server, environment.port, "127.0.0.1");

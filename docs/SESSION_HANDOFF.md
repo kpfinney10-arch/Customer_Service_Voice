@@ -390,6 +390,9 @@ Latest OpenAI-backed Twilio live status:
 - Captured facts included caller `Robert Adams`, callback `214-689-1283`, decedent `Charles Daniels`, and pickup address `5817 Television Street`.
 - Follow-up accuracy hardening commit `7aa2a07` preserves local address city phrases like `Street. In Fort Worth` and apartment/unit details like `apartment 413`.
 - Validation after address hardening: `npm run build && npm test` passed `151/151`.
+- Follow-up production hardening adds a Twilio readiness endpoint at `GET /v1/tenants/<tenantId>/telephony/twilio/readiness`.
+- The endpoint combines tenant readiness with sanitized Twilio preflight status and reports whether `TELEPHONY_WEBHOOK_SECRETS` includes a `twilio:<auth_token>` entry before persistent public traffic.
+- Validation after Twilio readiness hardening: `npm run build && npm test` passed `154/154`.
 
 Ignored `.env.local` example:
 
@@ -438,11 +441,10 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Restart the local Twilio/OpenAI server from commit `06a4e4e` and run one more live phone call to confirm the persisted `death_reported` fact appears correctly in replay.
+1. Run the new Twilio readiness endpoint locally with unsigned testing, then with `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>` before any persistent public webhook test.
 2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-3. Turn on Twilio signature validation for persistent public testing by setting `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
-4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
-5. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
+3. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+4. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
 ## Production Hardening Notes
 

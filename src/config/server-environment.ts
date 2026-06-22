@@ -18,6 +18,8 @@ import { createTelnyxCallControlClientFromEnv } from "../providers/telephony/tel
 import type { TelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
+import { evaluateTwilioReadinessFromEnv } from "../providers/telephony/twilio-readiness.js";
+import type { TwilioReadiness } from "../providers/telephony/twilio-readiness.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 import { createFirstCallExtractorFromEnv } from "./first-call-extractor-environment.js";
@@ -39,6 +41,7 @@ export type ServerEnvironment = {
   webhookSignatureVerifier: WebhookSignatureVerifier;
   telnyxClient: TelnyxCallControlClient;
   telnyxReadiness: TelnyxReadiness;
+  twilioReadiness: TwilioReadiness;
   firstCallExtractor: FirstCallExtractor;
 };
 
@@ -76,6 +79,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
     telnyxClient: createTelnyxCallControlClientFromEnv(env),
     telnyxReadiness: evaluateTelnyxReadinessFromEnv(env),
+    twilioReadiness: evaluateTwilioReadinessFromEnv(env),
     firstCallExtractor: createFirstCallExtractorFromEnv(env),
   };
 }

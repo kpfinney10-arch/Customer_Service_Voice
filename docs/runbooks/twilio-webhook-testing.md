@@ -25,6 +25,15 @@ env TENANT_API_KEYS=fh-demo:replace-with-local-dev-key STORAGE_DRIVER=file STORA
 
 Do not commit or paste the Auth Token into chat. For unsigned local `curl` requests, keep `TELEPHONY_WEBHOOK_SECRETS=` empty.
 
+Check Twilio readiness before persistent public testing:
+
+```sh
+curl -s -H 'x-api-key: replace-with-local-dev-key' \
+  http://127.0.0.1:3000/v1/tenants/fh-demo/telephony/twilio/readiness
+```
+
+For local unsigned testing, `readyForLocalTesting` should be `true` and `readyForPublicTraffic` may be `false`. Before leaving a public webhook configured, `readyForPublicTraffic` should be `true`, which requires `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
+
 Optional OpenAI-backed first-call extraction can be enabled when testing natural answer formats:
 
 ```sh
