@@ -393,6 +393,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up production hardening adds a Twilio readiness endpoint at `GET /v1/tenants/<tenantId>/telephony/twilio/readiness`.
 - The endpoint combines tenant readiness with sanitized Twilio preflight status and reports whether `TELEPHONY_WEBHOOK_SECRETS` includes a `twilio:<auth_token>` entry before persistent public traffic.
 - Validation after Twilio readiness hardening: `npm run build && npm test` passed `154/154`.
+- Follow-up smoke tooling adds `npm run smoke:twilio-readiness`; local unsigned validation passed with mode `unsigned_local` and public traffic readiness `no`.
 
 Ignored `.env.local` example:
 

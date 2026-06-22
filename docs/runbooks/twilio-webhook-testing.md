@@ -34,6 +34,18 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 
 For local unsigned testing, `readyForLocalTesting` should be `true` and `readyForPublicTraffic` may be `false`. Before leaving a public webhook configured, `readyForPublicTraffic` should be `true`, which requires `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>`.
 
+The same check is available as a smoke script:
+
+```sh
+npm run smoke:twilio-readiness
+```
+
+To require public readiness in the smoke check:
+
+```sh
+TWILIO_EXPECT_PUBLIC_READY=true npm run smoke:twilio-readiness
+```
+
 Optional OpenAI-backed first-call extraction can be enabled when testing natural answer formats:
 
 ```sh
