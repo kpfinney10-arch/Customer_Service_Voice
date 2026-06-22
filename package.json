@@ -11,6 +11,7 @@
     "smoke:extraction": "node scripts/first-call-extraction-smoke.mjs",
     "smoke:human-test": "node scripts/human-testing-smoke.mjs",
     "smoke:telnyx": "node scripts/telnyx-webhook-smoke.mjs",
+    "smoke:twilio": "node scripts/twilio-webhook-smoke.mjs",
     "smoke:twilio-readiness": "node scripts/twilio-readiness-smoke.mjs"
   },
   "dependencies": {},

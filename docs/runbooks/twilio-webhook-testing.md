@@ -46,6 +46,20 @@ To require public readiness in the smoke check:
 TWILIO_EXPECT_PUBLIC_READY=true npm run smoke:twilio-readiness
 ```
 
+Run the synthetic Twilio webhook flow:
+
+```sh
+npm run smoke:twilio
+```
+
+This posts an initial call webhook, a speech/escalation webhook, the called-party handoff-screen webhook, the handoff-accept webhook, and then verifies replay escalation. If `TWILIO_AUTH_TOKEN` is set, the script signs webhook posts with `X-Twilio-Signature`.
+
+To require signed-webhook mode:
+
+```sh
+TWILIO_AUTH_TOKEN=<TWILIO_AUTH_TOKEN> TWILIO_EXPECT_SIGNED_WEBHOOK=true npm run smoke:twilio
+```
+
 Optional OpenAI-backed first-call extraction can be enabled when testing natural answer formats:
 
 ```sh
