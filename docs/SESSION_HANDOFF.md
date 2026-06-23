@@ -397,6 +397,7 @@ Latest OpenAI-backed Twilio live status:
 - Signed-readiness validation also passed locally with `TELEPHONY_WEBHOOK_SECRETS=twilio:test-auth-token` and `TWILIO_EXPECT_PUBLIC_READY=true`; smoke output reported mode `signed_webhook` and public traffic readiness `yes`.
 - Follow-up Twilio webhook smoke tooling adds `npm run smoke:twilio`; it posts synthetic initial-call, speech/escalation, handoff-screen, and handoff-accept webhooks, then verifies replay escalation.
 - Unsigned and signed local webhook smoke validations both passed. Signed validation used `TELEPHONY_WEBHOOK_SECRETS=twilio:test-auth-token`, `TWILIO_AUTH_TOKEN=test-auth-token`, and `TWILIO_EXPECT_SIGNED_WEBHOOK=true`.
+- Follow-up local startup tooling adds `npm run start:twilio-local`; it loads ignored `.env.local` / `.env` values, applies safe local defaults, prints the next readiness/webhook smoke commands, and successfully booted the local server.
 
 Ignored `.env.local` example:
 

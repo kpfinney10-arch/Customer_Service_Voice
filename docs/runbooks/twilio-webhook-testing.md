@@ -17,6 +17,12 @@ Start the API server:
 env TENANT_API_KEYS=fh-demo:replace-with-local-dev-key STORAGE_DRIVER=file STORAGE_DATA_DIR=.voice-ai-data-twilio-test TELEPHONY_WEBHOOK_SECRETS= RATE_LIMIT_PER_WINDOW=120 RATE_LIMIT_WINDOW_MS=60000 SERVICE_VERSION=local-twilio-test SERVICE_COMMIT=local SERVICE_BUILD_TIME=local npm start
 ```
 
+Or use the local Twilio launcher, which loads ignored `.env.local` / `.env` values and applies safe local defaults:
+
+```sh
+npm run start:twilio-local
+```
+
 For persistent public testing, enable Twilio webhook signature validation by setting `TELEPHONY_WEBHOOK_SECRETS` to the Twilio account Auth Token:
 
 ```sh
