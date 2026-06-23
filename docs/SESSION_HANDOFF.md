@@ -405,6 +405,9 @@ Latest OpenAI-backed Twilio live status:
 - Live Twilio validation on 2026-06-22 after the greeting update used tunnel `https://tail-traveller-key-annotation.trycloudflare.com`; session `CAe05d57e9ff1d29cdd68bd15b353c228d` confirmed the new opening greeting reached the live path and kept webhook durations fast, but ended before escalation because `Circle` was not accepted as a street suffix.
 - Captured hardening targets from that call: parse `Charles McDaniels is my name, and my phone number is 432569. 4324.` as caller `Charles McDaniels` with callback `432-569-4324`, and parse `12436. Saratoga Circle in Fort Worth.` as a pickup address. Follow-up hardening now covers reverse caller-name phrasing and additional street suffixes including `Circle`, `Way`, `Place`, `Terrace`, and `Parkway`.
 - Validation after reverse-name and Circle-address hardening: `npm run build && npm test` passed `156/156`.
+- Live Twilio validation on 2026-06-22 using tunnel `https://health-snake-studying-adrian.trycloudflare.com` reached `ESCALATE` in session `CA659afbff6e1ffb8556747adf3f50c74c`, executed CRM intake and dispatch removal request, and captured pickup address `12724 Saratoga Springs Circle Fort Worth`.
+- Captured hardening targets from that call: a phone-only answer `I can be reached at. 769 432. 4218.` temporarily overwrote caller `Mario Lopez`, and `Her name is Maria. Castro Rodriguez.` captured only `Maria`. Follow-up hardening now preserves existing caller names on phone-only turns and normalizes dotted multi-part decedent names.
+- Validation after phone-only and dotted-name hardening: `npm run build && npm test` passed `157/157`.
 
 Ignored `.env.local` example:
 

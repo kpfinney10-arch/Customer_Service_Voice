@@ -70,14 +70,14 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const decedentName = matchFirst(text, [
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
-    /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
+    /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
     /\b(?:decedent|patient|resident)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/,
     /\b(?:[Pp]atient|[Rr]esident)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:was\s+)?(?:pronounced|released|ready)\b/,
     /\b(?:decedent|patient|resident)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:was\s+)?(?:pronounced|released|ready)\b/,
     /\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/,
   ]);
-  if (decedentName) facts.decedent_name = decedentName;
+  if (decedentName) facts.decedent_name = normalizeSpokenName(decedentName);
 
   const facilityName = matchFirst(text, [
     /\bat\s+([A-Z][A-Za-z\s]+(?:Hospital|Hospice|Care Center|Medical Center|Nursing Home))\b/,
@@ -137,6 +137,10 @@ function normalizeSpokenStreetNumber(value: string): string {
   return value
     .replace(/^(\d{1,3}):(\d{2})\b/, "$1$2")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2");
+}
+
+function normalizeSpokenName(value: string): string {
+  return value.replace(/[.]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function matchRelationship(input: string): string | undefined {

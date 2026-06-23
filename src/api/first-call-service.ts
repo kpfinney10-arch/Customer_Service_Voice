@@ -569,7 +569,12 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
 function inferContextualFacts(session: CallSession, transcript: string): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
   if (!session.facts.caller_name || !session.facts.caller_phone) {
-    Object.assign(facts, callerAnswerFacts(transcript));
+    const callerFacts = callerAnswerFacts(transcript);
+    if (session.facts.caller_name && callerFacts.caller_phone && !extractContextualCallerName(transcript)) {
+      delete callerFacts.caller_name;
+      delete callerFacts.pickup_contact_name;
+    }
+    Object.assign(facts, callerFacts);
   }
   const afterCallerFacts = { ...(session.facts as Partial<FirstCallFacts>), ...facts };
   if (afterCallerFacts.caller_name && afterCallerFacts.caller_phone && !afterCallerFacts.decedent_name) {
