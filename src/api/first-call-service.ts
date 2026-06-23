@@ -612,14 +612,16 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
     facts.pickup_contact_phone = phone;
   }
 
-  const nameCandidate = transcript
+  const explicitName = extractContextualCallerName(transcript);
+  const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
+  const nameCandidate = beforePhoneCue
     .replace(contextualPhonePattern, " ")
-    .replace(/\b(?:phone|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
+    .replace(/\b(?:phone|telephone|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
     .replace(/[,.?!]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  const name = nameOnlyAnswer(nameCandidate);
+  const name = explicitName ?? nameOnlyAnswer(nameCandidate);
   if (name) {
     facts.caller_name = name;
     facts.pickup_contact_name = name;
@@ -628,6 +630,15 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
 }
 
 const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
+const phoneCuePattern = /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b/i;
+
+function extractContextualCallerName(transcript: string): string | undefined {
+  const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
+  const rawName = beforePhoneCue.match(
+    /\b(?:my\s+name\s+is|this\s+is|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
+  )?.[1];
+  return rawName ? nameOnlyAnswer(rawName) : undefined;
+}
 
 function extractContextualPhone(transcript: string): string | undefined {
   const raw = transcript.match(contextualPhonePattern)?.[0];

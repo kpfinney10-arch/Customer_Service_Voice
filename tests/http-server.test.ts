@@ -994,6 +994,51 @@ test("Twilio webhook route accepts dotted spaced caller phone answers", async ()
   assert.equal(replay.body.session.facts.caller_phone, "214-623-5918");
 });
 
+test("Twilio webhook route keeps noisy telephone cue words out of caller name", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-noisy-telephone-name-1",
+      From: "+18179205700",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-noisy-telephone-name-1",
+      SpeechResult: "My name is Bob. Television. My telephone is 214-363-4519.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /May I have the name of the person who passed away\?/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-noisy-telephone-name-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "Bob");
+  assert.equal(replay.body.session.facts.caller_phone, "214-363-4519");
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",

@@ -399,6 +399,9 @@ Latest OpenAI-backed Twilio live status:
 - Unsigned and signed local webhook smoke validations both passed. Signed validation used `TELEPHONY_WEBHOOK_SECRETS=twilio:test-auth-token`, `TWILIO_AUTH_TOKEN=test-auth-token`, and `TWILIO_EXPECT_SIGNED_WEBHOOK=true`.
 - Follow-up local startup tooling adds `npm run start:twilio-local`; it loads ignored `.env.local` / `.env` values, applies safe local defaults, prints the next readiness/webhook smoke commands, and successfully booted the local server.
 - Follow-up tunnel tooling adds `npm run start:twilio-tunnel`; it starts the local Twilio server plus a Cloudflare quick tunnel and prints the exact Twilio Voice webhook/readiness URLs. Local launcher validation on 2026-06-22 printed a working tunnel URL and shut down cleanly.
+- Live Twilio validation on 2026-06-22 used tunnel `https://permissions-lay-international-vpn.trycloudflare.com`; session `CA4b36f3cabba032ebca996f9dd56c6e88` reached `ESCALATE`, executed CRM intake and dispatch removal request, and showed webhook turn durations of `5 ms`, `10 ms`, `7 ms`, and `8 ms`.
+- Captured facts included caller callback `214-363-4519`, decedent `Robert Johnson`, and pickup address `1642 Fireplace Drive Wataga Texas`. The live transcript exposed a noisy caller-name parse (`Bob Television Telephone`) from the phrase shape `My name is Bob. Television. My telephone is...`; follow-up hardening now keeps telephone cue/noise words out of caller names.
+- Validation after noisy telephone cue hardening: `npm run build && npm test` passed `155/155`.
 
 Ignored `.env.local` example:
 
