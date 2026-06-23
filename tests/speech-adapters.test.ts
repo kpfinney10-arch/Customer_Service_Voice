@@ -30,13 +30,13 @@ test("fake TTS adapter synthesizes text into deterministic audio payload", async
   const output = await adapters.tts.synthesize({
     tenantId: "fh-demo",
     callId: "call-speech-2",
-    text: "I am sorry. I will help get this to the right person.",
+    text: "I am assisting the funeral director with gathering call information.",
   });
 
   assert.equal(output.provider, "fake-tts");
   assert.equal(output.audio.contentType, "audio/wav");
   assert.equal(
     Buffer.from(output.audio.bytesBase64, "base64").toString("utf8"),
-    "I am sorry. I will help get this to the right person.",
+    "I am assisting the funeral director with gathering call information.",
   );
 });

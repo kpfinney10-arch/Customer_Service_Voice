@@ -54,7 +54,9 @@ async function main() {
         message_history: [
           {
             role: "assistant",
-            content: initiatedResponse.telnyxCommands?.[1]?.payload?.payload ?? "I am sorry. I will help.",
+            content:
+              initiatedResponse.telnyxCommands?.[1]?.payload?.payload ??
+              "I am assisting the funeral director with gathering call information.",
           },
           {
             role: "user",

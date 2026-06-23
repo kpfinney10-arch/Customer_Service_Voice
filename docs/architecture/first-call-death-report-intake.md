@@ -136,7 +136,7 @@ Voice should be:
 Example:
 
 ```text
-I am sorry. I will help get this to the right person. I need just a few details, and then I will connect you with our team.
+I am assisting the funeral director with gathering call information. I need just a few details, and then I will connect you with our team.
 ```
 
 ## Scenario Coverage

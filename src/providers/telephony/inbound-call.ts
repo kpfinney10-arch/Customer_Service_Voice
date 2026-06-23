@@ -16,7 +16,7 @@ import {
 import type { VoiceResponse } from "./voice-response.js";
 
 export const INITIAL_FIRST_CALL_VOICE_PROMPT =
-  "I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?";
+  "I am assisting the funeral director with gathering call information. May I have your name and the best phone number in case we are disconnected?";
 
 export type InboundTelephonyCallInput = {
   tenantId: string;

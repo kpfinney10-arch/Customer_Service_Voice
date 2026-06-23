@@ -70,7 +70,7 @@ export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCa
 export function firstCallPromptForStep(step: FirstCallStep): string {
   switch (step) {
     case "acknowledge":
-      return "I am sorry. I will help get this to the right person.";
+      return "I am assisting the funeral director with gathering call information.";
     case "collect_caller":
       return "May I have your name and the best phone number in case we are disconnected?";
     case "collect_decedent":

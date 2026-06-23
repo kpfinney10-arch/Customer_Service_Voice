@@ -115,7 +115,7 @@ test("Twilio adapter rejects missing CallSid", () => {
 
 test("Twilio TwiML maps listen responses to Say plus speech Gather", () => {
   const twiml = createTwilioTwiMl({
-    voiceResponse: createListenVoiceResponse("I am sorry. I will help get this to the right person."),
+    voiceResponse: createListenVoiceResponse("I am assisting the funeral director with gathering call information."),
     options: {
       actionUrl: "/v1/tenants/fh-demo/telephony/twilio/webhook",
       voice: "alice",
@@ -125,7 +125,7 @@ test("Twilio TwiML maps listen responses to Say plus speech Gather", () => {
 
   assert.equal(
     twiml,
-    `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="${DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS}" timeout="8" actionOnEmptyResult="true" hints="${DEFAULT_TWILIO_SPEECH_HINTS.join(",")}"><Say voice="alice" language="en-US">I am sorry. I will help get this to the right person.</Say></Gather></Response>`,
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" action="/v1/tenants/fh-demo/telephony/twilio/webhook" method="POST" speechTimeout="${DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS}" timeout="8" actionOnEmptyResult="true" hints="${DEFAULT_TWILIO_SPEECH_HINTS.join(",")}"><Say voice="alice" language="en-US">I am assisting the funeral director with gathering call information.</Say></Gather></Response>`,
   );
 });
 

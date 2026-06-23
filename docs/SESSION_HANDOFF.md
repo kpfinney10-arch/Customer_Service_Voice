@@ -30,7 +30,7 @@ Recent known-good test count from this session: `133/133` passing.
 Most recent local prompt fix:
 
 - The first Twilio/Telnyx intake response now asks the first question immediately:
-  `I am sorry. I will help get this to the right person. May I have your name and the best phone number in case we are disconnected?`
+  `I am assisting the funeral director with gathering call information. May I have your name and the best phone number in case we are disconnected?`
 - This fixes the prior behavior where the voice agent apologized and said it would get the call to the right person, then waited without asking a question.
 - Local precheck confirmed the corrected TwiML response on `2026-06-19`.
 

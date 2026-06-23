@@ -137,7 +137,7 @@ test("Telnyx adapter rejects malformed required webhook fields", () => {
 test("Telnyx command adapter maps listen voice responses to gather_using_speak", () => {
   const commands = createTelnyxCommands({
     callControlId: "telnyx-call-1",
-    voiceResponse: createListenVoiceResponse("I am sorry. I will help get this to the right person."),
+    voiceResponse: createListenVoiceResponse("I am assisting the funeral director with gathering call information."),
     commandIdPrefix: "cmd-1",
     answerFirst: true,
     gatherStrategy: {
@@ -161,7 +161,7 @@ test("Telnyx command adapter maps listen voice responses to gather_using_speak",
       command: "gather_using_speak",
       callControlId: "telnyx-call-1",
       payload: {
-        payload: "I am sorry. I will help get this to the right person.",
+        payload: "I am assisting the funeral director with gathering call information.",
         language: "en-US",
         voice: "female",
         maximum_digits: 1,
