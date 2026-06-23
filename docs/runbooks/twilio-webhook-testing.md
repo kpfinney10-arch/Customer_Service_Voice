@@ -23,6 +23,14 @@ Or use the local Twilio launcher, which loads ignored `.env.local` / `.env` valu
 npm run start:twilio-local
 ```
 
+To start both the local server and a Cloudflare quick tunnel, use:
+
+```sh
+npm run start:twilio-tunnel
+```
+
+The tunnel launcher prints the exact Twilio Voice webhook URL when Cloudflare assigns the public URL.
+
 For persistent public testing, enable Twilio webhook signature validation by setting `TELEPHONY_WEBHOOK_SECRETS` to the Twilio account Auth Token:
 
 ```sh

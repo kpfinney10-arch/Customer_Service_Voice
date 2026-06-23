@@ -9,6 +9,7 @@
     "test": "node --test dist/tests/*.test.js",
     "start": "node dist/src/api/main.js",
     "start:twilio-local": "node scripts/start-twilio-local.mjs",
+    "start:twilio-tunnel": "node scripts/start-twilio-tunnel.mjs",
     "smoke:extraction": "node scripts/first-call-extraction-smoke.mjs",
     "smoke:human-test": "node scripts/human-testing-smoke.mjs",
     "smoke:telnyx": "node scripts/telnyx-webhook-smoke.mjs",

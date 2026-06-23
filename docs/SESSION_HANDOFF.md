@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-19
+Last updated: 2026-06-22
 
 ## Project
 
@@ -398,6 +398,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up Twilio webhook smoke tooling adds `npm run smoke:twilio`; it posts synthetic initial-call, speech/escalation, handoff-screen, and handoff-accept webhooks, then verifies replay escalation.
 - Unsigned and signed local webhook smoke validations both passed. Signed validation used `TELEPHONY_WEBHOOK_SECRETS=twilio:test-auth-token`, `TWILIO_AUTH_TOKEN=test-auth-token`, and `TWILIO_EXPECT_SIGNED_WEBHOOK=true`.
 - Follow-up local startup tooling adds `npm run start:twilio-local`; it loads ignored `.env.local` / `.env` values, applies safe local defaults, prints the next readiness/webhook smoke commands, and successfully booted the local server.
+- Follow-up tunnel tooling adds `npm run start:twilio-tunnel`; it starts the local Twilio server plus a Cloudflare quick tunnel and prints the exact Twilio Voice webhook/readiness URLs. Local launcher validation on 2026-06-22 printed a working tunnel URL and shut down cleanly.
 
 Ignored `.env.local` example:
 
@@ -446,7 +447,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Run the new Twilio readiness endpoint locally with unsigned testing, then with `TELEPHONY_WEBHOOK_SECRETS=twilio:<TWILIO_AUTH_TOKEN>` before any persistent public webhook test.
+1. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
 2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 3. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
 4. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.

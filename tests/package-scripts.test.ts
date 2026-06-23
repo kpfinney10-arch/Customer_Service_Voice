@@ -8,6 +8,7 @@ test("package exposes local human-testing smoke script", async () => {
   };
 
   assert.equal(pkg.scripts?.["start:twilio-local"], "node scripts/start-twilio-local.mjs");
+  assert.equal(pkg.scripts?.["start:twilio-tunnel"], "node scripts/start-twilio-tunnel.mjs");
   assert.equal(pkg.scripts?.["smoke:extraction"], "node scripts/first-call-extraction-smoke.mjs");
   assert.equal(pkg.scripts?.["smoke:human-test"], "node scripts/human-testing-smoke.mjs");
   assert.equal(pkg.scripts?.["smoke:telnyx"], "node scripts/telnyx-webhook-smoke.mjs");
