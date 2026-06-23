@@ -402,6 +402,9 @@ Latest OpenAI-backed Twilio live status:
 - Live Twilio validation on 2026-06-22 used tunnel `https://permissions-lay-international-vpn.trycloudflare.com`; session `CA4b36f3cabba032ebca996f9dd56c6e88` reached `ESCALATE`, executed CRM intake and dispatch removal request, and showed webhook turn durations of `5 ms`, `10 ms`, `7 ms`, and `8 ms`.
 - Captured facts included caller callback `214-363-4519`, decedent `Robert Johnson`, and pickup address `1642 Fireplace Drive Wataga Texas`. The live transcript exposed a noisy caller-name parse (`Bob Television Telephone`) from the phrase shape `My name is Bob. Television. My telephone is...`; follow-up hardening now keeps telephone cue/noise words out of caller names.
 - Validation after noisy telephone cue hardening: `npm run build && npm test` passed `155/155`.
+- Live Twilio validation on 2026-06-22 after the greeting update used tunnel `https://tail-traveller-key-annotation.trycloudflare.com`; session `CAe05d57e9ff1d29cdd68bd15b353c228d` confirmed the new opening greeting reached the live path and kept webhook durations fast, but ended before escalation because `Circle` was not accepted as a street suffix.
+- Captured hardening targets from that call: parse `Charles McDaniels is my name, and my phone number is 432569. 4324.` as caller `Charles McDaniels` with callback `432-569-4324`, and parse `12436. Saratoga Circle in Fort Worth.` as a pickup address. Follow-up hardening now covers reverse caller-name phrasing and additional street suffixes including `Circle`, `Way`, `Place`, `Terrace`, and `Parkway`.
+- Validation after reverse-name and Circle-address hardening: `npm run build && npm test` passed `156/156`.
 
 Ignored `.env.local` example:
 

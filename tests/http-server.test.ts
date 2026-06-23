@@ -1042,6 +1042,90 @@ test("Twilio webhook route keeps noisy telephone cue words out of caller name", 
   assert.equal(replay.body.session.facts.caller_phone, "214-363-4519");
 });
 
+test("Twilio webhook route accepts reverse caller name phrase and Circle address", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-circle-address-1",
+      From: "+18179205700",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-circle-address-1",
+      SpeechResult: "Charles McDaniels is my name, and my phone number is 432569. 4324.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-circle-address-1",
+      SpeechResult: "Name is John McAdams.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-circle-address-1",
+      SpeechResult: "12436. Saratoga Circle in Fort Worth.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-circle-address-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Charles McDaniels");
+  assert.equal(replay.body.session.facts.caller_phone, "432-569-4324");
+  assert.equal(replay.body.session.facts.decedent_name, "John McAdams");
+  assert.equal(replay.body.session.facts.pickup_address, "12436 Saratoga Circle Fort Worth");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-audio-1",

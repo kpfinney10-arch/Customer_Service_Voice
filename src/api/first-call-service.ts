@@ -634,9 +634,11 @@ const phoneCuePattern = /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|
 
 function extractContextualCallerName(transcript: string): string | undefined {
   const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
-  const rawName = beforePhoneCue.match(
-    /\b(?:my\s+name\s+is|this\s+is|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
-  )?.[1];
+  const rawName =
+    beforePhoneCue.match(/\b([A-Za-z]+(?:\s+[A-Za-z]+){0,3})\s+is\s+my\s+name\b/i)?.[1] ??
+    beforePhoneCue.match(
+      /\b(?:my\s+name\s+is|this\s+is|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
+    )?.[1];
   return rawName ? nameOnlyAnswer(rawName) : undefined;
 }
 
@@ -682,10 +684,13 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
-    .replace(/\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\s+in\s+/gi, "$1 ")
+    .replace(
+      /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+in\s+/gi,
+      "$1 ",
+    )
     .replace(/\s+/g, " ");
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
   )?.[1];
   return address?.trim();
 }
