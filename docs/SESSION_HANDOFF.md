@@ -419,6 +419,8 @@ Latest OpenAI-backed Twilio live status:
 - Captured facts included caller `John Adams`, callback `254-431-5620`, decedent `Robert Klein`, and pickup address `46289 Main Street Grapevine Texas`. The address/city phrase `46289 Main Street. In Grapevine, Texas.` was accepted cleanly with pickup address confidence `0.82`.
 - Follow-up target from that call: the first callback-number answer was misheard as `2554 431. 5762` and did not produce `caller_phone`, so the agent asked again and captured the corrected number on the next turn. Consider a phone-number repair/confirmation pass for near-10-digit Twilio transcripts.
 - Follow-up phone hardening now detects phone-intent turns with near-10-digit transcripts, avoids storing a guessed callback number, and asks the caller to say the 10-digit callback number one digit at a time. Validation after this change: `npm run build && npm test` passed `162/162`.
+- Live deterministic Twilio validation on 2026-06-25 used tunnel `https://flip-ahead-promote-labels.trycloudflare.com`; session `CA693785432b4f771780b33ab2654a8328` reached `ESCALATE`, executed CRM intake and dispatch removal request, and confirmed the near-phone guard did not store the bad first callback transcript `2554431. 5762`.
+- The agent collected the corrected callback on the follow-up turn as `254-431-5762`. Remaining live STT hardening notes: caller name was heard as `Kyle Finny`, and pickup address was heard as `639 gymnastics Street South Lake Texas`.
 
 Ignored `.env.local` example:
 
