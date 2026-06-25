@@ -23,7 +23,9 @@ export type FirstCallExtractor = {
 export type FirstCallExtractionContext = {
   tenantId?: string;
   currentFacts?: Partial<FirstCallFacts>;
+  currentFactConfidence?: FirstCallFactConfidence;
   localFacts?: Partial<FirstCallFacts>;
+  localFactConfidence?: FirstCallFactConfidence;
   activeStep?: string;
   missingTargetFacts?: string[];
 };

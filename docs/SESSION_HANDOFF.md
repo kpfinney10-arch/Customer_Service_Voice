@@ -410,6 +410,8 @@ Latest OpenAI-backed Twilio live status:
 - Validation after phone-only and dotted-name hardening: `npm run build && npm test` passed `157/157`.
 - Follow-up data-integrity foundation adds optional per-field `factConfidence` to first-call extraction results, carries LLM fallback confidence for LLM-filled facts, adds contextual confidence for fast-path local captures, and records the confidence map on `INTENT_DETECTED` events for replay/post-call QA.
 - Validation after field-confidence foundation: `npm run build && npm test` passed `157/157`.
+- Follow-up selective LLM trigger policy adds `decideFirstCallLlmValidation`; strong local active-slot captures skip LLM fallback for latency, low-confidence active-slot captures target only that field, and structured-output requests now include `validationReasons` plus `validationTargetFacts`.
+- Validation after selective LLM trigger policy: `npm run build && npm test` passed `160/160`.
 
 Ignored `.env.local` example:
 

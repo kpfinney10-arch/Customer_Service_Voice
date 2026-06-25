@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createFakeStructuredOutputAdapter } from "../src/providers/model/fake-structured-output-adapter.js";
-import { createLlmFallbackFirstCallExtractor } from "../src/verticals/funeral-home/llm-first-call-extractor.js";
+import {
+  createLlmFallbackFirstCallExtractor,
+  decideFirstCallLlmValidation,
+} from "../src/verticals/funeral-home/llm-first-call-extractor.js";
 
 test("LLM fallback fills missing first-call facts", async () => {
   const transcript = "Hi, this is hard. Dad passed and I need help.";
@@ -156,11 +159,50 @@ test("LLM fallback skips structured adapter when local facts resolve active slot
     localFacts: {
       decedent_name: "Amy Lee",
     },
+    localFactConfidence: {
+      decedent_name: 0.84,
+    },
     missingTargetFacts: ["decedent_name", "pickup_address"],
   });
 
   assert.equal(output.facts.decedent_name, "Amy Lee");
   assert.equal(requestCount, 0);
+});
+
+test("LLM fallback validates low-confidence local active-slot facts", async () => {
+  const transcript = "Her name is Maria maybe Castro.";
+  let seenContext: Record<string, unknown> | undefined;
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      defaultOutput: {
+        decedent_name: "Maria Castro",
+      },
+      onRequest: (request) => {
+        seenContext = request.context;
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript, {
+    tenantId: "fh-demo",
+    activeStep: "collect_decedent",
+    currentFacts: {
+      caller_name: "Mario Lopez",
+      caller_phone: "769-432-4218",
+    },
+    localFacts: {
+      decedent_name: "Maria",
+    },
+    localFactConfidence: {
+      decedent_name: 0.52,
+    },
+    missingTargetFacts: ["decedent_name", "pickup_address"],
+  });
+
+  assert.equal(output.facts.decedent_name, "Maria");
+  assert.deepEqual(seenContext?.validationTargetFacts, ["decedent_name"]);
+  assert.deepEqual(seenContext?.validationReasons, ["low_confidence:decedent_name", "base_extraction_uncertain"]);
 });
 
 test("LLM fallback still calls structured adapter when local facts do not resolve active slot", async () => {
@@ -193,4 +235,53 @@ test("LLM fallback still calls structured adapter when local facts do not resolv
 
   assert.equal(output.facts.decedent_name, "Amy Lee");
   assert.equal(requestCount, 1);
+});
+
+test("LLM validation policy skips strong active-slot local facts", () => {
+  const decision = decideFirstCallLlmValidation({
+    baseExtraction: {
+      intent: "unknown",
+      facts: {},
+      sentiment: "unknown",
+      confidence: 0.45,
+      warnings: ["caller_name_not_found", "caller_phone_not_found", "decedent_name_not_found"],
+    },
+    context: {
+      activeStep: "collect_decedent",
+      localFacts: {
+        decedent_name: "Amy Lee",
+      },
+      localFactConfidence: {
+        decedent_name: 0.84,
+      },
+    },
+  });
+
+  assert.equal(decision.shouldValidate, false);
+  assert.deepEqual(decision.targetFacts, []);
+});
+
+test("LLM validation policy targets missing facts when local parsing does not resolve active slot", () => {
+  const decision = decideFirstCallLlmValidation({
+    baseExtraction: {
+      intent: "unknown",
+      facts: {},
+      sentiment: "unknown",
+      confidence: 0.45,
+      warnings: ["decedent_name_not_found"],
+    },
+    context: {
+      activeStep: "collect_decedent",
+      localFacts: {
+        caller_name: "Kyle Finny",
+      },
+      localFactConfidence: {
+        caller_name: 0.86,
+      },
+    },
+  });
+
+  assert.equal(decision.shouldValidate, true);
+  assert.deepEqual(decision.targetFacts, ["decedent_name"]);
+  assert.deepEqual(decision.reasons, ["base_extraction_uncertain"]);
 });

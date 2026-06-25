@@ -233,16 +233,18 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       const redacted = redactText(input.transcript);
       const activeDecision = decideFirstCallNextStep(existingSession.facts as Partial<FirstCallFacts>);
       const contextualFacts = inferContextualFacts(existingSession, input.transcript);
+      const contextualFactConfidence = inferContextualFactConfidence(contextualFacts);
       const rawExtraction = await extractor.extract(input.transcript, {
         tenantId: existingSession.tenantId,
         currentFacts: existingSession.facts as Partial<FirstCallFacts>,
         localFacts: contextualFacts,
+        localFactConfidence: contextualFactConfidence,
         activeStep: activeDecision.step,
         missingTargetFacts: activeDecision.missingTargetFacts,
       });
       const factConfidence = mergeFactConfidence(
         rawExtraction.factConfidence,
-        inferContextualFactConfidence(contextualFacts),
+        contextualFactConfidence,
       );
       const extraction: FirstCallExtraction = {
         ...rawExtraction,

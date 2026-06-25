@@ -13,6 +13,13 @@ export type LlmFallbackFirstCallExtractorOptions = {
   adapter: StructuredOutputAdapter;
   baseExtractor?: FirstCallExtractor;
   minBaseConfidenceForSkip?: number;
+  minFactConfidenceForSkip?: number;
+};
+
+export type FirstCallLlmValidationDecision = {
+  shouldValidate: boolean;
+  targetFacts: Array<keyof FirstCallFacts>;
+  reasons: string[];
 };
 
 export const firstCallFactsSchema = {
@@ -55,24 +62,39 @@ export function createLlmFallbackFirstCallExtractor(
 ): FirstCallExtractor {
   const baseExtractor = options.baseExtractor ?? deterministicFirstCallExtractor;
   const minBaseConfidenceForSkip = options.minBaseConfidenceForSkip ?? 0.8;
+  const minFactConfidenceForSkip = options.minFactConfidenceForSkip ?? 0.78;
 
   return {
     async extract(transcript: string, context: FirstCallExtractionContext = {}): Promise<FirstCallExtraction> {
       const base = await baseExtractor.extract(transcript);
-      if (shouldSkipFallbackForLocalSlot(context)) {
-        return {
+      const validationDecision = decideFirstCallLlmValidation({
+        baseExtraction: base,
+        context,
+        minBaseConfidenceForSkip,
+        minFactConfidenceForSkip,
+      });
+      if (!validationDecision.shouldValidate) {
+        const facts = mergeMissingFacts(base.facts, context.localFacts ?? {});
+        const factConfidence = mergeMissingFactConfidence(
+          base.facts,
+          base.factConfidence,
+          context.localFacts ?? {},
+          0,
+          context.localFactConfidence,
+        );
+        const output: FirstCallExtraction = {
           ...base,
-          facts: mergeMissingFacts(base.facts, context.localFacts ?? {}),
+          facts,
         };
-      }
-      if (base.confidence >= minBaseConfidenceForSkip && base.warnings.length === 0) {
-        return base;
+        if (factConfidence) output.factConfidence = factConfidence;
+        return output;
       }
 
       const structured = await generateFallbackFacts(options.adapter, {
         tenantId: context.tenantId ?? options.tenantId,
         transcript,
         context,
+        validationDecision,
       });
       const sanitizedOutput = sanitizeFallbackFacts(structured.output);
       const facts = mergeMissingFacts(base.facts, sanitizedOutput.facts);
@@ -98,19 +120,60 @@ export function createLlmFallbackFirstCallExtractor(
   };
 }
 
-function shouldSkipFallbackForLocalSlot(context: FirstCallExtractionContext): boolean {
-  const localFacts = context.localFacts;
-  if (!localFacts || Object.keys(localFacts).length === 0) return false;
-  switch (context.activeStep) {
-    case "collect_caller":
-      return Boolean(localFacts.caller_name || localFacts.caller_phone);
-    case "collect_decedent":
-      return Boolean(localFacts.decedent_name);
-    case "collect_location":
-      return Boolean(localFacts.pickup_address || localFacts.facility_name);
-    default:
-      return false;
+export function decideFirstCallLlmValidation(input: {
+  baseExtraction: FirstCallExtraction;
+  context?: FirstCallExtractionContext;
+  minBaseConfidenceForSkip?: number;
+  minFactConfidenceForSkip?: number;
+}): FirstCallLlmValidationDecision {
+  const context = input.context ?? {};
+  const minBaseConfidenceForSkip = input.minBaseConfidenceForSkip ?? 0.8;
+  const minFactConfidenceForSkip = input.minFactConfidenceForSkip ?? 0.78;
+  const reasons: string[] = [];
+  const targetFacts = new Set<keyof FirstCallFacts>();
+  const activeFacts = activeValidationFacts(context);
+  const resolvedActiveFacts = activeFacts.filter((fact) => {
+    const value = factValue(fact, input.baseExtraction.facts, context.localFacts);
+    return value != null && value !== "";
+  });
+
+  for (const fact of resolvedActiveFacts) {
+    const confidence = factConfidence(fact, input.baseExtraction.factConfidence, context.localFactConfidence);
+    if (confidence != null && confidence < minFactConfidenceForSkip) {
+      reasons.push(`low_confidence:${String(fact)}`);
+      targetFacts.add(fact);
+    }
   }
+
+  if (targetFacts.size === 0 && resolvedActiveFacts.length > 0) {
+    return {
+      shouldValidate: false,
+      targetFacts: [],
+      reasons,
+    };
+  }
+
+  if (targetFacts.size > 0) {
+    if (input.baseExtraction.confidence < minBaseConfidenceForSkip || input.baseExtraction.warnings.length > 0) {
+      reasons.push("base_extraction_uncertain");
+    }
+    return {
+      shouldValidate: true,
+      targetFacts: [...targetFacts],
+      reasons,
+    };
+  }
+
+  if (input.baseExtraction.confidence < minBaseConfidenceForSkip || input.baseExtraction.warnings.length > 0) {
+    reasons.push("base_extraction_uncertain");
+    for (const fact of factsForWarnings(input.baseExtraction.warnings)) targetFacts.add(fact);
+  }
+
+  return {
+    shouldValidate: targetFacts.size > 0,
+    targetFacts: [...targetFacts],
+    reasons,
+  };
 }
 
 async function generateFallbackFacts(
@@ -119,6 +182,7 @@ async function generateFallbackFacts(
     tenantId: string;
     transcript: string;
     context: FirstCallExtractionContext;
+    validationDecision: FirstCallLlmValidationDecision;
   },
 ) {
   try {
@@ -131,6 +195,8 @@ async function generateFallbackFacts(
         activeStep: input.context.activeStep ?? null,
         currentFacts: input.context.currentFacts ?? {},
         missingTargetFacts: input.context.missingTargetFacts ?? [],
+        validationReasons: input.validationDecision.reasons,
+        validationTargetFacts: input.validationDecision.targetFacts,
       },
     });
   } catch (error) {
@@ -148,14 +214,56 @@ function mergeMissingFactConfidence(
   baseConfidence: FirstCallFactConfidence | undefined,
   fallbackFacts: Partial<FirstCallFacts>,
   fallbackConfidence: number,
+  fallbackFactConfidence?: FirstCallFactConfidence,
 ): FirstCallFactConfidence | undefined {
   const merged: FirstCallFactConfidence = { ...(baseConfidence ?? {}) };
   for (const [key, value] of Object.entries(fallbackFacts) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
     if (baseFacts[key] == null && value != null) {
-      merged[key] = fallbackConfidence;
+      const confidence = fallbackFactConfidence?.[key] ?? (fallbackConfidence > 0 ? fallbackConfidence : undefined);
+      if (confidence != null) merged[key] = confidence;
     }
   }
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function activeValidationFacts(context: FirstCallExtractionContext): Array<keyof FirstCallFacts> {
+  switch (context.activeStep) {
+    case "collect_caller":
+      return ["caller_name", "caller_phone"];
+    case "collect_decedent":
+      return ["decedent_name"];
+    case "collect_location":
+      return ["pickup_address", "facility_name"];
+    default:
+      return (context.missingTargetFacts ?? []) as Array<keyof FirstCallFacts>;
+  }
+}
+
+function factValue(
+  fact: keyof FirstCallFacts,
+  baseFacts: Partial<FirstCallFacts>,
+  localFacts: Partial<FirstCallFacts> | undefined,
+): FirstCallFacts[keyof FirstCallFacts] | undefined {
+  return localFacts?.[fact] ?? baseFacts[fact];
+}
+
+function factConfidence(
+  fact: keyof FirstCallFacts,
+  baseConfidence: FirstCallFactConfidence | undefined,
+  localConfidence: FirstCallFactConfidence | undefined,
+): number | undefined {
+  return localConfidence?.[fact] ?? baseConfidence?.[fact];
+}
+
+function factsForWarnings(warnings: string[]): Array<keyof FirstCallFacts> {
+  const facts: Array<keyof FirstCallFacts> = [];
+  for (const warning of warnings) {
+    if (warning === "caller_name_not_found") facts.push("caller_name");
+    if (warning === "caller_phone_not_found") facts.push("caller_phone");
+    if (warning === "decedent_name_not_found") facts.push("decedent_name");
+    if (warning === "pickup_context_not_found") facts.push("pickup_address", "facility_name");
+  }
+  return facts;
 }
 
 function mergeMissingFacts(
