@@ -418,6 +418,7 @@ Latest OpenAI-backed Twilio live status:
 - Live OpenAI-backed Twilio validation on 2026-06-25 used tunnel `https://interactions-parallel-asus-district.trycloudflare.com`; session `CAdf125658c9ec503c3bf8390d2ad29774` reached `ESCALATE`, executed CRM intake and dispatch removal request, and replay showed `factConfidence` metadata on the captured fields.
 - Captured facts included caller `John Adams`, callback `254-431-5620`, decedent `Robert Klein`, and pickup address `46289 Main Street Grapevine Texas`. The address/city phrase `46289 Main Street. In Grapevine, Texas.` was accepted cleanly with pickup address confidence `0.82`.
 - Follow-up target from that call: the first callback-number answer was misheard as `2554 431. 5762` and did not produce `caller_phone`, so the agent asked again and captured the corrected number on the next turn. Consider a phone-number repair/confirmation pass for near-10-digit Twilio transcripts.
+- Follow-up phone hardening now detects phone-intent turns with near-10-digit transcripts, avoids storing a guessed callback number, and asks the caller to say the 10-digit callback number one digit at a time. Validation after this change: `npm run build && npm test` passed `162/162`.
 
 Ignored `.env.local` example:
 
@@ -466,11 +467,10 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Add phone-number repair/confirmation handling for near-10-digit transcripts so misheard callback numbers can be confirmed without repeated full re-entry.
-2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
-3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
-5. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
+1. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
+2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
+3. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+4. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
 ## Production Hardening Notes
 

@@ -346,7 +346,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         session,
         extraction,
         decision,
-        responseText: firstCallPromptForDecision(decision, facts),
+        responseText: firstCallResponseText(decision, facts, input.transcript),
         events,
         toolResults: toolOutput.results,
       };
@@ -725,7 +725,8 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
 }
 
 const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
-const phoneCuePattern = /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b/i;
+const phoneCuePattern =
+  /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b|\b(?:reached|reach me|call me)\b/i;
 
 function extractContextualCallerName(transcript: string): string | undefined {
   const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
@@ -744,6 +745,25 @@ function extractContextualPhone(transcript: string): string | undefined {
   const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
   if (tenDigits.length !== 10) return raw.trim();
   return `${tenDigits.slice(0, 3)}-${tenDigits.slice(3, 6)}-${tenDigits.slice(6)}`;
+}
+
+function firstCallResponseText(
+  decision: FirstCallFlowDecision,
+  facts: Partial<FirstCallFacts>,
+  transcript: string,
+): string {
+  if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && hasNearPhoneNumber(transcript)) {
+    return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";
+  }
+  return firstCallPromptForDecision(decision, facts);
+}
+
+function hasNearPhoneNumber(transcript: string): boolean {
+  if (!phoneCuePattern.test(transcript)) return false;
+  const digits = transcript.replace(/\D/g, "");
+  if (digits.length === 10) return false;
+  if (digits.length === 11 && digits.startsWith("1")) return false;
+  return digits.length >= 9 && digits.length <= 12;
 }
 
 function nameOnlyAnswer(transcript: string): string | undefined {

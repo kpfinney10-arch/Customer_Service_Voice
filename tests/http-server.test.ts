@@ -997,6 +997,51 @@ test("Twilio webhook route accepts dotted spaced caller phone answers", async ()
   assert.equal(replay.body.session.facts.caller_phone, "214-623-5918");
 });
 
+test("Twilio webhook route asks for digit-by-digit confirmation on near phone answers", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-near-phone-1",
+      From: "+18179205700",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-near-phone-1",
+      SpeechResult: "My name is John Adams. I can be reached at 2554 431. 5762.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Please say the best callback number one digit at a time/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-near-phone-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "John Adams");
+  assert.equal(replay.body.session.facts.caller_phone, undefined);
+});
+
 test("Twilio webhook route keeps noisy telephone cue words out of caller name", async () => {
   await fetchText(
     "POST",
