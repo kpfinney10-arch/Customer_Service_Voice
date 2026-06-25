@@ -682,20 +682,35 @@ function inferContextualFactConfidence(facts: Partial<FirstCallFacts>): FirstCal
 }
 
 function contextualPickupAddressConfidence(address: string): number {
-  return hasSuspiciousLowercaseLocationToken(address) ? 0.62 : 0.82;
+  return hasSuspiciousLowercaseLocationToken(address) || hasSuspiciousStreetNameToken(address) ? 0.62 : 0.82;
 }
 
 function hasSuspiciousLowercaseLocationToken(address: string): boolean {
-  const normalized = address.replace(/[,.]/g, " ").replace(/\s+/g, " ").trim();
-  const parts = normalized.split(/\s+/);
-  const suffixIndex = parts.findIndex((part) =>
-    /^(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)$/i.test(
-      part,
-    ),
-  );
+  const parts = addressParts(address);
+  const suffixIndex = parts.findIndex(isStreetSuffix);
   if (suffixIndex < 0) return false;
   const locationTokens = parts.slice(suffixIndex + 1);
   return locationTokens.some((part) => /^[a-z]{2,}$/.test(part));
+}
+
+const suspiciousStreetNameTokens = new Set(["gymnastics"]);
+
+function hasSuspiciousStreetNameToken(address: string): boolean {
+  const parts = addressParts(address);
+  const suffixIndex = parts.findIndex(isStreetSuffix);
+  if (suffixIndex < 0) return false;
+  const streetNameTokens = parts.slice(1, suffixIndex);
+  return streetNameTokens.some((part) => suspiciousStreetNameTokens.has(part.toLowerCase()));
+}
+
+function addressParts(address: string): string[] {
+  return address.replace(/[,.]/g, " ").replace(/\s+/g, " ").trim().split(/\s+/);
+}
+
+function isStreetSuffix(part: string): boolean {
+  return /^(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)$/i.test(
+    part,
+  );
 }
 
 function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {

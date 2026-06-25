@@ -421,6 +421,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up phone hardening now detects phone-intent turns with near-10-digit transcripts, avoids storing a guessed callback number, and asks the caller to say the 10-digit callback number one digit at a time. Validation after this change: `npm run build && npm test` passed `162/162`.
 - Live deterministic Twilio validation on 2026-06-25 used tunnel `https://flip-ahead-promote-labels.trycloudflare.com`; session `CA693785432b4f771780b33ab2654a8328` reached `ESCALATE`, executed CRM intake and dispatch removal request, and confirmed the near-phone guard did not store the bad first callback transcript `2554431. 5762`.
 - The agent collected the corrected callback on the follow-up turn as `254-431-5762`. Remaining live STT hardening notes: caller name was heard as `Kyle Finny`, and pickup address was heard as `639 gymnastics Street South Lake Texas`.
+- Follow-up address hardening now lowers confidence for known live-call STT false-friend street tokens such as `gymnastics Street`, which lets a higher-confidence validated extraction replace the local parse when OpenAI validation is enabled. Validation after this change: `npm run build && npm test` passed `163/163`.
 
 Ignored `.env.local` example:
 
