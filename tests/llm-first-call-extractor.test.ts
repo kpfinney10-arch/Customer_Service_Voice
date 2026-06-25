@@ -103,6 +103,25 @@ test("LLM fallback discards invalid controlled fact values", async () => {
   assert.equal(output.warnings.includes("llm:discarded_invalid_urgency"), true);
 });
 
+test("LLM fallback discards invalid caller phone values", async () => {
+  const transcript = "The callback number was hard to hear.";
+  const extractor = createLlmFallbackFirstCallExtractor({
+    tenantId: "fh-demo",
+    adapter: createFakeStructuredOutputAdapter({
+      outputByTranscript: {
+        [transcript]: {
+          caller_phone: "439 5 562 4321",
+        },
+      },
+    }),
+  });
+
+  const output = await extractor.extract(transcript);
+
+  assert.equal(output.facts.caller_phone, undefined);
+  assert.equal(output.warnings.includes("llm:discarded_invalid_caller_phone"), true);
+});
+
 test("LLM fallback sends active intake context to structured adapter", async () => {
   const transcript = "The name is Amy Lee.";
   let seenContext: Record<string, unknown> | undefined;

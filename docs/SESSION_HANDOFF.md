@@ -424,6 +424,9 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up address hardening now lowers confidence for known live-call STT false-friend street tokens such as `gymnastics Street`, which lets a higher-confidence validated extraction replace the local parse when OpenAI validation is enabled. Validation after this change: `npm run build && npm test` passed `163/163`.
 - Live OpenAI-backed Twilio validation on 2026-06-25 used tunnel `https://car-herself-cruz-procedures.trycloudflare.com`; session `CA996a1bf6982693afe1b6f9ffc6d82af5` reached `ESCALATE`, executed CRM intake and dispatch removal request, and kept webhook durations fast (`6 ms`, `14 ms`, `7 ms`, `7 ms`, `6 ms` observed).
 - Captured facts included caller `Martijn Van`, callback `603-471-5862`, decedent `Eduardo Hernandez`, and pickup address `5723 Martin Luther King Boulevard Fort Worth Texas`. This call did not exercise the targeted `gymnastics Street` correction path because the address transcript was clean and stayed at pickup address confidence `0.82`.
+- Targeted OpenAI-backed Twilio validation on 2026-06-25 used tunnel `https://sleeps-provisions-edmonton-axis.trycloudflare.com`; session `CA7012db600225ef1f5c7f50782b038616` reached `ESCALATE`, executed CRM intake and dispatch removal request, and included long OpenAI validation turns (`10833 ms` and `6555 ms` observed).
+- Captured hardening targets from that call: a malformed callback transcript `439. 5 562. 4321` was accepted from LLM output, and the phone-intent phrase `I can be reached...` overwrote caller `Ronald Reagan` with `I Can Be`. The targeted address transcript stayed as `639 gymnastics Street, South Lake, Texas`; OpenAI validation did not correct the street token.
+- Follow-up hardening now prevents invalid phone-only turns from overwriting an existing caller name, asks for digit-by-digit confirmation when a phone-intent turn has near-phone digits that local parsing cannot safely normalize, discards invalid LLM caller-phone values, and tightens deterministic caller-name parsing so multi-word names are not shortened at word boundaries. Validation after this change: `npm run build && npm test` passed `165/165`.
 
 Ignored `.env.local` example:
 
@@ -472,7 +475,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Run one targeted OpenAI-backed live call using the phrase `639 gymnastics Street. In South Lake, Texas.` to validate the suspicious street-token LLM correction path.
+1. Decide whether suspicious street-token validation should ask a caller to confirm the street name instead of relying on OpenAI to guess corrections for tokens like `gymnastics Street`.
 2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
 3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.

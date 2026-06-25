@@ -287,7 +287,7 @@ function sanitizeFallbackFacts(input: Partial<FirstCallFacts>): {
   const warnings: string[] = [];
 
   copyStringFact(input, facts, "caller_name");
-  copyStringFact(input, facts, "caller_phone");
+  copyPhoneFact(input, facts, "caller_phone", warnings);
   copyStringFact(input, facts, "decedent_name");
   copyStringFact(input, facts, "pickup_address");
   copyStringFact(input, facts, "facility_name");
@@ -305,6 +305,29 @@ function sanitizeFallbackFacts(input: Partial<FirstCallFacts>): {
   else if (input.urgency) warnings.push("discarded_invalid_urgency");
 
   return { facts, warnings };
+}
+
+function copyPhoneFact<K extends keyof FirstCallFacts>(
+  input: Partial<FirstCallFacts>,
+  output: Partial<FirstCallFacts>,
+  key: K,
+  warnings: string[],
+): void {
+  const value = input[key];
+  if (typeof value !== "string" || !value.trim()) return;
+  const normalized = normalizeUsPhone(value);
+  if (!normalized) {
+    warnings.push(`discarded_invalid_${String(key)}`);
+    return;
+  }
+  setFact(output, key, normalized as FirstCallFacts[K]);
+}
+
+function normalizeUsPhone(value: string): string | undefined {
+  const digits = value.replace(/\D/g, "");
+  const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (tenDigits.length !== 10) return undefined;
+  return `${tenDigits.slice(0, 3)}-${tenDigits.slice(3, 6)}-${tenDigits.slice(6)}`;
 }
 
 function copyStringFact<K extends keyof FirstCallFacts>(

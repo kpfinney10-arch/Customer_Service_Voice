@@ -58,10 +58,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   factConfidence.death_reported = facts.death_reported ? 0.9 : 0.35;
 
   const callerName = matchFirst(text, [
-    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\b)/,
+    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+from\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
-    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\b)/,
-    /\b[Ii] am\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\b)/,
+    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
+    /\b[Ii] am\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
   ]);
   if (callerName) {
     facts.caller_name = callerName;

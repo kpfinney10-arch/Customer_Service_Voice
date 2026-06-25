@@ -591,7 +591,7 @@ function inferContextualFacts(session: CallSession, transcript: string): Partial
   const facts: Partial<FirstCallFacts> = {};
   if (!session.facts.caller_name || !session.facts.caller_phone) {
     const callerFacts = callerAnswerFacts(transcript);
-    if (session.facts.caller_name && callerFacts.caller_phone && !extractContextualCallerName(transcript)) {
+    if (session.facts.caller_name && !extractContextualCallerName(transcript)) {
       delete callerFacts.caller_name;
       delete callerFacts.pickup_contact_name;
     }
@@ -641,11 +641,28 @@ function higherConfidenceFacts(
   for (const [key, value] of Object.entries(extracted) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
     if (value == null) continue;
     const contextualValue = contextual[key];
-    if (contextualValue == null || (extractedConfidence[key] ?? 0) >= (contextualConfidence[key] ?? 0)) {
+    if (isFullerNameFact(key, value, contextualValue)) {
+      setFact(preferred, key, value);
+      continue;
+    }
+    if (contextualValue == null || (extractedConfidence[key] ?? 0) > (contextualConfidence[key] ?? 0)) {
       setFact(preferred, key, value);
     }
   }
   return preferred;
+}
+
+function isFullerNameFact(
+  key: keyof FirstCallFacts,
+  extractedValue: FirstCallFacts[keyof FirstCallFacts],
+  contextualValue: FirstCallFacts[keyof FirstCallFacts] | undefined,
+): boolean {
+  if (key !== "caller_name" && key !== "pickup_contact_name") return false;
+  if (typeof extractedValue !== "string" || typeof contextualValue !== "string") return false;
+  const extracted = extractedValue.trim();
+  const contextual = contextualValue.trim();
+  if (!extracted || !contextual) return false;
+  return extracted.split(/\s+/).length > contextual.split(/\s+/).length && extracted.toLowerCase().startsWith(`${contextual.toLowerCase()} `);
 }
 
 function setFact<K extends keyof FirstCallFacts>(
@@ -776,7 +793,6 @@ function firstCallResponseText(
 function hasNearPhoneNumber(transcript: string): boolean {
   if (!phoneCuePattern.test(transcript)) return false;
   const digits = transcript.replace(/\D/g, "");
-  if (digits.length === 10) return false;
   if (digits.length === 11 && digits.startsWith("1")) return false;
   return digits.length >= 9 && digits.length <= 12;
 }
