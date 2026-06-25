@@ -1675,6 +1675,102 @@ test("first-call API preserves city after street punctuation and in phrase", asy
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API lets higher-confidence extraction correct suspicious address city tokens", async () => {
+  const extractor: FirstCallExtractor = {
+    extract(transcript) {
+      if (/Carl Smith/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            caller_name: "Carl Smith",
+            caller_phone: "817-236-4312",
+          },
+          sentiment: "unknown",
+          confidence: 0.82,
+          factConfidence: {
+            caller_name: 0.86,
+            caller_phone: 0.92,
+          },
+          warnings: ["decedent_name_not_found", "pickup_context_not_found"],
+        };
+      }
+      if (/Eleanor/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            decedent_name: "Eleanor Briggs",
+          },
+          sentiment: "unknown",
+          confidence: 0.82,
+          factConfidence: {
+            decedent_name: 0.84,
+          },
+          warnings: ["pickup_context_not_found"],
+        };
+      }
+      return {
+        intent: "unknown",
+        facts: {
+          pickup_address: "1627 Commercial Avenue Seagoville Texas",
+          place_of_death_type: "residence",
+        },
+        sentiment: "unknown",
+        confidence: 0.9,
+        factConfidence: {
+          pickup_address: 0.9,
+          place_of_death_type: 0.72,
+        },
+        warnings: [],
+      };
+    },
+  };
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      sessionId: "session-contextual-slot-validated-address-1",
+      callerPhone: "603-731-5845",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-validated-address-1/transcript",
+    {
+      transcript: "My name is Carl Smith. I can be reached at 817 236 4312.",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-validated-address-1/transcript",
+    {
+      transcript: "The name is Eleanor Briggs.",
+    },
+    { extractor },
+  );
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-validated-address-1/transcript",
+    {
+      transcript: "1627. Commercial Avenue. In cville, Texas.",
+    },
+    { extractor },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "1627 Commercial Avenue Seagoville Texas");
+  assert.equal(turn.body.decision.step, "escalate");
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-validated-address-1/replay");
+  const finalIntentEvent = replay.body.events
+    .filter((event: { eventType: string }) => event.eventType === "INTENT_DETECTED")
+    .at(-1);
+  assert.equal(finalIntentEvent.payload.factConfidence.pickup_address, 0.9);
+});
+
 test("first-call API preserves apartment details from spoken address answers", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-7",

@@ -412,6 +412,9 @@ Latest OpenAI-backed Twilio live status:
 - Validation after field-confidence foundation: `npm run build && npm test` passed `157/157`.
 - Follow-up selective LLM trigger policy adds `decideFirstCallLlmValidation`; strong local active-slot captures skip LLM fallback for latency, low-confidence active-slot captures target only that field, and structured-output requests now include `validationReasons` plus `validationTargetFacts`.
 - Validation after selective LLM trigger policy: `npm run build && npm test` passed `160/160`.
+- Live OpenAI-backed Twilio validation on 2026-06-25 used tunnel `https://pole-biblical-sunday-motivated.trycloudflare.com`; latest session `CA988ecbd878fbe00c2f5a4ab8db3d7252` reached `ESCALATE`, executed CRM intake and dispatch removal request, and kept webhook durations fast (`9 ms`, `14 ms`, `8 ms`, `6 ms`, `13 ms`, `3 ms`, `4 ms` observed).
+- Captured hardening target from that call: local address parsing accepted `1627 Commercial Avenue cville Texas` with too much confidence. Follow-up hardening lowers confidence for suspicious lowercase location tokens after a street suffix, and merges extracted/contextual facts by confidence so validated LLM corrections can beat weak local captures.
+- Validation after confidence-aware address correction: `npm run build && npm test` passed `161/161`.
 
 Ignored `.env.local` example:
 

@@ -250,7 +250,13 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         ...rawExtraction,
       };
       if (factConfidence) extraction.factConfidence = factConfidence;
-      const facts = mergeFirstCallFacts(existingSession.facts as Partial<FirstCallFacts>, extraction.facts, contextualFacts);
+      const facts = mergeFirstCallFacts(
+        existingSession.facts as Partial<FirstCallFacts>,
+        extraction.facts,
+        contextualFacts,
+        extraction.factConfidence,
+        contextualFactConfidence,
+      );
       const sessionFacts: StructuredFacts = {
         ...facts,
         death_reported: true,
@@ -611,11 +617,13 @@ function mergeFirstCallFacts(
   existing: Partial<FirstCallFacts>,
   extracted: Partial<FirstCallFacts>,
   contextual: Partial<FirstCallFacts>,
+  extractedConfidence: FirstCallFactConfidence | undefined = {},
+  contextualConfidence: FirstCallFactConfidence = {},
 ): Partial<FirstCallFacts> {
   const merged: Partial<FirstCallFacts> = {
     ...existing,
-    ...extracted,
     ...contextual,
+    ...higherConfidenceFacts(extracted, contextual, extractedConfidence, contextualConfidence),
   };
   if (existing.death_reported === true && extracted.death_reported === false && contextual.death_reported !== false) {
     merged.death_reported = true;
@@ -623,14 +631,39 @@ function mergeFirstCallFacts(
   return merged;
 }
 
+function higherConfidenceFacts(
+  extracted: Partial<FirstCallFacts>,
+  contextual: Partial<FirstCallFacts>,
+  extractedConfidence: FirstCallFactConfidence,
+  contextualConfidence: FirstCallFactConfidence,
+): Partial<FirstCallFacts> {
+  const preferred: Partial<FirstCallFacts> = {};
+  for (const [key, value] of Object.entries(extracted) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
+    if (value == null) continue;
+    const contextualValue = contextual[key];
+    if (contextualValue == null || (extractedConfidence[key] ?? 0) >= (contextualConfidence[key] ?? 0)) {
+      setFact(preferred, key, value);
+    }
+  }
+  return preferred;
+}
+
+function setFact<K extends keyof FirstCallFacts>(
+  facts: Partial<FirstCallFacts>,
+  key: K,
+  value: FirstCallFacts[K],
+): void {
+  facts[key] = value;
+}
+
 function mergeFactConfidence(
   extracted: FirstCallFactConfidence | undefined,
   contextual: FirstCallFactConfidence,
 ): FirstCallFactConfidence | undefined {
-  const merged: FirstCallFactConfidence = {
-    ...(extracted ?? {}),
-    ...contextual,
-  };
+  const merged: FirstCallFactConfidence = { ...(extracted ?? {}) };
+  for (const [key, value] of Object.entries(contextual) as Array<[keyof FirstCallFacts, number]>) {
+    merged[key] = Math.max(merged[key] ?? 0, value);
+  }
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
@@ -642,10 +675,27 @@ function inferContextualFactConfidence(facts: Partial<FirstCallFacts>): FirstCal
   if (facts.preferred_callback_number) confidence.preferred_callback_number = confidence.caller_phone ?? 0.92;
   if (facts.pickup_contact_phone) confidence.pickup_contact_phone = confidence.caller_phone ?? 0.92;
   if (facts.decedent_name) confidence.decedent_name = 0.84;
-  if (facts.pickup_address) confidence.pickup_address = 0.82;
+  if (facts.pickup_address) confidence.pickup_address = contextualPickupAddressConfidence(facts.pickup_address);
   if (facts.facility_name) confidence.facility_name = 0.82;
   if (facts.place_of_death_type) confidence.place_of_death_type = facts.place_of_death_type === "unknown" ? 0.35 : 0.72;
   return confidence;
+}
+
+function contextualPickupAddressConfidence(address: string): number {
+  return hasSuspiciousLowercaseLocationToken(address) ? 0.62 : 0.82;
+}
+
+function hasSuspiciousLowercaseLocationToken(address: string): boolean {
+  const normalized = address.replace(/[,.]/g, " ").replace(/\s+/g, " ").trim();
+  const parts = normalized.split(/\s+/);
+  const suffixIndex = parts.findIndex((part) =>
+    /^(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)$/i.test(
+      part,
+    ),
+  );
+  if (suffixIndex < 0) return false;
+  const locationTokens = parts.slice(suffixIndex + 1);
+  return locationTokens.some((part) => /^[a-z]{2,}$/.test(part));
 }
 
 function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
