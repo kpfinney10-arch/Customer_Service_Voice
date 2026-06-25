@@ -25,6 +25,8 @@ test("LLM fallback fills missing first-call facts", async () => {
   assert.equal(output.facts.caller_phone, "555-909-1000");
   assert.equal(output.facts.decedent_name, "Thomas Reed");
   assert.equal(output.facts.pickup_address, "22 Cedar Street, Plano");
+  assert.equal(output.factConfidence?.caller_name, 0.78);
+  assert.equal(output.factConfidence?.pickup_address, 0.78);
   assert.equal(output.warnings.includes("caller_name_not_found"), false);
   assert.equal(output.warnings.includes("pickup_context_not_found"), false);
 });

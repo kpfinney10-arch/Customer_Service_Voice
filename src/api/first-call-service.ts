@@ -13,7 +13,11 @@ import { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolResult } from "../tools/tool-registry.js";
 import { createFakeFuneralHomeAdapters } from "../verticals/funeral-home/fake-adapters.js";
 import { deterministicFirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
-import type { FirstCallExtraction, FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
+import type {
+  FirstCallExtraction,
+  FirstCallExtractor,
+  FirstCallFactConfidence,
+} from "../verticals/funeral-home/first-call-extractor.js";
 import { createFirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import type { FirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import {
@@ -229,13 +233,21 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       const redacted = redactText(input.transcript);
       const activeDecision = decideFirstCallNextStep(existingSession.facts as Partial<FirstCallFacts>);
       const contextualFacts = inferContextualFacts(existingSession, input.transcript);
-      const extraction = await extractor.extract(input.transcript, {
+      const rawExtraction = await extractor.extract(input.transcript, {
         tenantId: existingSession.tenantId,
         currentFacts: existingSession.facts as Partial<FirstCallFacts>,
         localFacts: contextualFacts,
         activeStep: activeDecision.step,
         missingTargetFacts: activeDecision.missingTargetFacts,
       });
+      const factConfidence = mergeFactConfidence(
+        rawExtraction.factConfidence,
+        inferContextualFactConfidence(contextualFacts),
+      );
+      const extraction: FirstCallExtraction = {
+        ...rawExtraction,
+      };
+      if (factConfidence) extraction.factConfidence = factConfidence;
       const facts = mergeFirstCallFacts(existingSession.facts as Partial<FirstCallFacts>, extraction.facts, contextualFacts);
       const sessionFacts: StructuredFacts = {
         ...facts,
@@ -275,6 +287,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
           payload: {
             intent: extraction.intent,
             confidence: extraction.confidence,
+            factConfidence: extraction.factConfidence,
             warnings: extraction.warnings,
           },
         }),
@@ -606,6 +619,31 @@ function mergeFirstCallFacts(
     merged.death_reported = true;
   }
   return merged;
+}
+
+function mergeFactConfidence(
+  extracted: FirstCallFactConfidence | undefined,
+  contextual: FirstCallFactConfidence,
+): FirstCallFactConfidence | undefined {
+  const merged: FirstCallFactConfidence = {
+    ...(extracted ?? {}),
+    ...contextual,
+  };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function inferContextualFactConfidence(facts: Partial<FirstCallFacts>): FirstCallFactConfidence {
+  const confidence: FirstCallFactConfidence = {};
+  if (facts.caller_name) confidence.caller_name = 0.86;
+  if (facts.pickup_contact_name) confidence.pickup_contact_name = confidence.caller_name ?? 0.82;
+  if (facts.caller_phone) confidence.caller_phone = 0.92;
+  if (facts.preferred_callback_number) confidence.preferred_callback_number = confidence.caller_phone ?? 0.92;
+  if (facts.pickup_contact_phone) confidence.pickup_contact_phone = confidence.caller_phone ?? 0.92;
+  if (facts.decedent_name) confidence.decedent_name = 0.84;
+  if (facts.pickup_address) confidence.pickup_address = 0.82;
+  if (facts.facility_name) confidence.facility_name = 0.82;
+  if (facts.place_of_death_type) confidence.place_of_death_type = facts.place_of_death_type === "unknown" ? 0.35 : 0.72;
+  return confidence;
 }
 
 function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {

@@ -1,5 +1,6 @@
 import type { StructuredOutputAdapter } from "../../providers/model/structured-output-adapter.js";
 import type {
+  FirstCallFactConfidence,
   FirstCallExtraction,
   FirstCallExtractionContext,
   FirstCallExtractor,
@@ -75,7 +76,13 @@ export function createLlmFallbackFirstCallExtractor(
       });
       const sanitizedOutput = sanitizeFallbackFacts(structured.output);
       const facts = mergeMissingFacts(base.facts, sanitizedOutput.facts);
-      return {
+      const factConfidence = mergeMissingFactConfidence(
+        base.facts,
+        base.factConfidence,
+        sanitizedOutput.facts,
+        structured.confidence,
+      );
+      const output: FirstCallExtraction = {
         ...base,
         facts,
         confidence: Math.max(base.confidence, structured.confidence),
@@ -85,6 +92,8 @@ export function createLlmFallbackFirstCallExtractor(
           ...structured.warnings.map((warning) => `llm:${warning}`),
         ],
       };
+      if (factConfidence) output.factConfidence = factConfidence;
+      return output;
     },
   };
 }
@@ -132,6 +141,21 @@ async function generateFallbackFacts(
       warnings: [`provider_error:${error instanceof Error ? error.name : "unknown"}`],
     };
   }
+}
+
+function mergeMissingFactConfidence(
+  baseFacts: Partial<FirstCallFacts>,
+  baseConfidence: FirstCallFactConfidence | undefined,
+  fallbackFacts: Partial<FirstCallFacts>,
+  fallbackConfidence: number,
+): FirstCallFactConfidence | undefined {
+  const merged: FirstCallFactConfidence = { ...(baseConfidence ?? {}) };
+  for (const [key, value] of Object.entries(fallbackFacts) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
+    if (baseFacts[key] == null && value != null) {
+      merged[key] = fallbackConfidence;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function mergeMissingFacts(

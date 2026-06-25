@@ -408,6 +408,8 @@ Latest OpenAI-backed Twilio live status:
 - Live Twilio validation on 2026-06-22 using tunnel `https://health-snake-studying-adrian.trycloudflare.com` reached `ESCALATE` in session `CA659afbff6e1ffb8556747adf3f50c74c`, executed CRM intake and dispatch removal request, and captured pickup address `12724 Saratoga Springs Circle Fort Worth`.
 - Captured hardening targets from that call: a phone-only answer `I can be reached at. 769 432. 4218.` temporarily overwrote caller `Mario Lopez`, and `Her name is Maria. Castro Rodriguez.` captured only `Maria`. Follow-up hardening now preserves existing caller names on phone-only turns and normalizes dotted multi-part decedent names.
 - Validation after phone-only and dotted-name hardening: `npm run build && npm test` passed `157/157`.
+- Follow-up data-integrity foundation adds optional per-field `factConfidence` to first-call extraction results, carries LLM fallback confidence for LLM-filled facts, adds contextual confidence for fast-path local captures, and records the confidence map on `INTENT_DETECTED` events for replay/post-call QA.
+- Validation after field-confidence foundation: `npm run build && npm test` passed `157/157`.
 
 Ignored `.env.local` example:
 

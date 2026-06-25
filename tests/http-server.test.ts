@@ -1220,6 +1220,16 @@ test("Twilio webhook route preserves caller name across phone-only turns and dot
   assert.equal(replay.body.session.facts.caller_phone, "769-432-4218");
   assert.equal(replay.body.session.facts.decedent_name, "Maria Castro Rodriguez");
   assert.equal(replay.body.session.facts.pickup_address, "12724 Saratoga Springs Circle Fort Worth");
+  const callerIntentEvent = replay.body.events.find(
+    (event: { eventType: string; payload: { factConfidence?: Record<string, number> } }) =>
+      event.eventType === "INTENT_DETECTED" && event.payload.factConfidence?.caller_name,
+  );
+  assert.equal(callerIntentEvent.payload.factConfidence.caller_name, 0.86);
+  assert.equal(callerIntentEvent.payload.factConfidence.caller_phone, undefined);
+  const finalIntentEvent = replay.body.events
+    .filter((event: { eventType: string }) => event.eventType === "INTENT_DETECTED")
+    .at(-1);
+  assert.equal(finalIntentEvent.payload.factConfidence.pickup_address, 0.82);
 });
 
 test("telephony audio-turn route transcribes audio and synthesizes response audio", async () => {

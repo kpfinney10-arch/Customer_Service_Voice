@@ -49,6 +49,9 @@ test("first-call extractor handles Twilio speech callback phrasing for a father 
   assert.equal(extraction.facts.decedent_name, "John");
   assert.equal(extraction.facts.pickup_address, "123 Main Street");
   assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.factConfidence?.caller_name, 0.86);
+  assert.equal(extraction.factConfidence?.caller_phone, 0.92);
+  assert.equal(extraction.factConfidence?.pickup_address, 0.8);
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
