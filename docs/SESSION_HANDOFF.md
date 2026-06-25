@@ -422,6 +422,8 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-06-25 used tunnel `https://flip-ahead-promote-labels.trycloudflare.com`; session `CA693785432b4f771780b33ab2654a8328` reached `ESCALATE`, executed CRM intake and dispatch removal request, and confirmed the near-phone guard did not store the bad first callback transcript `2554431. 5762`.
 - The agent collected the corrected callback on the follow-up turn as `254-431-5762`. Remaining live STT hardening notes: caller name was heard as `Kyle Finny`, and pickup address was heard as `639 gymnastics Street South Lake Texas`.
 - Follow-up address hardening now lowers confidence for known live-call STT false-friend street tokens such as `gymnastics Street`, which lets a higher-confidence validated extraction replace the local parse when OpenAI validation is enabled. Validation after this change: `npm run build && npm test` passed `163/163`.
+- Live OpenAI-backed Twilio validation on 2026-06-25 used tunnel `https://car-herself-cruz-procedures.trycloudflare.com`; session `CA996a1bf6982693afe1b6f9ffc6d82af5` reached `ESCALATE`, executed CRM intake and dispatch removal request, and kept webhook durations fast (`6 ms`, `14 ms`, `7 ms`, `7 ms`, `6 ms` observed).
+- Captured facts included caller `Martijn Van`, callback `603-471-5862`, decedent `Eduardo Hernandez`, and pickup address `5723 Martin Luther King Boulevard Fort Worth Texas`. This call did not exercise the targeted `gymnastics Street` correction path because the address transcript was clean and stayed at pickup address confidence `0.82`.
 
 Ignored `.env.local` example:
 
@@ -470,10 +472,11 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
-2. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-3. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
-4. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
+1. Run one targeted OpenAI-backed live call using the phrase `639 gymnastics Street. In South Lake, Texas.` to validate the suspicious street-token LLM correction path.
+2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
+3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
+4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+5. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
 ## Production Hardening Notes
 
