@@ -430,6 +430,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up suspicious-address hardening now keeps known STT false-friend street tokens such as `gymnastics Street` from triggering dispatch/escalation. The address is retained for staff context, but the agent stays in location collection and asks the caller to repeat just the street name. Validation after this change: `npm run build && npm test` passed `166/166`.
 - Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://helicopter-polyphonic-roads-fancy.trycloudflare.com`; session `CA22932c97e408804ff9c0f25baa6c3376` confirmed the suspicious-street safety gate worked, but exposed a confirmation loop. The caller repeated `Gymnastics Street` and then `Gymnastics`, but the agent kept asking for the street name and the call ended before dispatch.
 - Follow-up confirmation hardening now treats short repeat answers such as `Gymnastics` or `Gymnastics Street` as confirmation of the suspicious street token, allowing dispatch/escalation to proceed after the caller confirms the unusual street name. Validation after this change: `npm run build && npm test` passed `166/166`.
+- Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://totally-budapest-basement-launched.trycloudflare.com`; session `CA420ecd948c39c37381cfad3b15622284` confirmed the full suspicious-street confirmation flow. The agent stayed in `collect_location` after `639 Gymnastics Street`, accepted the caller's repeat answer `Gymnastics`, then reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`.
 
 Ignored `.env.local` example:
 
@@ -478,7 +479,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Run one OpenAI-backed live Twilio call using `639 gymnastics Street. In South Lake, Texas.`, then answer the confirmation prompt with `Gymnastics Street`, and confirm dispatch/escalation proceeds.
+1. Decide the next language-hardening target from live calls: decedent/caller role confusion when a caller answers a decedent prompt with `My name is...`, or continue expanding confirmation flows for other suspicious fields.
 2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
 3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
