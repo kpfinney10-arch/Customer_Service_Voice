@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-22
+Last updated: 2026-06-26
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `133/133` passing.
+Recent known-good test count from this session: `168/168` passing.
 
 Most recent local prompt fix:
 
@@ -431,6 +431,7 @@ Latest OpenAI-backed Twilio live status:
 - Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://helicopter-polyphonic-roads-fancy.trycloudflare.com`; session `CA22932c97e408804ff9c0f25baa6c3376` confirmed the suspicious-street safety gate worked, but exposed a confirmation loop. The caller repeated `Gymnastics Street` and then `Gymnastics`, but the agent kept asking for the street name and the call ended before dispatch.
 - Follow-up confirmation hardening now treats short repeat answers such as `Gymnastics` or `Gymnastics Street` as confirmation of the suspicious street token, allowing dispatch/escalation to proceed after the caller confirms the unusual street name. Validation after this change: `npm run build && npm test` passed `166/166`.
 - Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://totally-budapest-basement-launched.trycloudflare.com`; session `CA420ecd948c39c37381cfad3b15622284` confirmed the full suspicious-street confirmation flow. The agent stayed in `collect_location` after `639 Gymnastics Street`, accepted the caller's repeat answer `Gymnastics`, then reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`.
+- Follow-up role-confusion hardening now preserves an already-collected caller name and pickup contact name outside the caller-collection step, even if the extractor later returns a higher-confidence caller name from a decedent/location turn. When the active step is `collect_decedent`, the contextual parser also accepts natural answers such as `My name is George Watson` as the decedent name without overwriting the caller. Validation after this change: `npm run build && npm test` passed `168/168`.
 
 Ignored `.env.local` example:
 
@@ -479,11 +480,12 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Decide the next language-hardening target from live calls: decedent/caller role confusion when a caller answers a decedent prompt with `My name is...`, or continue expanding confirmation flows for other suspicious fields.
-2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
-3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
-4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
-5. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
+1. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
+2. During the next live test, intentionally answer the decedent prompt with a phrase like `My name is George Watson` after giving a different caller name first, then confirm the replay keeps caller and decedent identities separate.
+3. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, phone-number repairs, and repeated name/contact prompts.
+4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
+5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
+6. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
 ## Production Hardening Notes
 

@@ -1582,6 +1582,110 @@ test("first-call API passes current facts and active step into extractor", async
   assert.deepEqual(seenContexts.at(-1)?.missingTargetFacts?.includes("decedent_name"), true);
 });
 
+test("first-call API preserves caller identity when decedent answer uses my-name phrasing", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-decedent-my-name-preserves-caller-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-decedent-my-name-preserves-caller-1/transcript",
+    {
+      transcript: "My name is Randall White. My phone number is 603-431-6382.",
+    },
+  );
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-decedent-my-name-preserves-caller-1/transcript",
+    {
+      transcript: "My name is George Watson.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Randall White");
+  assert.equal(turn.body.session.facts.pickup_contact_name, "Randall White");
+  assert.equal(turn.body.session.facts.decedent_name, "George Watson");
+  assert.equal(turn.body.decision.step, "collect_location");
+});
+
+test("first-call API blocks extractor caller-name overwrites outside caller collection", async () => {
+  const extractor: FirstCallExtractor = {
+    extract(transcript, context) {
+      if (/randall/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            caller_name: "Randall White",
+            pickup_contact_name: "Randall White",
+            caller_phone: "603-431-6382",
+          },
+          factConfidence: {
+            caller_name: 0.9,
+            pickup_contact_name: 0.9,
+            caller_phone: 0.92,
+          },
+          sentiment: "unknown",
+          confidence: 0.9,
+          warnings: [],
+        };
+      }
+      return {
+        intent: "unknown",
+        facts: context?.activeStep === "collect_decedent"
+          ? {
+              caller_name: "George Watson",
+              pickup_contact_name: "George Watson",
+              decedent_name: "George Watson",
+            }
+          : {},
+        factConfidence: {
+          caller_name: 0.99,
+          pickup_contact_name: 0.99,
+          decedent_name: 0.9,
+        },
+        sentiment: "unknown",
+        confidence: 0.9,
+        warnings: [],
+      };
+    },
+  };
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      sessionId: "session-decedent-extractor-caller-overwrite-1",
+      callerPhone: "603-731-5845",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-decedent-extractor-caller-overwrite-1/transcript",
+    {
+      transcript: "My name is Randall White. My phone number is 603-431-6382.",
+    },
+    { extractor },
+  );
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-decedent-extractor-caller-overwrite-1/transcript",
+    {
+      transcript: "My name is George Watson.",
+    },
+    { extractor },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Randall White");
+  assert.equal(turn.body.session.facts.pickup_contact_name, "Randall White");
+  assert.equal(turn.body.session.facts.decedent_name, "George Watson");
+  assert.equal(turn.body.decision.step, "collect_location");
+});
+
 test("first-call API does not treat repeated caller name as decedent while caller identity is incomplete", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-repeat-1",

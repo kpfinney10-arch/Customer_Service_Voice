@@ -25,7 +25,7 @@ import {
   firstCallPromptForDecision,
   firstCallPromptForStep,
 } from "../verticals/funeral-home/first-call-flow.js";
-import type { FirstCallFlowDecision } from "../verticals/funeral-home/first-call-flow.js";
+import type { FirstCallFlowDecision, FirstCallStep } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.js";
 import { executeFirstCallTools } from "../verticals/funeral-home/first-call-tools.js";
 import { routeFirstCallHandoff } from "../verticals/funeral-home/handoff-routing.js";
@@ -232,7 +232,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
 
       const redacted = redactText(input.transcript);
       const activeDecision = decideFirstCallNextStep(existingSession.facts as Partial<FirstCallFacts>);
-      const contextualFacts = inferContextualFacts(existingSession, input.transcript);
+      const contextualFacts = inferContextualFacts(existingSession, input.transcript, activeDecision.step);
       const contextualFactConfidence = inferContextualFactConfidence(contextualFacts);
       const rawExtraction = await extractor.extract(input.transcript, {
         tenantId: existingSession.tenantId,
@@ -256,6 +256,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         contextualFacts,
         extraction.factConfidence,
         contextualFactConfidence,
+        activeDecision.step,
       );
       const sessionFacts: StructuredFacts = {
         ...facts,
@@ -592,7 +593,7 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
   }
 }
 
-function inferContextualFacts(session: CallSession, transcript: string): Partial<FirstCallFacts> {
+function inferContextualFacts(session: CallSession, transcript: string, activeStep?: FirstCallStep): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
   if (!session.facts.caller_name || !session.facts.caller_phone) {
     const callerFacts = callerAnswerFacts(transcript);
@@ -604,7 +605,7 @@ function inferContextualFacts(session: CallSession, transcript: string): Partial
   }
   const afterCallerFacts = { ...(session.facts as Partial<FirstCallFacts>), ...facts };
   if (afterCallerFacts.caller_name && afterCallerFacts.caller_phone && !afterCallerFacts.decedent_name) {
-    const decedentName = nameOnlyAnswer(transcript);
+    const decedentName = nameOnlyAnswer(transcript) ?? (activeStep === "collect_decedent" ? extractContextualCallerName(transcript) : undefined);
     if (decedentName && decedentName !== afterCallerFacts.caller_name) facts.decedent_name = decedentName;
   }
   const afterDecedentFacts = { ...afterCallerFacts, ...facts };
@@ -624,11 +625,12 @@ function mergeFirstCallFacts(
   contextual: Partial<FirstCallFacts>,
   extractedConfidence: FirstCallFactConfidence | undefined = {},
   contextualConfidence: FirstCallFactConfidence = {},
+  activeStep?: FirstCallStep,
 ): Partial<FirstCallFacts> {
   const merged: Partial<FirstCallFacts> = {
     ...existing,
     ...contextual,
-    ...higherConfidenceFacts(extracted, contextual, extractedConfidence, contextualConfidence),
+    ...higherConfidenceFacts(extracted, contextual, extractedConfidence, contextualConfidence, existing, activeStep),
   };
   if (existing.death_reported === true && extracted.death_reported === false && contextual.death_reported !== false) {
     merged.death_reported = true;
@@ -641,10 +643,13 @@ function higherConfidenceFacts(
   contextual: Partial<FirstCallFacts>,
   extractedConfidence: FirstCallFactConfidence,
   contextualConfidence: FirstCallFactConfidence,
+  existing: Partial<FirstCallFacts> = {},
+  activeStep?: FirstCallStep,
 ): Partial<FirstCallFacts> {
   const preferred: Partial<FirstCallFacts> = {};
   for (const [key, value] of Object.entries(extracted) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
     if (value == null) continue;
+    if (shouldPreserveExistingCallerIdentity(key, existing, activeStep)) continue;
     const contextualValue = contextual[key];
     if (isFullerNameFact(key, value, contextualValue)) {
       setFact(preferred, key, value);
@@ -655,6 +660,16 @@ function higherConfidenceFacts(
     }
   }
   return preferred;
+}
+
+function shouldPreserveExistingCallerIdentity(
+  key: keyof FirstCallFacts,
+  existing: Partial<FirstCallFacts>,
+  activeStep?: FirstCallStep,
+): boolean {
+  if (activeStep === "collect_caller") return false;
+  if (key !== "caller_name" && key !== "pickup_contact_name") return false;
+  return typeof existing[key] === "string" && existing[key].trim().length > 0;
 }
 
 function isFullerNameFact(
