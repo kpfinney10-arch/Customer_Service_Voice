@@ -1973,6 +1973,105 @@ test("first-call API lets higher-confidence extraction correct suspicious street
   assert.equal(finalIntentEvent.payload.factConfidence.pickup_address, 0.9);
 });
 
+test("first-call API asks caller to confirm suspicious street-name tokens", async () => {
+  const extractor: FirstCallExtractor = {
+    extract(transcript) {
+      if (/Kyle/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            caller_name: "Kyle Finney",
+            caller_phone: "603-731-5845",
+          },
+          sentiment: "unknown",
+          confidence: 0.82,
+          factConfidence: {
+            caller_name: 0.86,
+            caller_phone: 0.92,
+          },
+          warnings: ["decedent_name_not_found", "pickup_context_not_found"],
+        };
+      }
+      if (/John Adams/i.test(transcript)) {
+        return {
+          intent: "unknown",
+          facts: {
+            decedent_name: "John Adams",
+          },
+          sentiment: "unknown",
+          confidence: 0.82,
+          factConfidence: {
+            decedent_name: 0.84,
+          },
+          warnings: ["pickup_context_not_found"],
+        };
+      }
+      return {
+        intent: "unknown",
+        facts: {
+          pickup_address: "639 gymnastics Street, South Lake, Texas",
+          place_of_death_type: "residence",
+        },
+        sentiment: "unknown",
+        confidence: 0.82,
+        factConfidence: {
+          pickup_address: 0.82,
+          place_of_death_type: 0.72,
+        },
+        warnings: [],
+      };
+    },
+  };
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions",
+    {
+      sessionId: "session-contextual-slot-confirm-address-1",
+      callerPhone: "603-731-5845",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/transcript",
+    {
+      transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+    },
+    { extractor },
+  );
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/transcript",
+    {
+      transcript: "John Adams.",
+    },
+    { extractor },
+  );
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/transcript",
+    {
+      transcript: "639. gymnastics Street. In South Lake, Texas.",
+    },
+    { extractor },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.currentState, "RESOLVE_REQUEST");
+  assert.equal(turn.body.decision.step, "collect_location");
+  assert.equal(turn.body.session.facts.pickup_address, "639 gymnastics Street, South Lake, Texas");
+  assert.match(turn.body.responseText, /Please repeat just the street name/);
+  assert.equal(turn.body.handoff, undefined);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/replay",
+  );
+  assert.equal(replay.body.snapshot.completedToolNames.includes("dispatch.create_removal_request"), false);
+});
+
 test("first-call API preserves apartment details from spoken address answers", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-7",

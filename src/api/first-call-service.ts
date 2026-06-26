@@ -262,7 +262,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         death_reported: true,
         reasonForCall: "first_call_death_report",
       };
-      const decision = decideFirstCallNextStep(facts);
+      const decision = firstCallDecisionAfterValidation(decideFirstCallNextStep(facts), facts, extraction.factConfidence);
       const session = updateSession(existingSession, {
         currentState: decision.nextState,
         intent: extraction.intent,
@@ -702,6 +702,31 @@ function contextualPickupAddressConfidence(address: string): number {
   return hasSuspiciousLowercaseLocationToken(address) || hasSuspiciousStreetNameToken(address) ? 0.62 : 0.82;
 }
 
+function firstCallDecisionAfterValidation(
+  decision: FirstCallFlowDecision,
+  facts: Partial<FirstCallFacts>,
+  factConfidence: FirstCallFactConfidence | undefined,
+): FirstCallFlowDecision {
+  if (decision.step === "escalate" && needsPickupAddressConfirmation(facts, factConfidence)) {
+    return {
+      nextState: "RESOLVE_REQUEST",
+      step: "collect_location",
+      missingTargetFacts: decision.missingTargetFacts.includes("pickup_address")
+        ? decision.missingTargetFacts
+        : [...decision.missingTargetFacts, "pickup_address"],
+      toolNames: [],
+    };
+  }
+  return decision;
+}
+
+function needsPickupAddressConfirmation(
+  facts: Partial<FirstCallFacts>,
+  _factConfidence: FirstCallFactConfidence | undefined,
+): boolean {
+  return Boolean(facts.pickup_address && hasSuspiciousStreetNameToken(facts.pickup_address));
+}
+
 function hasSuspiciousLowercaseLocationToken(address: string): boolean {
   const parts = addressParts(address);
   const suffixIndex = parts.findIndex(isStreetSuffix);
@@ -786,6 +811,9 @@ function firstCallResponseText(
 ): string {
   if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && hasNearPhoneNumber(transcript)) {
     return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";
+  }
+  if (decision.step === "collect_location" && needsPickupAddressConfirmation(facts, undefined)) {
+    return `I heard ${facts.pickup_address}. Please repeat just the street name so I can make sure I have it right.`;
   }
   return firstCallPromptForDecision(decision, facts);
 }
