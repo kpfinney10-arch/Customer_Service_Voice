@@ -428,6 +428,8 @@ Latest OpenAI-backed Twilio live status:
 - Captured hardening targets from that call: a malformed callback transcript `439. 5 562. 4321` was accepted from LLM output, and the phone-intent phrase `I can be reached...` overwrote caller `Ronald Reagan` with `I Can Be`. The targeted address transcript stayed as `639 gymnastics Street, South Lake, Texas`; OpenAI validation did not correct the street token.
 - Follow-up hardening now prevents invalid phone-only turns from overwriting an existing caller name, asks for digit-by-digit confirmation when a phone-intent turn has near-phone digits that local parsing cannot safely normalize, discards invalid LLM caller-phone values, and tightens deterministic caller-name parsing so multi-word names are not shortened at word boundaries. Validation after this change: `npm run build && npm test` passed `165/165`.
 - Follow-up suspicious-address hardening now keeps known STT false-friend street tokens such as `gymnastics Street` from triggering dispatch/escalation. The address is retained for staff context, but the agent stays in location collection and asks the caller to repeat just the street name. Validation after this change: `npm run build && npm test` passed `166/166`.
+- Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://helicopter-polyphonic-roads-fancy.trycloudflare.com`; session `CA22932c97e408804ff9c0f25baa6c3376` confirmed the suspicious-street safety gate worked, but exposed a confirmation loop. The caller repeated `Gymnastics Street` and then `Gymnastics`, but the agent kept asking for the street name and the call ended before dispatch.
+- Follow-up confirmation hardening now treats short repeat answers such as `Gymnastics` or `Gymnastics Street` as confirmation of the suspicious street token, allowing dispatch/escalation to proceed after the caller confirms the unusual street name. Validation after this change: `npm run build && npm test` passed `166/166`.
 
 Ignored `.env.local` example:
 
@@ -476,7 +478,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Run one OpenAI-backed live Twilio call using `639 gymnastics Street. In South Lake, Texas.` and confirm the agent asks for the street name again instead of dispatching immediately.
+1. Run one OpenAI-backed live Twilio call using `639 gymnastics Street. In South Lake, Texas.`, then answer the confirmation prompt with `Gymnastics Street`, and confirm dispatch/escalation proceeds.
 2. Use `npm run start:twilio-tunnel` for the next live Twilio call test, then paste the printed full webhook URL into the Twilio number's Voice webhook field with method `HTTP POST`.
 3. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 4. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.

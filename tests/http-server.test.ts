@@ -2070,6 +2070,25 @@ test("first-call API asks caller to confirm suspicious street-name tokens", asyn
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/replay",
   );
   assert.equal(replay.body.snapshot.completedToolNames.includes("dispatch.create_removal_request"), false);
+
+  const confirmed = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/transcript",
+    {
+      transcript: "Gymnastics Street.",
+    },
+    { extractor },
+  );
+
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.body.decision.step, "escalate");
+  assert.equal(confirmed.body.handoffRouting.destinationType, "on_call_phone");
+
+  const confirmedReplay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/replay",
+  );
+  assert.equal(confirmedReplay.body.snapshot.completedToolNames.includes("dispatch.create_removal_request"), true);
 });
 
 test("first-call API preserves apartment details from spoken address answers", async () => {
