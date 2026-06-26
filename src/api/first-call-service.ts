@@ -812,12 +812,13 @@ function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
   const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
   const nameCandidate = beforePhoneCue
     .replace(contextualPhonePattern, " ")
-    .replace(/\b(?:phone|telephone|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
+    .replace(/\b(?:and|phone|telephone|television|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
     .replace(/[,.?!]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  const name = explicitName ?? nameOnlyAnswer(nameCandidate);
+  const candidateName = nameOnlyAnswer(nameCandidate);
+  const name = fullerContextualName(explicitName, candidateName) ?? explicitName ?? candidateName;
   if (name) {
     facts.caller_name = name;
     facts.pickup_contact_name = name;
@@ -837,6 +838,20 @@ function extractContextualCallerName(transcript: string): string | undefined {
       /\b(?:my\s+name\s+is|this\s+is|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
     )?.[1];
   return rawName ? nameOnlyAnswer(rawName) : undefined;
+}
+
+function fullerContextualName(
+  explicitName: string | undefined,
+  candidateName: string | undefined,
+): string | undefined {
+  if (!explicitName || !candidateName) return undefined;
+  const explicit = explicitName.trim();
+  const candidate = candidateName.trim();
+  if (!explicit || !candidate) return undefined;
+  const explicitWords = explicit.split(/\s+/);
+  const candidateWords = candidate.split(/\s+/);
+  if (candidateWords.length <= explicitWords.length) return undefined;
+  return candidate.toLowerCase().startsWith(`${explicit.toLowerCase()} `) ? candidate : undefined;
 }
 
 function extractContextualPhone(transcript: string): string | undefined {
@@ -920,7 +935,10 @@ const callerNameSpellingCorrectedKey = "caller_name_spelling_corrected";
 const pendingCallerNameSpellingStatus = "needs_confirmation";
 const confirmedCallerNameSpellingStatus = "confirmed";
 const attemptedCallerNameSpellingStatus = "attempted";
-const suspiciousNameSpellings = new Map([["finny", "finney"]]);
+const suspiciousNameSpellings = new Map([
+  ["feny", "finney"],
+  ["finny", "finney"],
+]);
 
 function applyCallerNameSpellingReview(
   existing: StructuredFacts,

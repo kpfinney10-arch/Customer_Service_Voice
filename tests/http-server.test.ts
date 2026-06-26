@@ -1764,6 +1764,40 @@ test("first-call API asks for spelling when caller name has known suspicious STT
   assert.equal(spellingTurn.body.responseText, "May I have the name of the person who passed away?");
 });
 
+test("first-call API asks for spelling when Twilio separates suspicious surname with commas", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-spelling-comma-1",
+  });
+
+  const callerTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-comma-1/transcript",
+    {
+      transcript: "My name is Kyle, feny, my phone number is 603-731-5845.",
+    },
+  );
+
+  assert.equal(callerTurn.status, 200);
+  assert.equal(callerTurn.body.session.facts.caller_name, "Kyle Feny");
+  assert.equal(callerTurn.body.session.facts.caller_name_spelling_status, "needs_confirmation");
+  assert.equal(callerTurn.body.decision.step, "collect_caller");
+  assert.equal(callerTurn.body.responseText, "I heard your name as Kyle Feny. Please spell your last name for the funeral director.");
+
+  const spellingTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-comma-1/transcript",
+    {
+      transcript: "F I N N E Y.",
+    },
+  );
+
+  assert.equal(spellingTurn.status, 200);
+  assert.equal(spellingTurn.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.pickup_contact_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_status, "confirmed");
+  assert.equal(spellingTurn.body.decision.step, "collect_decedent");
+});
+
 test("first-call API does not ask ordinary caller names for spelling", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-spelling-ordinary-1",

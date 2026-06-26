@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `170/170` passing.
+Recent known-good test count from this session: `171/171` passing.
 
 Most recent local prompt fix:
 
@@ -435,6 +435,7 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://qualification-issued-says-flights.trycloudflare.com`; session `CAf79806c367d9836916e2ca433c0c949e` confirmed the caller/decedent role-confusion hardening. The caller first gave `Kyle Finny` with callback `603-731-5845`, then answered the decedent prompt with `My name is George Watson`; the replay kept caller/pickup contact as `Kyle Finny`, captured decedent as `George Watson`, collected pickup address `636 South Main Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations were fast: `11 ms`, `16 ms`, `9 ms`, and `7 ms`.
 - Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://someone-murphy-ladder-kick.trycloudflare.com`; session `CAf351fcd859f81197ebf8577c9f221cac` confirmed the same caller/decedent role-confusion path under `FIRST_CALL_EXTRACTOR=openai`. The first callback transcript was missing a digit (`637315845`), so the agent stayed in caller collection and captured the corrected number on the next turn. The replay kept caller/pickup contact as `Kyle Finny`, captured decedent as `George Watson`, collected pickup address `6326 Rose Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations remained fast: `10 ms`, `16 ms`, `8 ms`, `6 ms`, and `7 ms`.
 - Follow-up caller-name spelling hardening adds a targeted one-turn confirmation only for known suspicious live-STT name spellings, currently including `Finny`. If the caller is captured as `Kyle Finny`, the agent asks the caller to spell the last name for the funeral director, accepts spelled answers such as `F I N N E Y`, corrects caller and pickup contact to `Kyle Finney`, and then resumes the normal decedent prompt. Ordinary names such as `Kyle Finney` do not trigger the extra turn. Validation after this change: `npm run build && npm test` passed `170/170`.
+- Live deterministic Twilio validation on 2026-06-26 used tunnel `https://jesus-themselves-pediatric-combo.trycloudflare.com`; session `CA0a954696eb74f259a551aa173f349146` reached `ESCALATE`, executed dispatch, and kept webhook durations fast (`10 ms`, `16 ms`, `10 ms`, `7 ms`), but the spelling prompt did not fire because Twilio heard the caller turn as `My name is Kyle, feny, my phone number...` and the parser kept only `Kyle`. Follow-up hardening now preserves fuller comma-separated name candidates, adds `feny` as a suspicious spelling for `Finney`, and keeps cue/noise words such as `and` and `television` out of caller names. Validation after this change: `npm run build && npm test` passed `171/171`.
 
 Ignored `.env.local` example:
 
@@ -483,7 +484,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Live-test the targeted caller-name spelling confirmation with a fresh Twilio tunnel by saying `My name is Kyle Finny` or letting STT produce that variant, then spelling `F I N N E Y` when prompted.
+1. Re-run the live targeted caller-name spelling confirmation with a fresh Twilio tunnel, using the live-observed phrase shape `My name is Kyle, feny, my phone number is...`, then spell `F I N N E Y` when prompted.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, phone-number repairs, and repeated name/contact prompts.
 3. Evaluate whether OpenAI validation should be triggered for malformed-but-near phone transcripts, since live STT produced `637315845` for `603-731-5845` and the current deterministic repeat prompt handled it safely.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
