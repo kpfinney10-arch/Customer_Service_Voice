@@ -258,14 +258,19 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         contextualFactConfidence,
         activeDecision.step,
       );
+      const reviewedFacts = applyCallerNameSpellingReview(
+        existingSession.facts,
+        facts,
+        input.transcript,
+      );
       const sessionFacts: StructuredFacts = {
-        ...facts,
+        ...reviewedFacts,
         death_reported: true,
         reasonForCall: "first_call_death_report",
       };
       const decision = firstCallDecisionAfterValidation(
-        decideFirstCallNextStep(facts),
-        facts,
+        decideFirstCallNextStep(reviewedFacts),
+        reviewedFacts,
         extraction.factConfidence,
         input.transcript,
       );
@@ -326,7 +331,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         toolCallIdFactory: idFactory,
         correlationId,
         session,
-        facts,
+        facts: reviewedFacts,
         decision,
         registry,
       };
@@ -342,7 +347,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       await options.eventStore?.append(events);
       const handoff = createFirstCallHandoffSummary({
         session,
-        facts,
+        facts: reviewedFacts,
         decision,
         toolResults: toolOutput.results,
       });
@@ -352,7 +357,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         session,
         extraction,
         decision,
-        responseText: firstCallResponseText(decision, facts, input.transcript),
+        responseText: firstCallResponseText(decision, reviewedFacts, input.transcript),
         events,
         toolResults: toolOutput.results,
       };
@@ -595,6 +600,14 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
 
 function inferContextualFacts(session: CallSession, transcript: string, activeStep?: FirstCallStep): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
+  if (hasPendingCallerNameSpellingConfirmation(session.facts)) {
+    const correctedCallerName = correctedSuspiciousNameFromSpelling(session.facts.caller_name, transcript);
+    if (correctedCallerName) {
+      facts.caller_name = correctedCallerName;
+      facts.pickup_contact_name = correctedCallerName;
+    }
+    return facts;
+  }
   if (!session.facts.caller_name || !session.facts.caller_phone) {
     const callerFacts = callerAnswerFacts(transcript);
     if (session.facts.caller_name && !extractContextualCallerName(transcript)) {
@@ -728,6 +741,14 @@ function firstCallDecisionAfterValidation(
   factConfidence: FirstCallFactConfidence | undefined,
   transcript: string,
 ): FirstCallFlowDecision {
+  if (needsCallerNameSpellingConfirmation(facts)) {
+    return {
+      nextState: "RESOLVE_REQUEST",
+      step: "collect_caller",
+      missingTargetFacts: decision.missingTargetFacts,
+      toolNames: [],
+    };
+  }
   if (decision.step === "escalate" && needsPickupAddressConfirmation(facts, factConfidence, transcript)) {
     return {
       nextState: "RESOLVE_REQUEST",
@@ -832,6 +853,9 @@ function firstCallResponseText(
   facts: Partial<FirstCallFacts>,
   transcript: string,
 ): string {
+  if (decision.step === "collect_caller" && needsCallerNameSpellingConfirmation(facts)) {
+    return `I heard your name as ${facts.caller_name}. Please spell your last name for the funeral director.`;
+  }
   if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && hasNearPhoneNumber(transcript)) {
     return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";
   }
@@ -887,6 +911,117 @@ function normalizeNameWord(word: string): string {
     return `Mc${word[2]?.toUpperCase() ?? ""}${word.slice(3).toLowerCase()}`;
   }
   return `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`;
+}
+
+const callerNameSpellingStatusKey = "caller_name_spelling_status";
+const callerNameSpellingAttemptedKey = "caller_name_spelling_attempted";
+const callerNameSpellingOriginalKey = "caller_name_spelling_original";
+const callerNameSpellingCorrectedKey = "caller_name_spelling_corrected";
+const pendingCallerNameSpellingStatus = "needs_confirmation";
+const confirmedCallerNameSpellingStatus = "confirmed";
+const attemptedCallerNameSpellingStatus = "attempted";
+const suspiciousNameSpellings = new Map([["finny", "finney"]]);
+
+function applyCallerNameSpellingReview(
+  existing: StructuredFacts,
+  facts: Partial<FirstCallFacts>,
+  transcript: string,
+): Partial<FirstCallFacts> & StructuredFacts {
+  const reviewed: Partial<FirstCallFacts> & StructuredFacts = { ...facts };
+  const existingStatus = stringFact(existing, callerNameSpellingStatusKey);
+  const existingAttempted = Number(existing[callerNameSpellingAttemptedKey] ?? 0);
+
+  if (existingStatus === pendingCallerNameSpellingStatus) {
+    const correctedCallerName = correctedSuspiciousNameFromSpelling(existing.caller_name, transcript);
+    if (correctedCallerName) {
+      reviewed.caller_name = correctedCallerName;
+      reviewed.pickup_contact_name = correctedCallerName;
+      reviewed[callerNameSpellingStatusKey] = confirmedCallerNameSpellingStatus;
+      reviewed[callerNameSpellingCorrectedKey] = correctedCallerName;
+      reviewed[callerNameSpellingAttemptedKey] = existingAttempted + 1;
+      return reviewed;
+    }
+    if (confirmsHeardName(transcript)) {
+      reviewed[callerNameSpellingStatusKey] = confirmedCallerNameSpellingStatus;
+      reviewed[callerNameSpellingAttemptedKey] = existingAttempted + 1;
+      return reviewed;
+    }
+    reviewed[callerNameSpellingStatusKey] = attemptedCallerNameSpellingStatus;
+    reviewed[callerNameSpellingAttemptedKey] = existingAttempted + 1;
+    return reviewed;
+  }
+
+  if (
+    facts.caller_name &&
+    existingStatus !== confirmedCallerNameSpellingStatus &&
+    existingStatus !== attemptedCallerNameSpellingStatus &&
+    hasSuspiciousNameSpelling(facts.caller_name)
+  ) {
+    reviewed[callerNameSpellingStatusKey] = pendingCallerNameSpellingStatus;
+    reviewed[callerNameSpellingOriginalKey] = facts.caller_name;
+    reviewed[callerNameSpellingAttemptedKey] = 0;
+  }
+  return reviewed;
+}
+
+function needsCallerNameSpellingConfirmation(facts: Partial<FirstCallFacts> | StructuredFacts): boolean {
+  return stringFact(facts, callerNameSpellingStatusKey) === pendingCallerNameSpellingStatus && typeof facts.caller_name === "string";
+}
+
+function hasPendingCallerNameSpellingConfirmation(facts: StructuredFacts): boolean {
+  return needsCallerNameSpellingConfirmation(facts);
+}
+
+function hasSuspiciousNameSpelling(name: string): boolean {
+  return nameTokens(name).some((token) => suspiciousNameSpellings.has(token.toLowerCase()));
+}
+
+function correctedSuspiciousNameFromSpelling(
+  currentName: unknown,
+  transcript: string,
+): string | undefined {
+  if (typeof currentName !== "string" || !hasSuspiciousNameSpelling(currentName)) return undefined;
+  const spelledName = spelledNameAnswer(transcript);
+  if (!spelledName) return undefined;
+  return replaceSuspiciousNameToken(currentName, spelledName);
+}
+
+function spelledNameAnswer(transcript: string): string | undefined {
+  const normalized = transcript
+    .trim()
+    .replace(/^(?:it'?s|its|that'?s|thats|last\s+name\s+is|the\s+last\s+name\s+is)\s+/i, "")
+    .replace(/[.?!]+$/g, "")
+    .replace(/[,.-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return undefined;
+  const words = normalized.split(" ").filter(Boolean);
+  if (words.length === 1 && /^[A-Za-z]{2,20}$/.test(words[0] ?? "")) return normalizeNameWord(words[0] ?? "");
+  if (words.length >= 2 && words.length <= 20 && words.every((word) => /^[A-Za-z]$/.test(word))) {
+    return normalizeNameWord(words.join(""));
+  }
+  return undefined;
+}
+
+function replaceSuspiciousNameToken(name: string, spelledName: string): string | undefined {
+  const tokens = nameTokens(name);
+  const index = tokens.findIndex((token) => suspiciousNameSpellings.has(token.toLowerCase()));
+  if (index < 0) return undefined;
+  tokens[index] = spelledName;
+  return tokens.join(" ");
+}
+
+function confirmsHeardName(transcript: string): boolean {
+  return /^(?:yes|yeah|yep|correct|that'?s correct|that is correct|right)$/i.test(transcript.trim().replace(/[.?!]+$/g, ""));
+}
+
+function nameTokens(name: string): string[] {
+  return name.trim().split(/\s+/).filter(Boolean);
+}
+
+function stringFact(facts: Partial<FirstCallFacts> | StructuredFacts, key: string): string | undefined {
+  const value = (facts as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function addressOnlyAnswer(transcript: string): string | undefined {

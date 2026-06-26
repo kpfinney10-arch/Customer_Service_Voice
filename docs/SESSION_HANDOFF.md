@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `168/168` passing.
+Recent known-good test count from this session: `170/170` passing.
 
 Most recent local prompt fix:
 
@@ -434,6 +434,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up role-confusion hardening now preserves an already-collected caller name and pickup contact name outside the caller-collection step, even if the extractor later returns a higher-confidence caller name from a decedent/location turn. When the active step is `collect_decedent`, the contextual parser also accepts natural answers such as `My name is George Watson` as the decedent name without overwriting the caller. Validation after this change: `npm run build && npm test` passed `168/168`.
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://qualification-issued-says-flights.trycloudflare.com`; session `CAf79806c367d9836916e2ca433c0c949e` confirmed the caller/decedent role-confusion hardening. The caller first gave `Kyle Finny` with callback `603-731-5845`, then answered the decedent prompt with `My name is George Watson`; the replay kept caller/pickup contact as `Kyle Finny`, captured decedent as `George Watson`, collected pickup address `636 South Main Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations were fast: `11 ms`, `16 ms`, `9 ms`, and `7 ms`.
 - Live OpenAI-backed Twilio validation on 2026-06-26 used tunnel `https://someone-murphy-ladder-kick.trycloudflare.com`; session `CAf351fcd859f81197ebf8577c9f221cac` confirmed the same caller/decedent role-confusion path under `FIRST_CALL_EXTRACTOR=openai`. The first callback transcript was missing a digit (`637315845`), so the agent stayed in caller collection and captured the corrected number on the next turn. The replay kept caller/pickup contact as `Kyle Finny`, captured decedent as `George Watson`, collected pickup address `6326 Rose Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations remained fast: `10 ms`, `16 ms`, `8 ms`, `6 ms`, and `7 ms`.
+- Follow-up caller-name spelling hardening adds a targeted one-turn confirmation only for known suspicious live-STT name spellings, currently including `Finny`. If the caller is captured as `Kyle Finny`, the agent asks the caller to spell the last name for the funeral director, accepts spelled answers such as `F I N N E Y`, corrects caller and pickup contact to `Kyle Finney`, and then resumes the normal decedent prompt. Ordinary names such as `Kyle Finney` do not trigger the extra turn. Validation after this change: `npm run build && npm test` passed `170/170`.
 
 Ignored `.env.local` example:
 
@@ -482,8 +483,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, phone-number repairs, and repeated name/contact prompts.
-2. Consider a lightweight spelling/confirmation path for names when STT produces likely variants, such as live `Finney` heard as `Finny`, without slowing ordinary calls.
+1. Live-test the targeted caller-name spelling confirmation with a fresh Twilio tunnel by saying `My name is Kyle Finny` or letting STT produce that variant, then spelling `F I N N E Y` when prompted.
+2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, phone-number repairs, and repeated name/contact prompts.
 3. Evaluate whether OpenAI validation should be triggered for malformed-but-near phone transcripts, since live STT produced `637315845` for `603-731-5845` and the current deterministic repeat prompt handled it safely.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.

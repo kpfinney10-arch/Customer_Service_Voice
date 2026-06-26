@@ -1728,6 +1728,62 @@ test("first-call API asks only for phone after caller gives name phrase", async 
   assert.equal(turn.body.responseText, "What is the best phone number in case we are disconnected?");
 });
 
+test("first-call API asks for spelling when caller name has known suspicious STT spelling", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-spelling-1",
+  });
+
+  const callerTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-1/transcript",
+    {
+      transcript: "My name is Kyle Finny, and my phone number is 603-731-5845.",
+    },
+  );
+
+  assert.equal(callerTurn.status, 200);
+  assert.equal(callerTurn.body.session.facts.caller_name, "Kyle Finny");
+  assert.equal(callerTurn.body.session.facts.caller_name_spelling_status, "needs_confirmation");
+  assert.equal(callerTurn.body.decision.step, "collect_caller");
+  assert.equal(callerTurn.body.responseText, "I heard your name as Kyle Finny. Please spell your last name for the funeral director.");
+
+  const spellingTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-1/transcript",
+    {
+      transcript: "F I N N E Y.",
+    },
+  );
+
+  assert.equal(spellingTurn.status, 200);
+  assert.equal(spellingTurn.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.pickup_contact_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_status, "confirmed");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_corrected, "Kyle Finney");
+  assert.equal(spellingTurn.body.decision.step, "collect_decedent");
+  assert.equal(spellingTurn.body.responseText, "May I have the name of the person who passed away?");
+});
+
+test("first-call API does not ask ordinary caller names for spelling", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-spelling-ordinary-1",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-ordinary-1/transcript",
+    {
+      transcript: "My name is Kyle Finney, and my phone number is 603-731-5845.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(turn.body.session.facts.caller_name_spelling_status, undefined);
+  assert.equal(turn.body.decision.step, "collect_decedent");
+  assert.equal(turn.body.responseText, "May I have the name of the person who passed away?");
+});
+
 test("first-call API asks only for phone after caller gives bare name", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-name-only-2",
