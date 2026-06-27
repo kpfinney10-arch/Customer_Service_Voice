@@ -448,6 +448,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up replay/prompt clarity now filters resolved warnings after contextual repairs, so repaired callback turns no longer report `caller_phone_not_found`, and spelling prompts acknowledge an already captured callback: `I have the callback number. I heard your name as...`. Validation after this change: `npm run build && npm test` passed `176/176`.
 - Live deterministic Twilio validation on 2026-06-27 used tunnel `https://ware-ticket-buyer-federal.trycloudflare.com`; session `CA58efecc3ba20edfff6eb92bda53a7e7a` reached `ESCALATE` and executed dispatch, but exposed two caller-collection issues. Twilio heard `Of course` during the name prompt and the parser accepted it as caller `Of Course`; earlier bare callback attempts such as `637315845` and `637315845. Zero down. Okay.` were not repaired because the caller-ID anchored repair only ran when a phone cue word was present.
 - Follow-up caller-collection hardening now rejects conversational filler words from name-only answers, including `of` and `course`, so `Of course` no longer becomes a caller name. The caller-ID anchored phone repair also accepts bare 9-digit answers, including the observed filler phrase, only when those digits are a subsequence of Twilio's provider caller ID. Validation after this change: `npm run build && npm test` passed `178/178`.
+- Live deterministic Twilio validation on 2026-06-27 used tunnel `https://statewide-full-practical-recording.trycloudflare.com`; session `CAeba133bbd1a4e397e85c279c24bc6ec6` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The `Of course` name fix worked: the phrase was not accepted as a caller name. New cleanup targets from the call: Twilio heard the first callback answer as `Of course, uh, 637315845`, which still did not repair because the bare-phone repair filler list did not include `uh`; Twilio also heard the pickup address as `They're at 636 Commerce, Ave and Keller, Texas`, which stored `636 Commerce Ave and Keller Texas`.
+- Follow-up caller/address cleanup now allows harmless fillers such as `uh`, `um`, `of`, and `course` around a bare 9-digit caller-ID-anchored callback answer without accepting them as a name, and removes filler `and` after street suffixes such as `Ave and Keller`. Validation after this change: `npm run build && npm test` passed `180/180`.
 
 Ignored `.env.local` example:
 
@@ -496,7 +498,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent rejects conversational filler such as `Of course`, repairs bare `637315845` to the provider caller ID callback, and says it has the callback number before asking for spelling.
+1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent repairs `Of course, uh, 637315845` to the provider caller ID callback without accepting filler as the caller name, and cleans up `Commerce Ave and Keller` to `Commerce Ave Keller`.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

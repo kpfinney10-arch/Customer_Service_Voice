@@ -1201,6 +1201,51 @@ test("Twilio webhook route does not accept conversational filler as caller name"
   assert.equal(replay.body.session.facts.caller_phone, undefined);
 });
 
+test("Twilio webhook route repairs bare callback with conversational filler without accepting a name", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-filler-phone-repair-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-filler-phone-repair-1",
+      SpeechResult: "Of course, uh, 637315845.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /May I have your name\?/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-filler-phone-repair-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, undefined);
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+});
+
 test("Twilio webhook route keeps conjunction out of repaired caller name before phone cue", async () => {
   await fetchText(
     "POST",
@@ -2174,6 +2219,32 @@ test("first-call API repairs spoken Avenue heard as a from in pickup-address slo
 
   assert.equal(turn.status, 200);
   assert.equal(turn.body.session.facts.pickup_address, "6326 Commerce Ave Keller Texas");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API removes and after street suffix in pickup-address slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-address-suffix-and-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-suffix-and-1/transcript", {
+    transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-suffix-and-1/transcript", {
+    transcript: "Robert Jones.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-suffix-and-1/transcript",
+    {
+      transcript: "They're at 636 Commerce, Ave and Keller, Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "636 Commerce Ave Keller Texas");
   assert.equal(turn.body.session.currentState, "ESCALATE");
   assert.equal(turn.body.decision.step, "escalate");
 });

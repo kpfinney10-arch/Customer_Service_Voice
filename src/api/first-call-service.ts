@@ -886,7 +886,20 @@ function repairPhoneFromProviderCallerId(
   return formatTenDigitPhone(providerDigits);
 }
 
-const PHONE_REPAIR_FILLER_WORDS = new Set(["zero", "oh", "o", "okay", "ok", "down"]);
+const PHONE_REPAIR_FILLER_WORDS = new Set([
+  "course",
+  "down",
+  "hm",
+  "hmm",
+  "o",
+  "of",
+  "oh",
+  "ok",
+  "okay",
+  "uh",
+  "um",
+  "zero",
+]);
 
 function isBareRepairablePhoneAnswer(transcript: string): boolean {
   const digits = transcript.replace(/\D/g, "");
@@ -1112,7 +1125,7 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
     .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+a\s+([A-Za-z])/gi, "$1 Ave $2")
     .replace(
-      /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:in|from)\s+/gi,
+      /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
     )
     .replace(/\s+/g, " ");
