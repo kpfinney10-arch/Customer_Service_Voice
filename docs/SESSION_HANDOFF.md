@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `175/175` passing.
+Recent known-good test count from this session: `176/176` passing.
 
 Most recent local prompt fix:
 
@@ -442,6 +442,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up address hardening now repairs live pickup-address transcripts where `Avenue`/`Ave` is heard as a standalone `a` between street name and city, such as `6326 Commerce a Keller Texas`, normalizing to `6326 Commerce Ave Keller Texas`. It does not try to repair unrelated corrupt city text such as `stuff like Texas`. Validation after this change: `npm run build && npm test` passed `174/174`.
 - Live deterministic Twilio validation on 2026-06-27 used tunnel `https://carrying-smithsonian-warrior-involving.trycloudflare.com`; session `CA5310ca41a3c49551da996c7c178264fa` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The phone repair did work: Twilio heard `My name is Kyle, finny my phone is 637315845`, caller ID was `+16037315845`, and the callback was stored as `603-731-5845`. The agent also corrected caller/pickup contact to `Kyle Finney` after spelling and collected decedent `Robert Jones`. New cleanup target from this call: Twilio heard the pickup address as `At 6326 Commerce, a from Keller, Texas`, which was accepted as `6326 Commerce Ave from Keller Texas`.
 - Follow-up address cleanup now removes filler `from` after a street suffix the same way it already removes `in`, so `At 6326 Commerce, a from Keller, Texas` normalizes to `6326 Commerce Ave Keller Texas`. Validation after this change: `npm run build && npm test` passed `175/175`.
+- Live deterministic Twilio validation on 2026-06-27 used tunnel `https://implemented-bedrooms-competitions-type.trycloudflare.com`; session `CA2a7840673c4e3d147e6bfa77c134f3b2` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The phone repair again worked: Twilio heard `My name is Kyle finny and my phone is 637315845`, caller ID was `+16037315845`, and callback was stored as `603-731-5845`; pickup address was cleanly stored as `6326 Commerce Ave Keller Texas`. New cleanup target from this call: the caller name was stored as `Kyle Finney And` because the conjunction landed inside the explicit `my name is...` capture before the phone cue.
+- Follow-up caller-name boundary cleanup now treats trailing `and` as a cue word instead of a name token, so `My name is Kyle finny and my phone is 637315845` stores `Kyle Finny`, triggers the targeted spelling prompt, and then corrects to `Kyle Finney`. Validation after this change: `npm run build && npm test` passed `176/176`.
 
 Ignored `.env.local` example:
 
@@ -490,7 +492,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-ID anchored phone repair plus `Commerce Ave` pickup-address flow with a fresh Twilio tunnel and confirm replay stores `6326 Commerce Ave Keller Texas` without the filler word `from`.
+1. Re-run the live caller-ID anchored phone repair and spelling flow with a fresh Twilio tunnel and confirm replay stores `Kyle Finney`, not `Kyle Finney And`.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

@@ -1097,6 +1097,7 @@ function addressOnlyAnswer(transcript: string): string | undefined {
 }
 
 const COMMON_NON_NAME_ANSWERS = new Set([
+  "and",
   "yes",
   "no",
   "sure",
