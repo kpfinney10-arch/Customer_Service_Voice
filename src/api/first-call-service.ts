@@ -839,7 +839,7 @@ function callerAnswerFacts(transcript: string, providerCallerPhone?: string): Pa
 
 const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
 const phoneCuePattern =
-  /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b|\b(?:reached|reach me|call me)\b/i;
+  /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b|\b(?:reached|reach me|call me)\b|\bat\b(?=\s*(?:\+?1[\s.-]*)?\d)/i;
 
 function extractContextualCallerName(transcript: string): string | undefined {
   const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
@@ -898,6 +898,9 @@ const PHONE_REPAIR_FILLER_WORDS = new Set([
   "okay",
   "uh",
   "um",
+  "yeah",
+  "yep",
+  "yes",
   "zero",
 ]);
 
@@ -1077,7 +1080,10 @@ function correctedSuspiciousNameFromSpelling(
 function spelledNameAnswer(transcript: string): string | undefined {
   const normalized = transcript
     .trim()
-    .replace(/^(?:it'?s|its|that'?s|thats|last\s+name\s+is|the\s+last\s+name\s+is)\s+/i, "")
+    .replace(
+      /^(?:(?:it'?s|its|that'?s|thats)\s+spelled|it'?s|its|that'?s|thats|(?:the\s+)?last\s+name\s+is\s+spelled|(?:the\s+)?last\s+name\s+is)\s+/i,
+      "",
+    )
     .replace(/[.?!]+$/g, "")
     .replace(/[,.-]/g, " ")
     .replace(/\s+/g, " ")
@@ -1144,6 +1150,8 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "sure",
   "okay",
   "ok",
+  "uh",
+  "um",
   "hello",
   "hi",
   "home",

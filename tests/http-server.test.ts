@@ -1224,7 +1224,7 @@ test("Twilio webhook route repairs bare callback with conversational filler with
     "/v1/tenants/fh-demo/telephony/twilio/webhook",
     new URLSearchParams({
       CallSid: "twilio-call-http-filler-phone-repair-1",
-      SpeechResult: "Of course, uh, 637315845.",
+      SpeechResult: "Yes, of course. Um, 637315845.",
       Confidence: "0.91",
     }),
     {
@@ -1244,6 +1244,53 @@ test("Twilio webhook route repairs bare callback with conversational filler with
   );
   assert.equal(replay.body.session.facts.caller_name, undefined);
   assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+});
+
+test("Twilio webhook route repairs at-prefixed callback and keeps suspicious caller name", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-at-phone-repair-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-at-phone-repair-1",
+      SpeechResult: "oh, my name is Kyle Finny at 637315845.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I have the callback number/);
+  assert.match(response.body, /Please spell your last name/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-at-phone-repair-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Finny");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.caller_name_spelling_status, "needs_confirmation");
 });
 
 test("Twilio webhook route keeps conjunction out of repaired caller name before phone cue", async () => {
@@ -2046,7 +2093,7 @@ test("first-call API asks for spelling when caller name has known suspicious STT
     "POST",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-1/transcript",
     {
-      transcript: "F I N N E Y.",
+      transcript: "Last name is spelled f. I n n e y.",
     },
   );
 
