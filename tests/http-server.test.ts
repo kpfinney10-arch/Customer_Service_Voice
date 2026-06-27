@@ -1042,6 +1042,96 @@ test("Twilio webhook route asks for digit-by-digit confirmation on near phone an
   assert.equal(replay.body.session.facts.caller_phone, undefined);
 });
 
+test("Twilio webhook route repairs one-missing-digit callback from matching caller ID", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-provider-phone-repair-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-provider-phone-repair-1",
+      SpeechResult: "My name is Kyle Finney. My phone is 637315845.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /May I have the name of the person who passed away\?/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-provider-phone-repair-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+});
+
+test("Twilio webhook route does not repair malformed callback from nonmatching caller ID", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-provider-phone-repair-negative-1",
+      From: "+18179205700",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-provider-phone-repair-negative-1",
+      SpeechResult: "My name is Kyle Finney. My phone is 637315845.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /Please say the best callback number one digit at a time/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-provider-phone-repair-negative-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(replay.body.session.facts.caller_phone, undefined);
+});
+
 test("Twilio webhook route does not overwrite caller name from invalid phone-only turns", async () => {
   await fetchText(
     "POST",

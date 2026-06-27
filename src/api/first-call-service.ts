@@ -609,7 +609,7 @@ function inferContextualFacts(session: CallSession, transcript: string, activeSt
     return facts;
   }
   if (!session.facts.caller_name || !session.facts.caller_phone) {
-    const callerFacts = callerAnswerFacts(transcript);
+    const callerFacts = callerAnswerFacts(transcript, session.callerPhone);
     if (session.facts.caller_name && !extractContextualCallerName(transcript)) {
       delete callerFacts.caller_name;
       delete callerFacts.pickup_contact_name;
@@ -799,9 +799,9 @@ function isStreetSuffix(part: string): boolean {
   );
 }
 
-function callerAnswerFacts(transcript: string): Partial<FirstCallFacts> {
+function callerAnswerFacts(transcript: string, providerCallerPhone?: string): Partial<FirstCallFacts> {
   const facts: Partial<FirstCallFacts> = {};
-  const phone = extractContextualPhone(transcript);
+  const phone = extractContextualPhone(transcript) ?? repairPhoneFromProviderCallerId(transcript, providerCallerPhone);
   if (phone) {
     facts.caller_phone = phone;
     facts.preferred_callback_number = phone;
@@ -861,6 +861,37 @@ function extractContextualPhone(transcript: string): string | undefined {
   const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
   if (tenDigits.length !== 10) return raw.trim();
   return `${tenDigits.slice(0, 3)}-${tenDigits.slice(3, 6)}-${tenDigits.slice(6)}`;
+}
+
+function repairPhoneFromProviderCallerId(
+  transcript: string,
+  providerCallerPhone: string | undefined,
+): string | undefined {
+  if (!providerCallerPhone || !phoneCuePattern.test(transcript)) return undefined;
+  const transcriptDigits = transcript.replace(/\D/g, "");
+  if (transcriptDigits.length !== 9) return undefined;
+  const providerDigits = normalizedTenDigitPhone(providerCallerPhone);
+  if (!providerDigits || !isSubsequence(transcriptDigits, providerDigits)) return undefined;
+  return formatTenDigitPhone(providerDigits);
+}
+
+function normalizedTenDigitPhone(phone: string): string | undefined {
+  const digits = phone.replace(/\D/g, "");
+  const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return tenDigits.length === 10 ? tenDigits : undefined;
+}
+
+function formatTenDigitPhone(digits: string): string {
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function isSubsequence(candidate: string, target: string): boolean {
+  let candidateIndex = 0;
+  for (const digit of target) {
+    if (candidate[candidateIndex] === digit) candidateIndex += 1;
+    if (candidateIndex === candidate.length) return true;
+  }
+  return candidateIndex === candidate.length;
 }
 
 function firstCallResponseText(

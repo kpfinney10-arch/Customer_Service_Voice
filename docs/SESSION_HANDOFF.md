@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-26
+Last updated: 2026-06-27
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `171/171` passing.
+Recent known-good test count from this session: `173/173` passing.
 
 Most recent local prompt fix:
 
@@ -437,6 +437,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up caller-name spelling hardening adds a targeted one-turn confirmation only for known suspicious live-STT name spellings, currently including `Finny`. If the caller is captured as `Kyle Finny`, the agent asks the caller to spell the last name for the funeral director, accepts spelled answers such as `F I N N E Y`, corrects caller and pickup contact to `Kyle Finney`, and then resumes the normal decedent prompt. Ordinary names such as `Kyle Finney` do not trigger the extra turn. Validation after this change: `npm run build && npm test` passed `170/170`.
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://jesus-themselves-pediatric-combo.trycloudflare.com`; session `CA0a954696eb74f259a551aa173f349146` reached `ESCALATE`, executed dispatch, and kept webhook durations fast (`10 ms`, `16 ms`, `10 ms`, `7 ms`), but the spelling prompt did not fire because Twilio heard the caller turn as `My name is Kyle, feny, my phone number...` and the parser kept only `Kyle`. Follow-up hardening now preserves fuller comma-separated name candidates, adds `feny` as a suspicious spelling for `Finney`, and keeps cue/noise words such as `and` and `television` out of caller names. Validation after this change: `npm run build && npm test` passed `171/171`.
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://ordering-partner-capability-turbo.trycloudflare.com`; session `CAa0099909259725484f70ba01ab42a35a` confirmed the patched spelling flow. Twilio heard the caller turn as `My name is Kyle, finny my phone is 637315845`; the agent treated `Kyle Finny` as a suspicious name, asked for spelling, accepted `F. I n. N e y.`, corrected caller and pickup contact to `Kyle Finney`, then stayed in caller collection because the first phone transcript was malformed. After the corrected phone number, it collected decedent `George Watson`, pickup address `4362 Main Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations remained fast: `10 ms`, `15 ms`, `9 ms`, `6 ms`, `7 ms`, and `7 ms`.
+- Follow-up phone repair hardening now accepts a 9-digit phone-intent transcript only when it can be safely anchored to Twilio's provider caller ID. For example, if Twilio caller ID is `+16037315845` and speech recognition hears `637315845`, the service repairs the callback to `603-731-5845`; if the provider caller ID does not match, the agent still asks for the callback number one digit at a time. Validation after this change: `npm run build && npm test` passed `173/173`.
 
 Ignored `.env.local` example:
 
@@ -485,8 +486,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Evaluate whether OpenAI validation should be triggered for malformed-but-near phone transcripts, since live STT repeatedly produced short/malformed phone text such as `637315845` for `603-731-5845` and the current deterministic repeat prompt handled it safely.
-2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, phone-number repairs, and repeated name/contact prompts.
+1. Live-test the caller-ID anchored phone repair with a fresh Twilio tunnel by saying a callback that Twilio has repeatedly heard as `637315845`; confirm it repairs only when the caller ID matches the spoken callback.
+2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
