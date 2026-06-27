@@ -446,6 +446,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up caller-name boundary cleanup now treats trailing `and` as a cue word instead of a name token, so `My name is Kyle finny and my phone is 637315845` stores `Kyle Finny`, triggers the targeted spelling prompt, and then corrects to `Kyle Finney`. Validation after this change: `npm run build && npm test` passed `176/176`.
 - Live deterministic Twilio validation on 2026-06-27 used tunnel `https://stylish-rendered-worthy-visited.trycloudflare.com`; session `CAde54ec6084c88d2be727b5a57b5a35fc` confirmed the caller-name boundary fix, caller-ID anchored phone repair, and Commerce Ave address cleanup together. Twilio heard `My name is Kyle Finny. And my phone is 637315845`; caller ID was `+16037315845`, and final facts stored caller `Kyle Finney`, callback `603-731-5845`, decedent `Robert Jones`, pickup address `6326 Commerce Ave Keller Texas`, reached `ESCALATE`, and executed dispatch. The in-call experience still felt like the phone repair was missed because the next prompt immediately asked for spelling and the replay warning still included `caller_phone_not_found` from the base extractor.
 - Follow-up replay/prompt clarity now filters resolved warnings after contextual repairs, so repaired callback turns no longer report `caller_phone_not_found`, and spelling prompts acknowledge an already captured callback: `I have the callback number. I heard your name as...`. Validation after this change: `npm run build && npm test` passed `176/176`.
+- Live deterministic Twilio validation on 2026-06-27 used tunnel `https://ware-ticket-buyer-federal.trycloudflare.com`; session `CA58efecc3ba20edfff6eb92bda53a7e7a` reached `ESCALATE` and executed dispatch, but exposed two caller-collection issues. Twilio heard `Of course` during the name prompt and the parser accepted it as caller `Of Course`; earlier bare callback attempts such as `637315845` and `637315845. Zero down. Okay.` were not repaired because the caller-ID anchored repair only ran when a phone cue word was present.
+- Follow-up caller-collection hardening now rejects conversational filler words from name-only answers, including `of` and `course`, so `Of course` no longer becomes a caller name. The caller-ID anchored phone repair also accepts bare 9-digit answers, including the observed filler phrase, only when those digits are a subsequence of Twilio's provider caller ID. Validation after this change: `npm run build && npm test` passed `178/178`.
 
 Ignored `.env.local` example:
 
@@ -494,7 +496,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-ID anchored phone repair and spelling flow with a fresh Twilio tunnel and confirm the agent says it has the callback number before asking for spelling.
+1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent rejects conversational filler such as `Of course`, repairs bare `637315845` to the provider caller ID callback, and says it has the callback number before asking for spelling.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

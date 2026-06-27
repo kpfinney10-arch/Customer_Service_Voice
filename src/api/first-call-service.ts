@@ -878,12 +878,26 @@ function repairPhoneFromProviderCallerId(
   transcript: string,
   providerCallerPhone: string | undefined,
 ): string | undefined {
-  if (!providerCallerPhone || !phoneCuePattern.test(transcript)) return undefined;
+  if (!providerCallerPhone || (!phoneCuePattern.test(transcript) && !isBareRepairablePhoneAnswer(transcript))) return undefined;
   const transcriptDigits = transcript.replace(/\D/g, "");
   if (transcriptDigits.length !== 9) return undefined;
   const providerDigits = normalizedTenDigitPhone(providerCallerPhone);
   if (!providerDigits || !isSubsequence(transcriptDigits, providerDigits)) return undefined;
   return formatTenDigitPhone(providerDigits);
+}
+
+const PHONE_REPAIR_FILLER_WORDS = new Set(["zero", "oh", "o", "okay", "ok", "down"]);
+
+function isBareRepairablePhoneAnswer(transcript: string): boolean {
+  const digits = transcript.replace(/\D/g, "");
+  if (digits.length !== 9) return false;
+  const words = transcript
+    .toLowerCase()
+    .replace(/\d/g, " ")
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.every((word) => PHONE_REPAIR_FILLER_WORDS.has(word));
 }
 
 function normalizedTenDigitPhone(phone: string): string | undefined {
@@ -1110,8 +1124,10 @@ function addressOnlyAnswer(transcript: string): string | undefined {
 
 const COMMON_NON_NAME_ANSWERS = new Set([
   "and",
+  "course",
   "yes",
   "no",
+  "of",
   "sure",
   "okay",
   "ok",

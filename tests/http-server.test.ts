@@ -1091,6 +1091,116 @@ test("Twilio webhook route repairs one-missing-digit callback from matching call
   assert.equal(intentEvent.payload.warnings.includes("caller_phone_not_found"), false);
 });
 
+test("Twilio webhook route repairs bare one-missing-digit callback answers from matching caller ID", async () => {
+  const repairCases: Array<[string, string]> = [
+    ["digits-only", "637315845."],
+    ["digits-with-filler", "637315845. Zero down. Okay."],
+  ];
+  for (const [suffix, speech] of repairCases) {
+    const callSid = `twilio-call-http-provider-phone-repair-bare-${suffix}`;
+    await fetchText(
+      "POST",
+      "/v1/tenants/fh-demo/telephony/twilio/webhook",
+      new URLSearchParams({
+        CallSid: callSid,
+        From: "+16037315845",
+        To: "+15559870000",
+        CallStatus: "in-progress",
+      }),
+      {
+        apiKey: null,
+        extraHeaders: {
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    await fetchText(
+      "POST",
+      "/v1/tenants/fh-demo/telephony/twilio/webhook",
+      new URLSearchParams({
+        CallSid: callSid,
+        SpeechResult: "My name is Kyle Finney.",
+        Confidence: "0.91",
+      }),
+      {
+        apiKey: null,
+        extraHeaders: {
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    const response = await fetchText(
+      "POST",
+      "/v1/tenants/fh-demo/telephony/twilio/webhook",
+      new URLSearchParams({
+        CallSid: callSid,
+        SpeechResult: speech,
+        Confidence: "0.91",
+      }),
+      {
+        apiKey: null,
+        extraHeaders: {
+          "content-type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    assert.equal(response.status, 200);
+    assert.match(response.body, /May I have the name of the person who passed away\?/);
+
+    const replay = await fetchJson("GET", `/v1/tenants/fh-demo/first-call/sessions/${callSid}/replay`);
+    assert.equal(replay.body.session.facts.caller_name, "Kyle Finney");
+    assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  }
+});
+
+test("Twilio webhook route does not accept conversational filler as caller name", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-filler-not-name-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-filler-not-name-1",
+      SpeechResult: "Of course.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /May I have your name/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-filler-not-name-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, undefined);
+  assert.equal(replay.body.session.facts.caller_phone, undefined);
+});
+
 test("Twilio webhook route keeps conjunction out of repaired caller name before phone cue", async () => {
   await fetchText(
     "POST",
