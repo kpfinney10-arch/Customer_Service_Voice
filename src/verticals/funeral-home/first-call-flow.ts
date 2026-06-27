@@ -95,7 +95,7 @@ export function firstCallPromptForDecision(
       return "What is the best phone number in case we are disconnected?";
     }
     if (!facts.caller_name && facts.caller_phone) {
-      return "May I have your name?";
+      return "I have the callback number. May I have your name?";
     }
   }
   return firstCallPromptForStep(decision.step);

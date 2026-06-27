@@ -1236,7 +1236,7 @@ test("Twilio webhook route repairs bare callback with conversational filler with
   );
 
   assert.equal(response.status, 200);
-  assert.match(response.body, /May I have your name\?/);
+  assert.match(response.body, /I have the callback number\. May I have your name\?/);
 
   const replay = await fetchJson(
     "GET",
