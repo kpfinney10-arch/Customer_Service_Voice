@@ -1966,6 +1966,32 @@ test("first-call API uses address-only answers to fill the active pickup-address
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API repairs spoken Avenue heard as a in pickup-address slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-address-avenue-a-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-a-1/transcript", {
+    transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-a-1/transcript", {
+    transcript: "Robert Jones.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-a-1/transcript",
+    {
+      transcript: "6326 Commerce a Keller Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "6326 Commerce Ave Keller Texas");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
 test("first-call API keeps death report fact true across contextual slot answers", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-slot-death-report",

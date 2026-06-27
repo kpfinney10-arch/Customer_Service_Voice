@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `173/173` passing.
+Recent known-good test count from this session: `174/174` passing.
 
 Most recent local prompt fix:
 
@@ -438,6 +438,8 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://jesus-themselves-pediatric-combo.trycloudflare.com`; session `CA0a954696eb74f259a551aa173f349146` reached `ESCALATE`, executed dispatch, and kept webhook durations fast (`10 ms`, `16 ms`, `10 ms`, `7 ms`), but the spelling prompt did not fire because Twilio heard the caller turn as `My name is Kyle, feny, my phone number...` and the parser kept only `Kyle`. Follow-up hardening now preserves fuller comma-separated name candidates, adds `feny` as a suspicious spelling for `Finney`, and keeps cue/noise words such as `and` and `television` out of caller names. Validation after this change: `npm run build && npm test` passed `171/171`.
 - Live deterministic Twilio validation on 2026-06-26 used tunnel `https://ordering-partner-capability-turbo.trycloudflare.com`; session `CAa0099909259725484f70ba01ab42a35a` confirmed the patched spelling flow. Twilio heard the caller turn as `My name is Kyle, finny my phone is 637315845`; the agent treated `Kyle Finny` as a suspicious name, asked for spelling, accepted `F. I n. N e y.`, corrected caller and pickup contact to `Kyle Finney`, then stayed in caller collection because the first phone transcript was malformed. After the corrected phone number, it collected decedent `George Watson`, pickup address `4362 Main Street Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. Webhook turn durations remained fast: `10 ms`, `15 ms`, `9 ms`, `6 ms`, `7 ms`, and `7 ms`.
 - Follow-up phone repair hardening now accepts a 9-digit phone-intent transcript only when it can be safely anchored to Twilio's provider caller ID. For example, if Twilio caller ID is `+16037315845` and speech recognition hears `637315845`, the service repairs the callback to `603-731-5845`; if the provider caller ID does not match, the agent still asks for the callback number one digit at a time. Validation after this change: `npm run build && npm test` passed `173/173`.
+- Live deterministic Twilio validation on 2026-06-27 used tunnel `https://hip-betty-personality-implementing.trycloudflare.com`; session `CAa80702d7a294ecb03b3c952f9e2ea170` confirmed the caller-ID anchored phone repair and name spelling correction. Twilio heard `My name is Kyle, finny my phone is 637315845`; caller ID was `+16037315845`, so the agent repaired callback to `603-731-5845`, asked for spelling, corrected caller/pickup contact to `Kyle Finney`, collected decedent `Robert Jones`, and created the CRM intake. The call ended before dispatch because Twilio heard the pickup address as `6326 Commerce a Keller Texas` and then `6326 Commerce a stuff like Texas`; the parser did not recognize `a` as `Ave`.
+- Follow-up address hardening now repairs live pickup-address transcripts where `Avenue`/`Ave` is heard as a standalone `a` between street name and city, such as `6326 Commerce a Keller Texas`, normalizing to `6326 Commerce Ave Keller Texas`. It does not try to repair unrelated corrupt city text such as `stuff like Texas`. Validation after this change: `npm run build && npm test` passed `174/174`.
 
 Ignored `.env.local` example:
 
@@ -486,7 +488,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Live-test the caller-ID anchored phone repair with a fresh Twilio tunnel by saying a callback that Twilio has repeatedly heard as `637315845`; confirm it repairs only when the caller ID matches the spoken callback.
+1. Re-run the live caller-ID anchored phone repair plus `Commerce Ave` pickup-address flow with a fresh Twilio tunnel and confirm it reaches dispatch after `6326 Commerce Ave Keller Texas`.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
