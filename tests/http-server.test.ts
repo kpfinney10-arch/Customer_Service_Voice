@@ -1085,6 +1085,10 @@ test("Twilio webhook route repairs one-missing-digit callback from matching call
   );
   assert.equal(replay.body.session.facts.caller_name, "Kyle Finney");
   assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  const intentEvent = replay.body.events.find(
+    (event: { eventType: string; payload: { warnings?: string[] } }) => event.eventType === "INTENT_DETECTED",
+  );
+  assert.equal(intentEvent.payload.warnings.includes("caller_phone_not_found"), false);
 });
 
 test("Twilio webhook route keeps conjunction out of repaired caller name before phone cue", async () => {
@@ -1881,7 +1885,7 @@ test("first-call API asks for spelling when caller name has known suspicious STT
   assert.equal(callerTurn.body.session.facts.caller_name, "Kyle Finny");
   assert.equal(callerTurn.body.session.facts.caller_name_spelling_status, "needs_confirmation");
   assert.equal(callerTurn.body.decision.step, "collect_caller");
-  assert.equal(callerTurn.body.responseText, "I heard your name as Kyle Finny. Please spell your last name for the funeral director.");
+  assert.equal(callerTurn.body.responseText, "I have the callback number. I heard your name as Kyle Finny. Please spell your last name for the funeral director.");
 
   const spellingTurn = await fetchJson(
     "POST",
@@ -1917,7 +1921,7 @@ test("first-call API asks for spelling when Twilio separates suspicious surname 
   assert.equal(callerTurn.body.session.facts.caller_name, "Kyle Feny");
   assert.equal(callerTurn.body.session.facts.caller_name_spelling_status, "needs_confirmation");
   assert.equal(callerTurn.body.decision.step, "collect_caller");
-  assert.equal(callerTurn.body.responseText, "I heard your name as Kyle Feny. Please spell your last name for the funeral director.");
+  assert.equal(callerTurn.body.responseText, "I have the callback number. I heard your name as Kyle Feny. Please spell your last name for the funeral director.");
 
   const spellingTurn = await fetchJson(
     "POST",

@@ -444,6 +444,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up address cleanup now removes filler `from` after a street suffix the same way it already removes `in`, so `At 6326 Commerce, a from Keller, Texas` normalizes to `6326 Commerce Ave Keller Texas`. Validation after this change: `npm run build && npm test` passed `175/175`.
 - Live deterministic Twilio validation on 2026-06-27 used tunnel `https://implemented-bedrooms-competitions-type.trycloudflare.com`; session `CA2a7840673c4e3d147e6bfa77c134f3b2` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The phone repair again worked: Twilio heard `My name is Kyle finny and my phone is 637315845`, caller ID was `+16037315845`, and callback was stored as `603-731-5845`; pickup address was cleanly stored as `6326 Commerce Ave Keller Texas`. New cleanup target from this call: the caller name was stored as `Kyle Finney And` because the conjunction landed inside the explicit `my name is...` capture before the phone cue.
 - Follow-up caller-name boundary cleanup now treats trailing `and` as a cue word instead of a name token, so `My name is Kyle finny and my phone is 637315845` stores `Kyle Finny`, triggers the targeted spelling prompt, and then corrects to `Kyle Finney`. Validation after this change: `npm run build && npm test` passed `176/176`.
+- Live deterministic Twilio validation on 2026-06-27 used tunnel `https://stylish-rendered-worthy-visited.trycloudflare.com`; session `CAde54ec6084c88d2be727b5a57b5a35fc` confirmed the caller-name boundary fix, caller-ID anchored phone repair, and Commerce Ave address cleanup together. Twilio heard `My name is Kyle Finny. And my phone is 637315845`; caller ID was `+16037315845`, and final facts stored caller `Kyle Finney`, callback `603-731-5845`, decedent `Robert Jones`, pickup address `6326 Commerce Ave Keller Texas`, reached `ESCALATE`, and executed dispatch. The in-call experience still felt like the phone repair was missed because the next prompt immediately asked for spelling and the replay warning still included `caller_phone_not_found` from the base extractor.
+- Follow-up replay/prompt clarity now filters resolved warnings after contextual repairs, so repaired callback turns no longer report `caller_phone_not_found`, and spelling prompts acknowledge an already captured callback: `I have the callback number. I heard your name as...`. Validation after this change: `npm run build && npm test` passed `176/176`.
 
 Ignored `.env.local` example:
 
@@ -492,7 +494,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-ID anchored phone repair and spelling flow with a fresh Twilio tunnel and confirm replay stores `Kyle Finney`, not `Kyle Finney And`.
+1. Re-run the live caller-ID anchored phone repair and spelling flow with a fresh Twilio tunnel and confirm the agent says it has the callback number before asking for spelling.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

@@ -268,6 +268,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         death_reported: true,
         reasonForCall: "first_call_death_report",
       };
+      extraction.warnings = unresolvedFirstCallWarnings(extraction.warnings, sessionFacts);
       const decision = firstCallDecisionAfterValidation(
         decideFirstCallNextStep(reviewedFacts),
         reviewedFacts,
@@ -717,6 +718,16 @@ function mergeFactConfidence(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+function unresolvedFirstCallWarnings(warnings: string[], facts: StructuredFacts): string[] {
+  return warnings.filter((warning) => {
+    if (warning === "caller_name_not_found") return !facts.caller_name;
+    if (warning === "caller_phone_not_found") return !facts.caller_phone;
+    if (warning === "decedent_name_not_found") return !facts.decedent_name;
+    if (warning === "pickup_context_not_found") return !facts.pickup_address && !facts.facility_name;
+    return true;
+  });
+}
+
 function inferContextualFactConfidence(facts: Partial<FirstCallFacts>): FirstCallFactConfidence {
   const confidence: FirstCallFactConfidence = {};
   if (facts.caller_name) confidence.caller_name = 0.86;
@@ -900,7 +911,8 @@ function firstCallResponseText(
   transcript: string,
 ): string {
   if (decision.step === "collect_caller" && needsCallerNameSpellingConfirmation(facts)) {
-    return `I heard your name as ${facts.caller_name}. Please spell your last name for the funeral director.`;
+    const callbackAcknowledgement = facts.caller_phone ? "I have the callback number. " : "";
+    return `${callbackAcknowledgement}I heard your name as ${facts.caller_name}. Please spell your last name for the funeral director.`;
   }
   if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && hasNearPhoneNumber(transcript)) {
     return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";
