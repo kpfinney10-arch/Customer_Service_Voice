@@ -458,6 +458,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up caller-name cleanup now accepts `it is` / `it's` name phrasing, so `yes, it's Kyle Finny` captures the caller name and proceeds to the targeted spelling prompt instead of asking for the name again. Validation after this change: `npm run build && npm test` passed `181/181`.
 - Live deterministic Twilio validation on 2026-06-28 used tunnel `https://dpi-acid-locks-truly.trycloudflare.com`; session `CA77c0311fccfe7833651f2cdc2de763c8` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The `it's Kyle Finny` fix worked immediately and led to the spelling prompt. Final facts were clean: caller/pickup contact `Kyle Finney`, callback `603-731-5845`, decedent `Robert Jones`, and pickup address `636 Commerce Ave Keller Texas`. New cleanup targets from the call: when the caller answered the decedent prompt with `Robert Jones, 636 Homer, Salve and Keller, Texas`, the parser ignored the whole turn, and when the caller later said `636 Commerce Salve and Keller, Texas`, the parser did not treat `Salve` as `Ave`.
 - Follow-up mixed-answer cleanup now captures a leading decedent name before a comma while intentionally waiting for a clean location prompt instead of trusting a garbled address fragment from the same turn. Address cleanup also repairs live STT `Salve` to `Ave` in pickup-address collection, then removes filler `and` after the street suffix. Validation after this change: `npm run build && npm test` passed `183/183`.
+- Parser quality pass on 2026-06-28 consolidated contextual fact inference without changing behavior: caller, decedent, and pickup-address parsing now run through named helper phases, and caller parsing is separated into phone facts, name facts, and candidate cleanup. This was done to keep the recent live-call hardening from turning into an opaque regex pile. Validation after this refactor: `npm run build && npm test` passed `183/183`.
 
 Ignored `.env.local` example:
 
@@ -506,7 +507,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live decedent/location flow with a fresh Twilio tunnel and confirm `Robert Jones, 636 Homer, Salve and Keller, Texas` captures decedent `Robert Jones` without accepting the garbled location, then `636 Commerce Salve and Keller, Texas` normalizes to `636 Commerce Ave Keller Texas`.
+1. Re-run the live decedent/location flow with a fresh Twilio tunnel after the parser quality pass and confirm `Robert Jones, 636 Homer, Salve and Keller, Texas` captures decedent `Robert Jones` without accepting the garbled location, then `636 Commerce Salve and Keller, Texas` normalizes to `636 Commerce Ave Keller Texas`.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

@@ -600,45 +600,91 @@ function assertVoiceIntakeEnabled(config: TenantConfig | undefined): void {
 }
 
 function inferContextualFacts(session: CallSession, transcript: string, activeStep?: FirstCallStep): Partial<FirstCallFacts> {
+  const spellingFacts = callerNameSpellingCorrectionFacts(session.facts, transcript);
+  if (spellingFacts) return spellingFacts;
+
   const facts: Partial<FirstCallFacts> = {};
-  if (hasPendingCallerNameSpellingConfirmation(session.facts)) {
-    const correctedCallerName = correctedSuspiciousNameFromSpelling(session.facts.caller_name, transcript);
-    if (correctedCallerName) {
-      facts.caller_name = correctedCallerName;
-      facts.pickup_contact_name = correctedCallerName;
-    }
-    return facts;
-  }
-  if (!session.facts.caller_name || !session.facts.caller_phone) {
-    const callerFacts = callerAnswerFacts(transcript, session.callerPhone);
-    if (session.facts.caller_name && !extractContextualCallerName(transcript)) {
-      delete callerFacts.caller_name;
-      delete callerFacts.pickup_contact_name;
-    }
-    Object.assign(facts, callerFacts);
-  }
-  const afterCallerFacts = { ...(session.facts as Partial<FirstCallFacts>), ...facts };
-  let capturedDecedentThisTurn = false;
-  if (afterCallerFacts.caller_name && afterCallerFacts.caller_phone && !afterCallerFacts.decedent_name) {
-    const decedentName =
-      nameOnlyAnswer(transcript) ??
-      (activeStep === "collect_decedent" ? extractContextualCallerName(transcript) ?? leadingNameFromMixedAnswer(transcript) : undefined);
-    if (decedentName && decedentName !== afterCallerFacts.caller_name) {
-      facts.decedent_name = decedentName;
-      capturedDecedentThisTurn = true;
-    }
-  }
-  const afterDecedentFacts = { ...afterCallerFacts, ...facts };
-  if (afterDecedentFacts.decedent_name && !afterDecedentFacts.pickup_address && !afterDecedentFacts.facility_name) {
-    if (!(activeStep === "collect_decedent" && capturedDecedentThisTurn)) {
-      const pickupAddress = addressOnlyAnswer(transcript);
-      if (pickupAddress) {
-        facts.pickup_address = pickupAddress;
-        facts.place_of_death_type = "residence";
-      }
-    }
-  }
+  Object.assign(facts, inferCallerFactsForTurn(session, transcript));
+
+  const afterCallerFacts = mergedContextualFacts(session.facts, facts);
+  const decedentResult = inferDecedentFactsForTurn(afterCallerFacts, transcript, activeStep);
+  Object.assign(facts, decedentResult.facts);
+
+  const afterDecedentFacts = { ...afterCallerFacts, ...decedentResult.facts };
+  Object.assign(facts, inferPickupAddressFactsForTurn(afterDecedentFacts, transcript, activeStep, decedentResult.capturedThisTurn));
   return facts;
+}
+
+function callerNameSpellingCorrectionFacts(existing: StructuredFacts, transcript: string): Partial<FirstCallFacts> | undefined {
+  if (!hasPendingCallerNameSpellingConfirmation(existing)) return undefined;
+  const correctedCallerName = correctedSuspiciousNameFromSpelling(existing.caller_name, transcript);
+  if (!correctedCallerName) return {};
+  return {
+    caller_name: correctedCallerName,
+    pickup_contact_name: correctedCallerName,
+  };
+}
+
+function inferCallerFactsForTurn(session: CallSession, transcript: string): Partial<FirstCallFacts> {
+  if (session.facts.caller_name && session.facts.caller_phone) return {};
+  const callerFacts = callerAnswerFacts(transcript, session.callerPhone);
+  if (session.facts.caller_name && !extractContextualCallerName(transcript)) {
+    delete callerFacts.caller_name;
+    delete callerFacts.pickup_contact_name;
+  }
+  return callerFacts;
+}
+
+function mergedContextualFacts(
+  existing: StructuredFacts,
+  contextual: Partial<FirstCallFacts>,
+): Partial<FirstCallFacts> {
+  return { ...(existing as Partial<FirstCallFacts>), ...contextual };
+}
+
+type DecedentFactInference = {
+  facts: Partial<FirstCallFacts>;
+  capturedThisTurn: boolean;
+};
+
+function inferDecedentFactsForTurn(
+  facts: Partial<FirstCallFacts>,
+  transcript: string,
+  activeStep?: FirstCallStep,
+): DecedentFactInference {
+  if (!facts.caller_name || !facts.caller_phone || facts.decedent_name) {
+    return { facts: {}, capturedThisTurn: false };
+  }
+  const decedentName = decedentNameFromTranscript(transcript, activeStep);
+  if (!decedentName || decedentName === facts.caller_name) {
+    return { facts: {}, capturedThisTurn: false };
+  }
+  return { facts: { decedent_name: decedentName }, capturedThisTurn: true };
+}
+
+function decedentNameFromTranscript(transcript: string, activeStep?: FirstCallStep): string | undefined {
+  return (
+    nameOnlyAnswer(transcript) ??
+    (activeStep === "collect_decedent"
+      ? extractContextualCallerName(transcript) ?? leadingNameFromMixedAnswer(transcript)
+      : undefined)
+  );
+}
+
+function inferPickupAddressFactsForTurn(
+  facts: Partial<FirstCallFacts>,
+  transcript: string,
+  activeStep: FirstCallStep | undefined,
+  capturedDecedentThisTurn: boolean,
+): Partial<FirstCallFacts> {
+  if (!facts.decedent_name || facts.pickup_address || facts.facility_name) return {};
+  if (activeStep === "collect_decedent" && capturedDecedentThisTurn) return {};
+  const pickupAddress = addressOnlyAnswer(transcript);
+  if (!pickupAddress) return {};
+  return {
+    pickup_address: pickupAddress,
+    place_of_death_type: "residence",
+  };
 }
 
 function mergeFirstCallFacts(
@@ -819,30 +865,47 @@ function isStreetSuffix(part: string): boolean {
 }
 
 function callerAnswerFacts(transcript: string, providerCallerPhone?: string): Partial<FirstCallFacts> {
-  const facts: Partial<FirstCallFacts> = {};
+  return {
+    ...callerPhoneFacts(transcript, providerCallerPhone),
+    ...callerNameFacts(transcript),
+  };
+}
+
+function callerPhoneFacts(transcript: string, providerCallerPhone?: string): Partial<FirstCallFacts> {
   const phone = extractContextualPhone(transcript) ?? repairPhoneFromProviderCallerId(transcript, providerCallerPhone);
   if (phone) {
-    facts.caller_phone = phone;
-    facts.preferred_callback_number = phone;
-    facts.pickup_contact_phone = phone;
+    return {
+      caller_phone: phone,
+      preferred_callback_number: phone,
+      pickup_contact_phone: phone,
+    };
   }
+  return {};
+}
 
+function callerNameFacts(transcript: string): Partial<FirstCallFacts> {
+  const name = callerNameFromTranscript(transcript);
+  if (!name) return {};
+  return {
+    caller_name: name,
+    pickup_contact_name: name,
+  };
+}
+
+function callerNameFromTranscript(transcript: string): string | undefined {
   const explicitName = extractContextualCallerName(transcript);
-  const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
-  const nameCandidate = beforePhoneCue
+  const nameCandidate = callerNameCandidate(transcript);
+  const candidateName = nameOnlyAnswer(nameCandidate);
+  return fullerContextualName(explicitName, candidateName) ?? explicitName ?? candidateName;
+}
+
+function callerNameCandidate(transcript: string): string {
+  return (transcript.split(phoneCuePattern)[0] ?? transcript)
     .replace(contextualPhonePattern, " ")
     .replace(/\b(?:and|phone|telephone|television|number|contact|callback|call back|cell|mobile|at|is|my|name|i'm|i am)\b/gi, " ")
     .replace(/[,.?!]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
-  const candidateName = nameOnlyAnswer(nameCandidate);
-  const name = fullerContextualName(explicitName, candidateName) ?? explicitName ?? candidateName;
-  if (name) {
-    facts.caller_name = name;
-    facts.pickup_contact_name = name;
-  }
-  return facts;
 }
 
 const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
