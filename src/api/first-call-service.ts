@@ -677,14 +677,19 @@ function inferPickupAddressFactsForTurn(
   activeStep: FirstCallStep | undefined,
   capturedDecedentThisTurn: boolean,
 ): Partial<FirstCallFacts> {
-  if (!facts.decedent_name || facts.pickup_address || facts.facility_name) return {};
+  if (!facts.decedent_name || facts.pickup_address) return {};
   if (activeStep === "collect_decedent" && capturedDecedentThisTurn) return {};
   const pickupAddress = addressOnlyAnswer(transcript);
   if (!pickupAddress) return {};
-  return {
-    pickup_address: pickupAddress,
-    place_of_death_type: "residence",
-  };
+  const addressFacts: Partial<FirstCallFacts> = { pickup_address: pickupAddress };
+  if (!hasKnownNonResidencePlaceType(facts.place_of_death_type)) {
+    addressFacts.place_of_death_type = "residence";
+  }
+  return addressFacts;
+}
+
+function hasKnownNonResidencePlaceType(place: FirstCallFacts["place_of_death_type"] | undefined): boolean {
+  return Boolean(place && place !== "unknown" && place !== "residence");
 }
 
 function mergeFirstCallFacts(
@@ -718,6 +723,7 @@ function higherConfidenceFacts(
   for (const [key, value] of Object.entries(extracted) as Array<[keyof FirstCallFacts, FirstCallFacts[keyof FirstCallFacts]]>) {
     if (value == null) continue;
     if (shouldPreserveExistingCallerIdentity(key, existing, activeStep)) continue;
+    if (shouldPreserveExistingPlaceOfDeath(key, value, existing)) continue;
     const contextualValue = contextual[key];
     if (isFullerNameFact(key, value, contextualValue)) {
       setFact(preferred, key, value);
@@ -728,6 +734,15 @@ function higherConfidenceFacts(
     }
   }
   return preferred;
+}
+
+function shouldPreserveExistingPlaceOfDeath(
+  key: keyof FirstCallFacts,
+  extractedValue: FirstCallFacts[keyof FirstCallFacts],
+  existing: Partial<FirstCallFacts>,
+): boolean {
+  if (key !== "place_of_death_type") return false;
+  return extractedValue === "unknown" && Boolean(existing.place_of_death_type && existing.place_of_death_type !== "unknown");
 }
 
 function shouldPreserveExistingCallerIdentity(

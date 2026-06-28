@@ -57,10 +57,17 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   facts.death_reported = /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to)\b/i.test(text);
   factConfidence.death_reported = facts.death_reported ? 0.9 : 0.35;
 
+  const facilityContactRole = matchFacilityContactRole(text);
+  if (facilityContactRole) {
+    facts.facility_contact_role = facilityContactRole;
+    factConfidence.facility_contact_role = 0.82;
+  }
+
   const callerName = matchFirst(text, [
-    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+from\b|\s*$)/,
+    /\b[Tt]his is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
+    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
-    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
+    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+at\b|\s*$)/,
     /\b[Ii] am\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
   ]);
   if (callerName) {
@@ -82,9 +89,13 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (relationship) {
     facts.caller_relationship_to_decedent = normalizeRelationship(relationship);
     factConfidence.caller_relationship_to_decedent = 0.82;
+  } else if (facilityContactRole) {
+    facts.caller_relationship_to_decedent = "facility_staff";
+    factConfidence.caller_relationship_to_decedent = 0.82;
   }
 
   const decedentName = matchFirst(text, [
+    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room)\b|[,.]|\s*$)/,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
@@ -98,12 +109,9 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     factConfidence.decedent_name = 0.84;
   }
 
-  const facilityName = matchFirst(text, [
-    /\bat\s+([A-Z][A-Za-z\s]+(?:Hospital|Hospice|Care Center|Medical Center|Nursing Home))\b/,
-    /\bfrom\s+([A-Z][A-Za-z\s]+(?:Hospital|Hospice|Care Center|Medical Center|Nursing Home))\b/,
-  ]);
+  const facilityName = extractFacilityName(text);
   if (facilityName) {
-    facts.facility_name = facilityName.trim();
+    facts.facility_name = facilityName;
     factConfidence.facility_name = 0.84;
   }
 
@@ -179,6 +187,40 @@ function normalizeSpokenStreetNumber(value: string): string {
 
 function normalizeSpokenName(value: string): string {
   return value.replace(/[.]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function matchFacilityContactRole(input: string): string | undefined {
+  const role = input.match(
+    /\b(?:this is|i am|i'm)\s+(nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager)\b/i,
+  )?.[1];
+  if (!role) return undefined;
+  return normalizeFacilityContactRole(role);
+}
+
+function normalizeFacilityContactRole(value: string): string {
+  const normalized = value.toLowerCase().replace(".", "").replace(/\s+/g, "_");
+  if (normalized === "rn" || normalized === "registered_nurse") return "nurse";
+  if (normalized === "dr" || normalized === "doctor") return "doctor";
+  return normalized;
+}
+
+function extractFacilityName(input: string): string | undefined {
+  const match = input.match(
+    /\b(?:at|from)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,5}),?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
+  );
+  if (!match) return undefined;
+  return normalizeFacilityName(`${match[1] ?? ""} ${match[2] ?? ""}`);
+}
+
+function normalizeFacilityName(value: string): string {
+  return value
+    .replace(",", " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`)
+    .join(" ");
 }
 
 function matchRelationship(input: string): string | undefined {

@@ -1882,6 +1882,57 @@ test("first-call API accepts name-is decedent answers", async () => {
   assert.equal(turn.body.decision.step, "collect_location");
 });
 
+test("first-call API preserves hospice facility context across address collection", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-hospice-facility-1",
+    callerPhone: "603-731-5845",
+  });
+
+  const caller = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
+    {
+      transcript: "This is Nurse Sarah at Green Valley, hospice. My phone here is 214. 6395723.",
+    },
+  );
+
+  assert.equal(caller.status, 200);
+  assert.equal(caller.body.session.facts.caller_name, "Sarah");
+  assert.equal(caller.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(caller.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(caller.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(caller.body.session.facts.facility_name, "Green Valley Hospice");
+  assert.equal(caller.body.session.facts.place_of_death_type, "hospice");
+  assert.equal(caller.body.decision.step, "collect_decedent");
+
+  const decedent = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
+    {
+      transcript: "Calling about Mr. Robert Jones in room 214.",
+    },
+  );
+
+  assert.equal(decedent.status, 200);
+  assert.equal(decedent.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(decedent.body.decision.step, "collect_location");
+
+  const location = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
+    {
+      transcript: "We're at Green Valley hospice at. 1297. Green Mountain Drive. In South Lake, Texas.",
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.equal(location.body.session.facts.facility_name, "Green Valley Hospice");
+  assert.equal(location.body.session.facts.place_of_death_type, "hospice");
+  assert.equal(location.body.session.facts.pickup_address, "1297 Green Mountain Drive South Lake Texas");
+  assert.equal(location.body.session.currentState, "ESCALATE");
+  assert.equal(location.body.decision.step, "escalate");
+});
+
 test("first-call API passes current facts and active step into extractor", async () => {
   const seenContexts: Array<{
     activeStep?: string;

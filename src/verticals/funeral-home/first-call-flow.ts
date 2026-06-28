@@ -44,7 +44,7 @@ export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCa
     };
   }
 
-  if (!facts.pickup_address && !facts.facility_name) {
+  if (!facts.pickup_address) {
     return {
       nextState: "RESOLVE_REQUEST",
       step: "collect_location",
