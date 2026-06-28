@@ -454,6 +454,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up caller-collection cleanup now treats `yes`, `yeah`, and `yep` as safe filler around caller-ID-anchored bare callback repairs, treats `at` followed by digits as a callback cue during caller collection, and accepts natural spelling answers such as `Last name is spelled f. I n n e y`. Validation after this change: `npm run build && npm test` passed `181/181`.
 - Live deterministic Twilio validation on 2026-06-27 used tunnel `https://morning-verbal-upon-officially.trycloudflare.com`; session `CA8d24d60d212e794ed33732507074c947` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The data path worked: `Yes, of course. Um, 637315845` repaired to `603-731-5845`, `Oh, uh, my name is Kyle finny at 637315845` captured the caller and retained the callback, `Last name is spelled f. I n n e y` corrected caller/pickup contact to `Kyle Finney`, and pickup address stored as `636 Commerce Ave Keller Texas`. The in-call experience still felt like a phone hiccup because when only the phone was captured and the name was missing, the next prompt asked for the name without acknowledging that the callback had been accepted.
 - Follow-up prompt clarity now says `I have the callback number. May I have your name?` when caller phone is captured but caller name is still missing. Validation after this change: `npm run build && npm test` passed `181/181`.
+- Live deterministic Twilio validation on 2026-06-28 used tunnel `https://networking-larger-look-objective.trycloudflare.com`; session `CAa84a900350f720dc2409e44e109f5648` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The callback acknowledgement prompt fix worked in-call, and final facts were clean: callback `603-731-5845`, caller/pickup contact `Kyle Finney`, decedent `Robert Jones`, and pickup address `636 Commerce Ave Keller Texas`. New cleanup target from the call: Twilio heard the caller-name turn as `yes, it's Kyle Finny`, which was not accepted, causing one extra name prompt before `My name is Kyle Finny` was captured.
+- Follow-up caller-name cleanup now accepts `it is` / `it's` name phrasing, so `yes, it's Kyle Finny` captures the caller name and proceeds to the targeted spelling prompt instead of asking for the name again. Validation after this change: `npm run build && npm test` passed `181/181`.
 
 Ignored `.env.local` example:
 
@@ -502,7 +504,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent explicitly says `I have the callback number. May I have your name?` after capturing a phone-only answer such as `Yes, of course. Um, 637315845`.
+1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent accepts `yes, it's Kyle Finny` as the caller name after the callback has already been captured, then asks for spelling instead of repeating the name prompt.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

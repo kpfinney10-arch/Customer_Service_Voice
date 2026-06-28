@@ -1244,6 +1244,34 @@ test("Twilio webhook route repairs bare callback with conversational filler with
   );
   assert.equal(replay.body.session.facts.caller_name, undefined);
   assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+
+  const nameResponse = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-filler-phone-repair-1",
+      SpeechResult: "yes, it's Kyle Finny",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(nameResponse.status, 200);
+  assert.match(nameResponse.body, /I have the callback number/);
+  assert.match(nameResponse.body, /Please spell your last name/);
+
+  const nameReplay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-filler-phone-repair-1/replay",
+  );
+  assert.equal(nameReplay.body.session.facts.caller_name, "Kyle Finny");
+  assert.equal(nameReplay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(nameReplay.body.session.facts.caller_name_spelling_status, "needs_confirmation");
 });
 
 test("Twilio webhook route repairs at-prefixed callback and keeps suspicious caller name", async () => {
