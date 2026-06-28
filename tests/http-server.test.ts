@@ -1892,7 +1892,7 @@ test("first-call API preserves hospice facility context across address collectio
     "POST",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
     {
-      transcript: "This is Nurse Sarah at Green Valley, hospice. My phone here is 214. 6395723.",
+      transcript: "This is Nurse Sarah at Green Valley. Hospice, my phone here is 214. 639 5723.",
     },
   );
 
@@ -1909,7 +1909,7 @@ test("first-call API preserves hospice facility context across address collectio
     "POST",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
     {
-      transcript: "Calling about Mr. Robert Jones in room 214.",
+      transcript: "I'm calling about Mr. Robert Jones in room 214.",
     },
   );
 
@@ -1921,7 +1921,7 @@ test("first-call API preserves hospice facility context across address collectio
     "POST",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospice-facility-1/transcript",
     {
-      transcript: "We're at Green Valley hospice at. 1297. Green Mountain Drive. In South Lake, Texas.",
+      transcript: "We are at Green Valley. Hospice at 1297 Green, Mountain, Drive in South Lake, Texas.",
     },
   );
 

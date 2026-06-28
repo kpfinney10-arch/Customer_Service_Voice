@@ -30,7 +30,7 @@ export type FirstCallExtractionContext = {
   missingTargetFacts?: string[];
 };
 
-const phonePattern = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/;
+const phonePattern = /\b(?:\+?1[-.\s]*)?(?:\(?\d{3}\)?[-.\s]*)\d{3}[-.\s]*\d{4}\b/;
 
 const placeTerms: Array<[PlaceOfDeathType, RegExp]> = [
   ["hospital", /\b(hospital|medical center|er|emergency room)\b/i],
@@ -206,7 +206,7 @@ function normalizeFacilityContactRole(value: string): string {
 
 function extractFacilityName(input: string): string | undefined {
   const match = input.match(
-    /\b(?:at|from)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,5}),?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
+    /\b(?:at|from)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
   );
   if (!match) return undefined;
   return normalizeFacilityName(`${match[1] ?? ""} ${match[2] ?? ""}`);
@@ -214,7 +214,7 @@ function extractFacilityName(input: string): string | undefined {
 
 function normalizeFacilityName(value: string): string {
   return value
-    .replace(",", " ")
+    .replace(/[,.]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")

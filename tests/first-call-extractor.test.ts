@@ -74,10 +74,11 @@ test("first-call extractor handles capitalized patient release phrasing", () => 
 
 test("first-call extractor handles live hospice staff phrasing", () => {
   const caller = extractFirstCallFactsDeterministic(
-    "This is Nurse Sarah at Green Valley, hospice. My phone here is 214. 6395723.",
+    "This is Nurse Sarah at Green Valley. Hospice, my phone here is 214. 639 5723.",
   );
 
   assert.equal(caller.facts.caller_name, "Sarah");
+  assert.equal(caller.facts.caller_phone, "214. 639 5723");
   assert.equal(caller.facts.caller_relationship_to_decedent, "facility_staff");
   assert.equal(caller.facts.facility_contact_role, "nurse");
   assert.equal(caller.facts.facility_name, "Green Valley Hospice");
@@ -85,7 +86,7 @@ test("first-call extractor handles live hospice staff phrasing", () => {
   assert.equal(caller.warnings.includes("caller_name_not_found"), false);
   assert.equal(caller.warnings.includes("pickup_context_not_found"), false);
 
-  const decedent = extractFirstCallFactsDeterministic("Calling about Mr. Robert Jones in room 214.");
+  const decedent = extractFirstCallFactsDeterministic("I'm calling about Mr. Robert Jones in room 214.");
 
   assert.equal(decedent.facts.decedent_name, "Robert Jones");
   assert.equal(decedent.warnings.includes("decedent_name_not_found"), false);
