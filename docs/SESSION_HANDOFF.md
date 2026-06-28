@@ -461,6 +461,7 @@ Latest OpenAI-backed Twilio live status:
 - Parser quality pass on 2026-06-28 consolidated contextual fact inference without changing behavior: caller, decedent, and pickup-address parsing now run through named helper phases, and caller parsing is separated into phone facts, name facts, and candidate cleanup. This was done to keep the recent live-call hardening from turning into an opaque regex pile. Validation after this refactor: `npm run build && npm test` passed `183/183`.
 - Live deterministic Twilio validation on 2026-06-28 used tunnel `https://originally-pearl-salvation-puzzle.trycloudflare.com`; session `CA0dd0aaeef7c015b426aac46343ddcf95` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The refactor preserved the existing flow, but the call exposed two follow-up cleanup targets: Twilio heard the mixed decedent/location answer as `Robert Jones at 636 Sr. To have and Keller, Texas`, which did not capture the decedent until repeated, and heard the corrected address as `At 6:36 Commerce. Salve and Keller, Texas`, which stored `36 Commerce Ave Keller Texas`.
 - Follow-up at-address/time-number cleanup now captures a decedent name before an address cue such as `Robert Jones at 636...` while still waiting for a clean location prompt, and repairs street numbers that Twilio formats like a time, such as `6:36 Commerce` to `636 Commerce`. Validation after this change: `npm run build && npm test` passed `185/185`.
+- Live deterministic Twilio validation on 2026-06-28 used tunnel `https://accessible-mask-potatoes-nominated.trycloudflare.com`; session `CA053baade68fb409d3f7665d5cfc93191` confirmed the at-address/time-number cleanup in the live Twilio path. Twilio heard `Robert Jones at 6:36, senior to have and Keller, Texas`, and the system captured decedent `Robert Jones` while leaving location open. Twilio then heard `636 Commerce Salve in Keller, Texas`, and final facts stored caller `Kyle Finney`, callback `603-731-5845`, decedent `Robert Jones`, pickup address `636 Commerce Ave Keller Texas`, reached `ESCALATE`, skipped duplicate CRM creation, and executed dispatch.
 
 Ignored `.env.local` example:
 
@@ -509,8 +510,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live decedent/location flow with a fresh Twilio tunnel after the at-address/time-number cleanup and confirm `Robert Jones at 636 Sr. To have and Keller, Texas` captures decedent `Robert Jones` without accepting the garbled location, then `At 6:36 Commerce. Salve and Keller, Texas` normalizes to `636 Commerce Ave Keller Texas`.
-2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
+1. Move the next live validation to a different funeral-home scenario, preferably a hospice or facility caller: nurse/staff caller, facility name, room/unit, decedent name, callback number, and pickup location.
+2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 5. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
