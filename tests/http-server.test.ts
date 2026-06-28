@@ -2270,6 +2270,30 @@ test("first-call API captures decedent name from mixed decedent and garbled loca
   assert.equal(turn.body.responseText, "Where is your loved one located right now?");
 });
 
+test("first-call API captures decedent name before an at-address cue", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-mixed-decedent-location-at-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-mixed-decedent-location-at-1/transcript", {
+    transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-mixed-decedent-location-at-1/transcript",
+    {
+      transcript: "Robert Jones at 636 Sr. To have and Keller, Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(turn.body.session.facts.pickup_address, undefined);
+  assert.equal(turn.body.decision.step, "collect_location");
+  assert.equal(turn.body.responseText, "Where is your loved one located right now?");
+});
+
 test("first-call API repairs spoken Avenue heard as a in pickup-address slot", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-address-avenue-a-1",
@@ -2365,6 +2389,32 @@ test("first-call API repairs spoken Avenue heard as salve in pickup-address slot
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-salve-1/transcript",
     {
       transcript: "636 Commerce Salve and Keller, Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "636 Commerce Ave Keller Texas");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API repairs street number heard like a time in pickup-address slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-address-time-number-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-time-number-1/transcript", {
+    transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-time-number-1/transcript", {
+    transcript: "Robert Jones.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-time-number-1/transcript",
+    {
+      transcript: "At 6:36 Commerce. Salve and Keller, Texas.",
     },
   );
 

@@ -923,8 +923,14 @@ function extractContextualCallerName(transcript: string): string | undefined {
 }
 
 function leadingNameFromMixedAnswer(transcript: string): string | undefined {
-  const firstClause = transcript.split(/[,;]/)[0]?.trim();
-  return firstClause && firstClause !== transcript.trim() ? nameOnlyAnswer(firstClause) : undefined;
+  const trimmed = transcript.trim();
+  const firstClause = trimmed.split(/[,;]/)[0]?.trim();
+  const clauseName = firstClause && firstClause !== trimmed ? nameOnlyAnswer(firstClause) : undefined;
+  if (clauseName) return clauseName;
+  const atAddressName = trimmed.match(
+    /^([A-Za-z]+(?:\s+[A-Za-z]+){0,3})\s+(?:is\s+)?(?:located\s+)?at\s+(?=\d)/i,
+  )?.[1];
+  return atAddressName ? nameOnlyAnswer(atAddressName) : undefined;
 }
 
 function fullerContextualName(
@@ -1197,6 +1203,7 @@ function stringFact(facts: Partial<FirstCallFacts> | StructuredFacts, key: strin
 function addressOnlyAnswer(transcript: string): string | undefined {
   const normalized = transcript
     .trim()
+    .replace(/\b(\d):(\d{2})(?=\s+[A-Za-z])/g, "$1$2")
     .replace(/[.?!]+$/, "")
     .replace(/[.?!]+/g, " ")
     .replaceAll(",", " ")
