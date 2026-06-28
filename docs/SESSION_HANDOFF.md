@@ -456,6 +456,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up prompt clarity now says `I have the callback number. May I have your name?` when caller phone is captured but caller name is still missing. Validation after this change: `npm run build && npm test` passed `181/181`.
 - Live deterministic Twilio validation on 2026-06-28 used tunnel `https://networking-larger-look-objective.trycloudflare.com`; session `CAa84a900350f720dc2409e44e109f5648` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The callback acknowledgement prompt fix worked in-call, and final facts were clean: callback `603-731-5845`, caller/pickup contact `Kyle Finney`, decedent `Robert Jones`, and pickup address `636 Commerce Ave Keller Texas`. New cleanup target from the call: Twilio heard the caller-name turn as `yes, it's Kyle Finny`, which was not accepted, causing one extra name prompt before `My name is Kyle Finny` was captured.
 - Follow-up caller-name cleanup now accepts `it is` / `it's` name phrasing, so `yes, it's Kyle Finny` captures the caller name and proceeds to the targeted spelling prompt instead of asking for the name again. Validation after this change: `npm run build && npm test` passed `181/181`.
+- Live deterministic Twilio validation on 2026-06-28 used tunnel `https://dpi-acid-locks-truly.trycloudflare.com`; session `CA77c0311fccfe7833651f2cdc2de763c8` reached `ESCALATE`, skipped duplicate CRM creation, and executed `dispatch.create_removal_request`. The `it's Kyle Finny` fix worked immediately and led to the spelling prompt. Final facts were clean: caller/pickup contact `Kyle Finney`, callback `603-731-5845`, decedent `Robert Jones`, and pickup address `636 Commerce Ave Keller Texas`. New cleanup targets from the call: when the caller answered the decedent prompt with `Robert Jones, 636 Homer, Salve and Keller, Texas`, the parser ignored the whole turn, and when the caller later said `636 Commerce Salve and Keller, Texas`, the parser did not treat `Salve` as `Ave`.
+- Follow-up mixed-answer cleanup now captures a leading decedent name before a comma while intentionally waiting for a clean location prompt instead of trusting a garbled address fragment from the same turn. Address cleanup also repairs live STT `Salve` to `Ave` in pickup-address collection, then removes filler `and` after the street suffix. Validation after this change: `npm run build && npm test` passed `183/183`.
 
 Ignored `.env.local` example:
 
@@ -504,7 +506,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Re-run the live caller-collection flow with a fresh Twilio tunnel and confirm the agent accepts `yes, it's Kyle Finny` as the caller name after the callback has already been captured, then asks for spelling instead of repeating the name prompt.
+1. Re-run the live decedent/location flow with a fresh Twilio tunnel and confirm `Robert Jones, 636 Homer, Salve and Keller, Texas` captures decedent `Robert Jones` without accepting the garbled location, then `636 Commerce Salve and Keller, Texas` normalizes to `636 Commerce Ave Keller Texas`.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

@@ -618,16 +618,24 @@ function inferContextualFacts(session: CallSession, transcript: string, activeSt
     Object.assign(facts, callerFacts);
   }
   const afterCallerFacts = { ...(session.facts as Partial<FirstCallFacts>), ...facts };
+  let capturedDecedentThisTurn = false;
   if (afterCallerFacts.caller_name && afterCallerFacts.caller_phone && !afterCallerFacts.decedent_name) {
-    const decedentName = nameOnlyAnswer(transcript) ?? (activeStep === "collect_decedent" ? extractContextualCallerName(transcript) : undefined);
-    if (decedentName && decedentName !== afterCallerFacts.caller_name) facts.decedent_name = decedentName;
+    const decedentName =
+      nameOnlyAnswer(transcript) ??
+      (activeStep === "collect_decedent" ? extractContextualCallerName(transcript) ?? leadingNameFromMixedAnswer(transcript) : undefined);
+    if (decedentName && decedentName !== afterCallerFacts.caller_name) {
+      facts.decedent_name = decedentName;
+      capturedDecedentThisTurn = true;
+    }
   }
   const afterDecedentFacts = { ...afterCallerFacts, ...facts };
   if (afterDecedentFacts.decedent_name && !afterDecedentFacts.pickup_address && !afterDecedentFacts.facility_name) {
-    const pickupAddress = addressOnlyAnswer(transcript);
-    if (pickupAddress) {
-      facts.pickup_address = pickupAddress;
-      facts.place_of_death_type = "residence";
+    if (!(activeStep === "collect_decedent" && capturedDecedentThisTurn)) {
+      const pickupAddress = addressOnlyAnswer(transcript);
+      if (pickupAddress) {
+        facts.pickup_address = pickupAddress;
+        facts.place_of_death_type = "residence";
+      }
     }
   }
   return facts;
@@ -849,6 +857,11 @@ function extractContextualCallerName(transcript: string): string | undefined {
       /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
     )?.[1];
   return rawName ? nameOnlyAnswer(rawName) : undefined;
+}
+
+function leadingNameFromMixedAnswer(transcript: string): string | undefined {
+  const firstClause = transcript.split(/[,;]/)[0]?.trim();
+  return firstClause && firstClause !== transcript.trim() ? nameOnlyAnswer(firstClause) : undefined;
 }
 
 function fullerContextualName(
@@ -1129,7 +1142,7 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
-    .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+a\s+([A-Za-z])/gi, "$1 Ave $2")
+    .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|salve)\s+([A-Za-z])/gi, "$1 Ave $2")
     .replace(
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
