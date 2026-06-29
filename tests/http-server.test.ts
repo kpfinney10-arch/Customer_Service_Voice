@@ -1991,6 +1991,49 @@ test("first-call API preserves medical examiner context and case reference", asy
   assert.equal(location.body.decision.step, "escalate");
 });
 
+test("first-call API captures hospital release decedent on the first turn", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-hospital-release-1",
+    callerPhone: "603-731-5845",
+  });
+
+  const caller = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospital-release-1/transcript",
+    {
+      transcript:
+        "Hi. This is David Carter from Sunrise Hospital. We have Helen Brooks ready for release my call. Back number is 214-639-5723.",
+    },
+  );
+
+  assert.equal(caller.status, 200);
+  assert.equal(caller.body.session.facts.caller_name, "David Carter");
+  assert.equal(caller.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(caller.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(caller.body.session.facts.decedent_name, "Helen Brooks");
+  assert.equal(caller.body.session.facts.facility_name, "Sunrise Hospital");
+  assert.equal(caller.body.session.facts.place_of_death_type, "hospital");
+  assert.equal(caller.body.session.facts.urgency, "urgent");
+  assert.equal(caller.body.decision.step, "collect_location");
+
+  const location = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-hospital-release-1/transcript",
+    {
+      transcript: "She's at Sunrise Hospital at 500 Medical Center Drive in Fort Worth Texas.",
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.equal(location.body.session.facts.decedent_name, "Helen Brooks");
+  assert.equal(location.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(location.body.session.facts.urgency, "urgent");
+  assert.equal(location.body.session.facts.pickup_address, "500 Medical Center Drive Fort Worth Texas");
+  assert.equal(location.body.handoff.priority, "urgent");
+  assert.equal(location.body.session.currentState, "ESCALATE");
+  assert.equal(location.body.decision.step, "escalate");
+});
+
 test("first-call API passes current facts and active step into extractor", async () => {
   const seenContexts: Array<{
     activeStep?: string;

@@ -72,6 +72,21 @@ test("first-call extractor handles capitalized patient release phrasing", () => 
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor handles live hospital release phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is David Carter from Sunrise Hospital. We have Helen Brooks ready for release my call. Back number is 214-639-5723.",
+  );
+
+  assert.equal(extraction.facts.caller_name, "David Carter");
+  assert.equal(extraction.facts.caller_phone, "214-639-5723");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.decedent_name, "Helen Brooks");
+  assert.equal(extraction.facts.facility_name, "Sunrise Hospital");
+  assert.equal(extraction.facts.place_of_death_type, "hospital");
+  assert.equal(extraction.facts.urgency, "urgent");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
 test("first-call extractor handles live hospice staff phrasing", () => {
   const caller = extractFirstCallFactsDeterministic(
     "This is Nurse Sarah at Green Valley. Hospice, my phone here is 214. 639 5723.",

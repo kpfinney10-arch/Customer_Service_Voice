@@ -99,6 +99,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
+    /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+(?:ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
@@ -124,6 +125,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (facilityName) {
     facts.facility_name = facilityName;
     factConfidence.facility_name = 0.84;
+    if (!facts.caller_relationship_to_decedent && facts.caller_name) {
+      facts.caller_relationship_to_decedent = "facility_staff";
+      factConfidence.caller_relationship_to_decedent = 0.8;
+    }
   }
 
   const address = matchFirst(text, [

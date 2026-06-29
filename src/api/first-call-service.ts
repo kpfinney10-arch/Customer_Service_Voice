@@ -724,6 +724,7 @@ function higherConfidenceFacts(
     if (value == null) continue;
     if (shouldPreserveExistingCallerIdentity(key, existing, activeStep)) continue;
     if (shouldPreserveExistingPlaceOfDeath(key, value, existing)) continue;
+    if (shouldPreserveExistingUrgency(key, value, existing)) continue;
     const contextualValue = contextual[key];
     if (isFullerNameFact(key, value, contextualValue)) {
       setFact(preferred, key, value);
@@ -734,6 +735,15 @@ function higherConfidenceFacts(
     }
   }
   return preferred;
+}
+
+function shouldPreserveExistingUrgency(
+  key: keyof FirstCallFacts,
+  extractedValue: FirstCallFacts[keyof FirstCallFacts],
+  existing: Partial<FirstCallFacts>,
+): boolean {
+  if (key !== "urgency") return false;
+  return extractedValue === "unknown" && Boolean(existing.urgency && existing.urgency !== "unknown");
 }
 
 function shouldPreserveExistingPlaceOfDeath(
