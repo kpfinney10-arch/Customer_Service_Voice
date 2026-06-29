@@ -1,5 +1,5 @@
 import type { CallIntent, Sentiment } from "../../domain/call-types.js";
-import { classifyFuneralHomeIntent } from "./intents.js";
+import { classifyFuneralHomeIntent, hasNegatedDeathReport } from "./intents.js";
 import type { FirstCallFacts, FirstCallUrgency, PlaceOfDeathType } from "./first-call-facts.js";
 
 export type FirstCallExtraction = {
@@ -54,11 +54,23 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const warnings: string[] = [];
 
   const intent = classifyFuneralHomeIntent(text);
-  facts.death_reported =
-    /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to|medical examiner|coroner|morgue)\b/i.test(
-      text,
-    );
-  factConfidence.death_reported = facts.death_reported ? 0.9 : 0.35;
+  const negatedDeathReport = hasNegatedDeathReport(text);
+  const deathReportMentioned = /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to|medical examiner|coroner|morgue)\b/i.test(
+    text,
+  );
+  if (negatedDeathReport) {
+    facts.death_reported = false;
+    factConfidence.death_reported = 0.9;
+  } else if (deathReportMentioned) {
+    facts.death_reported = true;
+    factConfidence.death_reported = 0.9;
+  } else {
+    factConfidence.death_reported = 0.35;
+  }
+  if (intent === "pricing_or_billing") {
+    facts.special_handling_notes = "Pricing inquiry; caller requested office-hours follow-up.";
+    factConfidence.special_handling_notes = 0.78;
+  }
 
   const facilityContactRole = matchFacilityContactRole(text);
   if (facilityContactRole) {
@@ -160,7 +172,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     factConfidence.requested_funeral_home = 0.84;
   }
 
-  facts.urgency = inferUrgency(lower);
+  facts.urgency = inferUrgency(lower, intent);
   factConfidence.urgency = facts.urgency === "unknown" ? 0.35 : 0.76;
   const callerEmotion = inferCallerEmotion(lower);
   if (callerEmotion) {
@@ -174,8 +186,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   if (!facts.caller_name) warnings.push("caller_name_not_found");
   if (!facts.caller_phone) warnings.push("caller_phone_not_found");
-  if (!facts.decedent_name) warnings.push("decedent_name_not_found");
-  if (!facts.pickup_address && !facts.facility_name) warnings.push("pickup_context_not_found");
+  if (intent !== "pricing_or_billing") {
+    if (!facts.decedent_name) warnings.push("decedent_name_not_found");
+    if (!facts.pickup_address && !facts.facility_name) warnings.push("pickup_context_not_found");
+  }
 
   return {
     intent,
@@ -262,7 +276,8 @@ function normalizeRelationship(value: string): string {
   return lower;
 }
 
-function inferUrgency(text: string): FirstCallUrgency {
+function inferUrgency(text: string, intent: CallIntent): FirstCallUrgency {
+  if (intent === "pricing_or_billing" || hasNegatedDeathReport(text)) return "routine";
   if (/\b(911|emergency|unsafe|police|fire|medical examiner|coroner)\b/.test(text)) return "emergency";
   if (/\b(just passed|passed away|died|death|body|removal|pronounced|ready for release|release to)\b/.test(text)) return "urgent";
   return "unknown";

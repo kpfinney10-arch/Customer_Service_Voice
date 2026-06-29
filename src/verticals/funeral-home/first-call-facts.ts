@@ -24,6 +24,7 @@ export const FIRST_CALL_OPTIONAL_FACTS = [
   "religious_or_cultural_notes",
   "caller_emotional_state",
   "crm_existing_case_reference",
+  "reasonForCall",
 ] as const;
 
 export type FirstCallTargetFact = (typeof FIRST_CALL_TARGET_FACTS)[number];
@@ -64,6 +65,7 @@ export type FirstCallFacts = {
   religious_or_cultural_notes?: string;
   caller_emotional_state?: string;
   crm_existing_case_reference?: string;
+  reasonForCall?: string;
 };
 
 export function missingFirstCallTargetFacts(

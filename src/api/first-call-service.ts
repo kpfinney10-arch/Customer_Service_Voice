@@ -1,7 +1,7 @@
 import type { CallEvent } from "../events/call-event.js";
 import { createCallEvent } from "../events/call-event.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
-import type { StructuredFacts } from "../domain/call-types.js";
+import type { CallIntent, StructuredFacts } from "../domain/call-types.js";
 import { createSessionReplaySnapshot } from "../debug/session-replay.js";
 import type { SessionReplaySnapshot } from "../debug/session-replay.js";
 import { redactText } from "../security/redaction.js";
@@ -22,6 +22,7 @@ import { createFirstCallHandoffSummary } from "../verticals/funeral-home/first-c
 import type { FirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import {
   decideFirstCallNextStep,
+  decideRoutineInquiryNextStep,
   firstCallPromptForDecision,
   firstCallPromptForStep,
 } from "../verticals/funeral-home/first-call-flow.js";
@@ -250,6 +251,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         ...rawExtraction,
       };
       if (factConfidence) extraction.factConfidence = factConfidence;
+      const effectiveIntent = effectiveCallIntent(existingSession.intent, extraction.intent);
       const facts = mergeFirstCallFacts(
         existingSession.facts as Partial<FirstCallFacts>,
         extraction.facts,
@@ -258,26 +260,26 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         contextualFactConfidence,
         activeDecision.step,
       );
+      const intentFacts = factsForIntent(effectiveIntent, facts);
       const reviewedFacts = applyCallerNameSpellingReview(
         existingSession.facts,
-        facts,
+        intentFacts,
         input.transcript,
       );
-      const sessionFacts: StructuredFacts = {
-        ...reviewedFacts,
-        death_reported: true,
-        reasonForCall: "first_call_death_report",
-      };
+      const sessionFacts = sessionFactsForIntent(effectiveIntent, reviewedFacts, existingSession.facts);
       extraction.warnings = unresolvedFirstCallWarnings(extraction.warnings, sessionFacts);
+      const nextStepDecision = isRoutineInquiryIntent(effectiveIntent)
+        ? decideRoutineInquiryNextStep(reviewedFacts)
+        : decideFirstCallNextStep(reviewedFacts);
       const decision = firstCallDecisionAfterValidation(
-        decideFirstCallNextStep(reviewedFacts),
+        nextStepDecision,
         reviewedFacts,
         extraction.factConfidence,
         input.transcript,
       );
       const session = updateSession(existingSession, {
         currentState: decision.nextState,
-        intent: extraction.intent,
+        intent: effectiveIntent,
         sentiment: extraction.sentiment,
         facts: sessionFacts,
         escalationScore: decision.escalationReason ? 1 : existingSession.escalationScore,
@@ -571,6 +573,48 @@ function createReplaySnapshot(input: {
     session: input.session,
     events: input.events,
   });
+}
+
+function effectiveCallIntent(existingIntent: CallIntent | null, extractedIntent: CallIntent): CallIntent {
+  if (existingIntent && isRoutineInquiryIntent(existingIntent) && extractedIntent === "unknown") return existingIntent;
+  return extractedIntent;
+}
+
+function isRoutineInquiryIntent(intent: CallIntent | null | undefined): boolean {
+  return intent === "pricing_or_billing" || intent === "family_question" || intent === "service_schedule_question";
+}
+
+function factsForIntent(
+  intent: CallIntent,
+  facts: Partial<FirstCallFacts>,
+): Partial<FirstCallFacts> {
+  if (!isRoutineInquiryIntent(intent)) return facts;
+  return {
+    ...facts,
+    death_reported: false,
+    reasonForCall: intent,
+    urgency: facts.urgency && facts.urgency !== "unknown" ? facts.urgency : "routine",
+  };
+}
+
+function sessionFactsForIntent(
+  intent: CallIntent,
+  facts: Partial<FirstCallFacts>,
+  existing: StructuredFacts = {},
+): StructuredFacts {
+  if (isRoutineInquiryIntent(intent)) {
+    return {
+      ...facts,
+      death_reported: false,
+      reasonForCall: intent,
+      urgency: facts.urgency && facts.urgency !== "unknown" ? facts.urgency : "routine",
+    };
+  }
+  return {
+    ...facts,
+    death_reported: existing.death_reported === true ? true : (facts.death_reported ?? true),
+    reasonForCall: facts.reasonForCall ?? "first_call_death_report",
+  };
 }
 
 function enabledToolNamesForTenant(config: TenantConfig | undefined): Set<string> | undefined {
@@ -1273,12 +1317,16 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "at",
   "about",
   "callback",
+  "basic",
   "call",
   "calling",
   "case",
   "case manager",
+  "cost",
+  "cremation",
   "disconnected",
   "doctor",
+  "direct",
   "dr",
   "deputy",
   "coroner",
@@ -1286,7 +1334,9 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "he",
   "her",
   "him",
+  "future",
   "in",
+  "included",
   "investigator",
   "is",
   "it",
@@ -1302,6 +1352,9 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "nurse",
   "number",
   "phone",
+  "planning",
+  "pricing",
+  "question",
   "rn",
   "she",
   "social",

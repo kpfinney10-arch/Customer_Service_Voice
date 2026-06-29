@@ -86,7 +86,7 @@ function createToolRequestForFirstCall(
 
   if (toolName === "crm.create_intake_lead") {
     const args: CreateCrmIntakeArgs = {
-      reasonForCall: "first_call_death_report",
+      reasonForCall: input.facts.reasonForCall ?? "first_call_death_report",
       urgency: normalizeCrmUrgency(input.facts.urgency),
     };
     addIfPresent(args, "callerName", input.facts.caller_name);

@@ -73,6 +73,17 @@ export function createHangupVoiceResponse(reason?: string): VoiceResponse {
   };
 }
 
+export function createClosingVoiceResponse(text: string, reason?: string): VoiceResponse {
+  const hangupAction: VoiceResponseAction = reason ? { type: "hangup", reason } : { type: "hangup" };
+  return {
+    contentType: "application/json",
+    actions: [
+      { type: "say", text },
+      hangupAction,
+    ],
+  };
+}
+
 export function createInterruptedVoiceResponse(text: string): VoiceResponse {
   return {
     contentType: "application/json",

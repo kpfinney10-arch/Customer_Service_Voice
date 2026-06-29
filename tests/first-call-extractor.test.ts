@@ -87,6 +87,19 @@ test("first-call extractor handles live hospital release phrasing", () => {
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor treats negated death pricing calls as routine inquiries", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+  );
+
+  assert.equal(extraction.intent, "pricing_or_billing");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(extraction.facts.decedent_name, undefined);
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 test("first-call extractor handles live hospice staff phrasing", () => {
   const caller = extractFirstCallFactsDeterministic(
     "This is Nurse Sarah at Green Valley. Hospice, my phone here is 214. 639 5723.",

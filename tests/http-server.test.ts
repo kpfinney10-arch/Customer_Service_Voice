@@ -905,6 +905,77 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
   assert.equal(accepted.body, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
 });
 
+test("Twilio webhook route closes routine pricing inquiries after contact capture", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-1",
+      SpeechResult:
+        "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /<Gather /);
+  assert.match(opening.body, /May I have your name/);
+  assert.doesNotMatch(opening.body, /person who passed away|located right now/i);
+
+  const contact = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-1",
+      SpeechResult: "My name is Kyle Smith. My callback number is 603-731-5845.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(contact.status, 200);
+  assert.match(contact.body, /follow up during office hours/);
+  assert.match(contact.body, /<Hangup\/>/);
+  assert.doesNotMatch(contact.body, /<Gather /);
+  assert.doesNotMatch(contact.body, /<Dial/);
+
+  const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-pricing-1/replay");
+  assert.equal(replay.body.session.currentState, "WRAPUP");
+  assert.equal(replay.body.session.intent, "pricing_or_billing");
+  assert.equal(replay.body.session.facts.reasonForCall, "pricing_or_billing");
+  assert.equal(replay.body.session.facts.death_reported, false);
+  assert.equal(replay.body.session.facts.decedent_name, undefined);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+});
+
 test("Twilio webhook route accepts compact caller name and phone answers", async () => {
   await fetchText(
     "POST",
@@ -2032,6 +2103,52 @@ test("first-call API captures hospital release decedent on the first turn", asyn
   assert.equal(location.body.handoff.priority, "urgent");
   assert.equal(location.body.session.currentState, "ESCALATE");
   assert.equal(location.body.decision.step, "escalate");
+});
+
+test("first-call API routes pricing inquiries to office-hours follow-up", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-pricing-inquiry-1",
+    callerPhone: "603-731-5845",
+  });
+
+  const opening = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-pricing-inquiry-1/transcript",
+    {
+      transcript:
+        "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+    },
+  );
+
+  assert.equal(opening.status, 200);
+  assert.equal(opening.body.session.intent, "pricing_or_billing");
+  assert.equal(opening.body.session.facts.death_reported, false);
+  assert.equal(opening.body.session.facts.reasonForCall, "pricing_or_billing");
+  assert.equal(opening.body.session.facts.urgency, "routine");
+  assert.equal(opening.body.session.facts.decedent_name, undefined);
+  assert.equal(opening.body.decision.step, "collect_caller");
+  assert.doesNotMatch(opening.body.responseText, /person who passed away|located right now/i);
+
+  const contact = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-pricing-inquiry-1/transcript",
+    {
+      transcript: "My name is Kyle Smith. My callback number is 603-731-5845.",
+    },
+  );
+
+  assert.equal(contact.status, 200);
+  assert.equal(contact.body.session.currentState, "WRAPUP");
+  assert.equal(contact.body.session.intent, "pricing_or_billing");
+  assert.equal(contact.body.session.facts.caller_name, "Kyle Smith");
+  assert.equal(contact.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(contact.body.session.facts.death_reported, false);
+  assert.equal(contact.body.session.facts.decedent_name, undefined);
+  assert.equal(contact.body.decision.step, "routine_follow_up");
+  assert.deepEqual(contact.body.toolResults.map((result: { toolName: string }) => result.toolName), [
+    "crm.create_intake_lead",
+  ]);
+  assert.match(contact.body.responseText, /follow up during office hours/i);
 });
 
 test("first-call API passes current facts and active step into extractor", async () => {

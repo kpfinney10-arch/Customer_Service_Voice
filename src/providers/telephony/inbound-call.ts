@@ -10,6 +10,7 @@ import type { ToolResult } from "../../tools/tool-registry.js";
 import {
   createHandoffVoiceResponse,
   createHangupVoiceResponse,
+  createClosingVoiceResponse,
   createInterruptedVoiceResponse,
   createListenVoiceResponse,
 } from "./voice-response.js";
@@ -55,7 +56,7 @@ export type TelephonySpeechTurnOutput = {
   provider: string;
   providerCallId: string;
   route: "first_call_intake";
-  nextExpectedInput: "caller_speech" | "human_handoff";
+  nextExpectedInput: "caller_speech" | "human_handoff" | "none";
   decision: FirstCallFlowDecision;
   toolResults: ToolResult<object>[];
   voiceResponse: VoiceResponse;
@@ -155,6 +156,7 @@ export async function handleTelephonySpeechTurn(
   };
   addIfPresent(transcriptInput, "correlationId", input.correlationId);
   const output = await service.handleTranscript(transcriptInput);
+  const closesCall = output.session.currentState === "WRAPUP" || output.session.currentState === "END_CALL";
 
   const response: TelephonySpeechTurnOutput = {
     session: output.session,
@@ -163,11 +165,13 @@ export async function handleTelephonySpeechTurn(
     provider: input.provider,
     providerCallId: input.providerCallId,
     route: "first_call_intake",
-    nextExpectedInput: output.handoff ? "human_handoff" : "caller_speech",
+    nextExpectedInput: output.handoff ? "human_handoff" : closesCall ? "none" : "caller_speech",
     decision: output.decision,
     toolResults: output.toolResults,
     voiceResponse: output.handoff
       ? createHandoffVoiceResponse(output.responseText, output.handoff.reason, output.handoffRouting)
+      : closesCall
+        ? createClosingVoiceResponse(output.responseText, output.session.currentState.toLowerCase())
       : createListenVoiceResponse(output.responseText),
   };
   if (output.handoff) response.handoff = output.handoff;

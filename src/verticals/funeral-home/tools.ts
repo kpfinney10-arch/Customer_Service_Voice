@@ -50,7 +50,7 @@ export function createFuneralHomeToolDefinitions(
   return [
     {
       name: "crm.create_intake_lead",
-      allowedStates: ["RESOLVE_REQUEST", "ESCALATE"],
+      allowedStates: ["RESOLVE_REQUEST", "WRAPUP", "ESCALATE"],
       requiredFacts: ["reasonForCall"],
       execute: (request) => adapters.createCrmIntake(request),
     },

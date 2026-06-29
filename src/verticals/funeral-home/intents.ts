@@ -18,9 +18,21 @@ const dispatchTerms = ["driver", "pickup", "arrival", "transport", "where are th
 
 export function classifyFuneralHomeIntent(transcript: string): CallIntent {
   const text = transcript.toLowerCase();
-  if (firstCallTerms.some((term) => text.includes(term))) return "first_call_intake";
-  if (billingTerms.some((term) => text.includes(term))) return "pricing_or_billing";
+  const hasFirstCallTerm = firstCallTerms.some((term) => text.includes(term));
+  const hasBillingTerm = billingTerms.some((term) => text.includes(term));
+  if (hasFirstCallTerm && !hasNegatedDeathReport(text)) return "first_call_intake";
+  if (hasBillingTerm) return "pricing_or_billing";
   if (dispatchTerms.some((term) => text.includes(term))) return "dispatch_status";
   if (familyQuestionTerms.some((term) => text.includes(term))) return "family_question";
   return "unknown";
+}
+
+export function hasNegatedDeathReport(transcript: string): boolean {
+  const text = transcript
+    .toLowerCase()
+    .replace(/\bno\s+1\b/g, "no one")
+    .replace(/\s+/g, " ");
+  return /\b(?:no one|nobody|no-one)\s+(?:has\s+)?(?:passed away|died)\b/.test(text) ||
+    /\b(?:no|not)\s+(?:death|deaths)\b/.test(text) ||
+    /\b(?:hasn'?t|has not|didn'?t|did not)\s+(?:passed away|pass away|died|die)\b/.test(text);
 }

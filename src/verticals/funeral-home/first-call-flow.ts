@@ -13,6 +13,7 @@ export type FirstCallStep =
   | "collect_location"
   | "create_crm_intake"
   | "create_dispatch_review_request"
+  | "routine_follow_up"
   | "escalate";
 
 export type FirstCallFlowDecision = {
@@ -67,6 +68,28 @@ export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCa
   };
 }
 
+export function decideRoutineInquiryNextStep(facts: Partial<FirstCallFacts>): FirstCallFlowDecision {
+  const missingTargetFacts = ["caller_name", "caller_phone"].filter(
+    (fact) => facts[fact as keyof FirstCallFacts] == null || facts[fact as keyof FirstCallFacts] === "",
+  );
+
+  if (!facts.caller_name || !facts.caller_phone) {
+    return {
+      nextState: "RESOLVE_REQUEST",
+      step: "collect_caller",
+      missingTargetFacts,
+      toolNames: [],
+    };
+  }
+
+  return {
+    nextState: "WRAPUP",
+    step: "routine_follow_up",
+    missingTargetFacts: [],
+    toolNames: ["crm.create_intake_lead"],
+  };
+}
+
 export function firstCallPromptForStep(step: FirstCallStep): string {
   switch (step) {
     case "acknowledge":
@@ -81,6 +104,8 @@ export function firstCallPromptForStep(step: FirstCallStep): string {
       return "I am saving this information for our team.";
     case "create_dispatch_review_request":
       return "I am sending this to dispatch for review.";
+    case "routine_follow_up":
+      return "I have your question and contact information. I will have the funeral home team follow up during office hours. Thank you for calling.";
     case "escalate":
       return "I am going to connect you with a funeral home team member now.";
   }
