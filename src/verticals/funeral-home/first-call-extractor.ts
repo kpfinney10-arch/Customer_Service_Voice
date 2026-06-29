@@ -33,10 +33,10 @@ export type FirstCallExtractionContext = {
 const phonePattern = /\b(?:\+?1[-.\s]*)?(?:\(?\d{3}\)?[-.\s]*)\d{3}[-.\s]*\d{4}\b/;
 
 const placeTerms: Array<[PlaceOfDeathType, RegExp]> = [
+  ["medical_examiner", /\b(medical examiner|coroner|county morgue)\b/i],
   ["hospital", /\b(hospital|medical center|er|emergency room)\b/i],
   ["hospice", /\b(hospice)\b/i],
   ["nursing_home", /\b(nursing home|care center|long[-\s]?term care|skilled nursing)\b/i],
-  ["medical_examiner", /\b(medical examiner|coroner|county morgue)\b/i],
   ["residence", /\b(home|house|apartment|residence|address)\b/i],
 ];
 
@@ -54,7 +54,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const warnings: string[] = [];
 
   const intent = classifyFuneralHomeIntent(text);
-  facts.death_reported = /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to)\b/i.test(text);
+  facts.death_reported =
+    /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to|medical examiner|coroner|morgue)\b/i.test(
+      text,
+    );
   factConfidence.death_reported = facts.death_reported ? 0.9 : 0.35;
 
   const facilityContactRole = matchFacilityContactRole(text);
@@ -64,7 +67,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const callerName = matchFirst(text, [
-    /\b[Tt]his is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
+    /\bthis is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
     /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+at\b|\s*$)/,
@@ -95,7 +98,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const decedentName = matchFirst(text, [
-    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room)\b|[,.]|\s*$)/,
+    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
@@ -107,6 +110,14 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (decedentName) {
     facts.decedent_name = normalizeSpokenName(decedentName);
     factConfidence.decedent_name = 0.84;
+  }
+
+  const caseReference = matchFirst(text, [
+    /\bcase[.,:;]?\s*(?:number|no\.?|#)?\s*([A-Za-z0-9][A-Za-z0-9-]{2,})\b/i,
+  ]);
+  if (caseReference) {
+    facts.crm_existing_case_reference = caseReference;
+    factConfidence.crm_existing_case_reference = 0.84;
   }
 
   const facilityName = extractFacilityName(text);
@@ -191,7 +202,7 @@ function normalizeSpokenName(value: string): string {
 
 function matchFacilityContactRole(input: string): string | undefined {
   const role = input.match(
-    /\b(?:this is|i am|i'm)\s+(nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager)\b/i,
+    /\b(?:this is|i am|i'm)\s+(nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager|investigator|medical examiner|coroner|deputy coroner)\b/i,
   )?.[1];
   if (!role) return undefined;
   return normalizeFacilityContactRole(role);
@@ -205,11 +216,18 @@ function normalizeFacilityContactRole(value: string): string {
 }
 
 function extractFacilityName(input: string): string | undefined {
-  const match = input.match(
-    /\b(?:at|from)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
-  );
-  if (!match) return undefined;
-  return normalizeFacilityName(`${match[1] ?? ""} ${match[2] ?? ""}`);
+  const patterns = [
+    /\b(?:at|from|with)\s+(?:the\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(medical examiner'?s office|medical examiner office|coroner'?s office|county morgue)\b/i,
+    /\b(?:at|from|with)\s+(?:the\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
+  ];
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    const facilityPrefix = match?.[1]?.trim();
+    if (match && facilityPrefix && !/^the$/i.test(facilityPrefix)) {
+      return normalizeFacilityName(`${facilityPrefix} ${match[2] ?? ""}`);
+    }
+  }
+  return undefined;
 }
 
 function normalizeFacilityName(value: string): string {

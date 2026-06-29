@@ -19,6 +19,7 @@ export type FirstCallHandoffSummary = {
   };
   decedent: {
     name?: string;
+    existingCaseReference?: string;
   };
   location: {
     placeOfDeathType?: string;
@@ -63,6 +64,7 @@ export function createFirstCallHandoffSummary(input: {
   addIfPresent(summary.caller, "relationshipToDecedent", input.facts.caller_relationship_to_decedent);
   addIfPresent(summary.caller, "emotionalState", input.facts.caller_emotional_state);
   addIfPresent(summary.decedent, "name", input.facts.decedent_name);
+  addIfPresent(summary.decedent, "existingCaseReference", input.facts.crm_existing_case_reference);
   addIfPresent(summary.location, "placeOfDeathType", input.facts.place_of_death_type);
   addIfPresent(summary.location, "pickupAddress", input.facts.pickup_address);
   addIfPresent(summary.location, "facilityName", input.facts.facility_name);

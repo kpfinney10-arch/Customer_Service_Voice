@@ -92,6 +92,27 @@ test("first-call extractor handles live hospice staff phrasing", () => {
   assert.equal(decedent.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor handles medical examiner investigator phrasing", () => {
+  const caller = extractFirstCallFactsDeterministic(
+    "This is investigator, Sarah Miller with the Terra County Medical examiner's Office, my call back. Number is 214. 639 5723.",
+  );
+
+  assert.equal(caller.facts.caller_name, "Sarah Miller");
+  assert.equal(caller.facts.caller_phone, "214. 639 5723");
+  assert.equal(caller.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(caller.facts.facility_contact_role, "investigator");
+  assert.equal(caller.facts.facility_name, "Terra County Medical Examiner's Office");
+  assert.equal(caller.facts.place_of_death_type, "medical_examiner");
+  assert.equal(caller.warnings.includes("caller_name_not_found"), false);
+  assert.equal(caller.warnings.includes("pickup_context_not_found"), false);
+
+  const decedent = extractFirstCallFactsDeterministic("Calling about Robert Jones case. Number 2611232,");
+
+  assert.equal(decedent.facts.decedent_name, "Robert Jones");
+  assert.equal(decedent.facts.crm_existing_case_reference, "2611232");
+  assert.equal(decedent.warnings.includes("decedent_name_not_found"), false);
+});
+
 test("first-call extractor handles capitalized address is phrasing", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "My name is Amanda. My mother Patricia passed away. Address is 44 Cedar Road.",

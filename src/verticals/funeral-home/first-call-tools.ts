@@ -93,6 +93,7 @@ function createToolRequestForFirstCall(
     addIfPresent(args, "callerPhone", input.facts.caller_phone);
     addIfPresent(args, "relationshipToDecedent", input.facts.caller_relationship_to_decedent);
     addIfPresent(args, "decedentName", input.facts.decedent_name);
+    addIfPresent(args, "existingCaseReference", input.facts.crm_existing_case_reference);
     addIfPresent(args, "placeOfDeathType", input.facts.place_of_death_type);
     addIfPresent(args, "preferredCallbackNumber", input.facts.preferred_callback_number);
     return { ...base, args };

@@ -5,6 +5,7 @@ export type CreateCrmIntakeArgs = {
   callerPhone?: string;
   relationshipToDecedent?: string;
   decedentName?: string;
+  existingCaseReference?: string;
   placeOfDeathType?: string;
   preferredCallbackNumber?: string;
   reasonForCall: string;

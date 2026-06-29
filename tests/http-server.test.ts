@@ -1933,6 +1933,64 @@ test("first-call API preserves hospice facility context across address collectio
   assert.equal(location.body.decision.step, "escalate");
 });
 
+test("first-call API preserves medical examiner context and case reference", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-medical-examiner-1",
+    callerPhone: "603-731-5845",
+  });
+
+  const caller = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-1/transcript",
+    {
+      transcript:
+        "This is investigator, Sarah Miller with the Terra County Medical examiner's Office, my call back. Number is 214. 639 5723.",
+    },
+  );
+
+  assert.equal(caller.status, 200);
+  assert.equal(caller.body.session.facts.caller_name, "Sarah Miller");
+  assert.equal(caller.body.session.facts.pickup_contact_name, "Sarah Miller");
+  assert.equal(caller.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(caller.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(caller.body.session.facts.facility_contact_role, "investigator");
+  assert.equal(caller.body.session.facts.facility_name, "Terra County Medical Examiner's Office");
+  assert.equal(caller.body.session.facts.place_of_death_type, "medical_examiner");
+  assert.equal(caller.body.decision.step, "collect_decedent");
+
+  const decedent = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-1/transcript",
+    {
+      transcript: "Calling about Robert Jones case. Number 2611232,",
+    },
+  );
+
+  assert.equal(decedent.status, 200);
+  assert.equal(decedent.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(decedent.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(decedent.body.decision.step, "collect_location");
+
+  const location = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-1/transcript",
+    {
+      transcript: "He is at the medical examiner's office at 200 Medical Center Drive in Fort Worth Texas.",
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.equal(location.body.session.facts.caller_name, "Sarah Miller");
+  assert.equal(location.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(location.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(location.body.session.facts.facility_name, "Terra County Medical Examiner's Office");
+  assert.equal(location.body.session.facts.place_of_death_type, "medical_examiner");
+  assert.equal(location.body.session.facts.pickup_address, "200 Medical Center Drive Fort Worth Texas");
+  assert.equal(location.body.handoff.decedent.existingCaseReference, "2611232");
+  assert.equal(location.body.session.currentState, "ESCALATE");
+  assert.equal(location.body.decision.step, "escalate");
+});
+
 test("first-call API passes current facts and active step into extractor", async () => {
   const seenContexts: Array<{
     activeStep?: string;
