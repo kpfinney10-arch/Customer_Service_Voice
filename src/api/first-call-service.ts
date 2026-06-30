@@ -1173,6 +1173,8 @@ function applyCallerNameSpellingReview(
   transcript: string,
 ): Partial<FirstCallFacts> & StructuredFacts {
   const reviewed: Partial<FirstCallFacts> & StructuredFacts = { ...facts };
+  if (hasRoutineReasonForCall(facts)) return reviewed;
+
   const existingStatus = stringFact(existing, callerNameSpellingStatusKey);
   const existingAttempted = Number(existing[callerNameSpellingAttemptedKey] ?? 0);
 
@@ -1207,6 +1209,11 @@ function applyCallerNameSpellingReview(
     reviewed[callerNameSpellingAttemptedKey] = 0;
   }
   return reviewed;
+}
+
+function hasRoutineReasonForCall(facts: Partial<FirstCallFacts>): boolean {
+  const reasonForCall = facts.reasonForCall;
+  return typeof reasonForCall === "string" && isRoutineInquiryIntent(reasonForCall as CallIntent);
 }
 
 function needsCallerNameSpellingConfirmation(facts: Partial<FirstCallFacts> | StructuredFacts): boolean {

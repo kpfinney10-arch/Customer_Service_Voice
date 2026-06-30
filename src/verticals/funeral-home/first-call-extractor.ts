@@ -70,6 +70,13 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   if (intent === "pricing_or_billing") {
     facts.special_handling_notes = "Pricing inquiry; caller requested office-hours follow-up.";
     factConfidence.special_handling_notes = 0.78;
+  } else if (isRoutineInquiryIntent(intent)) {
+    facts.special_handling_notes = "Routine family inquiry; caller requested office-hours follow-up.";
+    factConfidence.special_handling_notes = 0.78;
+  }
+  if (/\b(?:drop off|bring)\s+(?:clothing|clothes)\b/i.test(text)) {
+    facts.dropoff_preference = "Caller asked about dropping off clothing.";
+    factConfidence.dropoff_preference = 0.78;
   }
 
   const facilityContactRole = matchFacilityContactRole(text);
@@ -80,13 +87,14 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const callerName = matchFirst(text, [
     /\bthis is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
+    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+(?:[,\s]+(?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:and\s+)?(?:at|from|my|call|callback|phone|number)\b|\s*$)/i,
     /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+at\b|\s*$)/,
     /\b[Ii] am\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
   ]);
   if (callerName) {
-    facts.caller_name = callerName;
+    facts.caller_name = normalizeSpokenName(callerName);
     factConfidence.caller_name = 0.86;
   }
 
@@ -111,6 +119,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
+    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
     /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+(?:ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
@@ -153,7 +162,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     factConfidence.pickup_address = 0.8;
   }
 
-  const placeOfDeath = placeTerms.find(([, pattern]) => pattern.test(text))?.[0] ?? (address ? "residence" : undefined);
+  let placeOfDeath = placeTerms.find(([, pattern]) => pattern.test(text))?.[0] ?? (address ? "residence" : undefined);
+  if (isRoutineInquiryIntent(intent) && placeOfDeath === "residence" && !address && !facts.facility_name) {
+    placeOfDeath = undefined;
+  }
   facts.place_of_death_type = placeOfDeath ?? "unknown";
   factConfidence.place_of_death_type = placeOfDeath ? 0.72 : 0.3;
 
@@ -186,7 +198,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   if (!facts.caller_name) warnings.push("caller_name_not_found");
   if (!facts.caller_phone) warnings.push("caller_phone_not_found");
-  if (intent !== "pricing_or_billing") {
+  if (!isRoutineInquiryIntent(intent)) {
     if (!facts.decedent_name) warnings.push("decedent_name_not_found");
     if (!facts.pickup_address && !facts.facility_name) warnings.push("pickup_context_not_found");
   }
@@ -216,7 +228,22 @@ function normalizeSpokenStreetNumber(value: string): string {
 }
 
 function normalizeSpokenName(value: string): string {
-  return value.replace(/[.]+/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/[.,]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map(normalizeNameWord)
+    .join(" ");
+}
+
+function normalizeNameWord(word: string): string {
+  if (/^[A-Z]{2,3}$/.test(word)) return word;
+  if (/^mc[a-z]+$/i.test(word) && word.length > 2) {
+    return `Mc${word[2]?.toUpperCase() ?? ""}${word.slice(3).toLowerCase()}`;
+  }
+  return `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`;
 }
 
 function matchFacilityContactRole(input: string): string | undefined {
@@ -277,10 +304,14 @@ function normalizeRelationship(value: string): string {
 }
 
 function inferUrgency(text: string, intent: CallIntent): FirstCallUrgency {
-  if (intent === "pricing_or_billing" || hasNegatedDeathReport(text)) return "routine";
+  if (isRoutineInquiryIntent(intent) || hasNegatedDeathReport(text)) return "routine";
   if (/\b(911|emergency|unsafe|police|fire|medical examiner|coroner)\b/.test(text)) return "emergency";
   if (/\b(just passed|passed away|died|death|body|removal|pronounced|ready for release|release to)\b/.test(text)) return "urgent";
   return "unknown";
+}
+
+function isRoutineInquiryIntent(intent: CallIntent): boolean {
+  return intent === "pricing_or_billing" || intent === "family_question" || intent === "service_schedule_question";
 }
 
 function inferSentiment(text: string): Sentiment {
