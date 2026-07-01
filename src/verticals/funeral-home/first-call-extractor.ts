@@ -234,8 +234,13 @@ function normalizeSpokenName(value: string): string {
     .trim()
     .split(" ")
     .filter(Boolean)
+    .filter((word) => !isSpokenNameFiller(word))
     .map(normalizeNameWord)
     .join(" ");
+}
+
+function isSpokenNameFiller(word: string): boolean {
+  return /^(?:uh|um|umm|er|ah)$/i.test(word);
 }
 
 function normalizeNameWord(word: string): string {
