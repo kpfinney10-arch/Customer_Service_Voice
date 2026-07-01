@@ -19,8 +19,7 @@
     },
     "decision": {
       "step": "escalate",
-      "toolNames": ["crm.create_intake_lead", "dispatch.create_removal_request"]
+      "toolNames": ["crm.create_intake_lead"]
     }
   }
 }
-

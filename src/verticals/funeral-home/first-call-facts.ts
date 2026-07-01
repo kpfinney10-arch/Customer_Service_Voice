@@ -80,5 +80,21 @@ export function hasMinimumCrmIntakeFacts(facts: Partial<FirstCallFacts>): boolea
 }
 
 export function hasMinimumDispatchRequestFacts(facts: Partial<FirstCallFacts>): boolean {
-  return Boolean(facts.pickup_address || facts.facility_name);
+  return Boolean((facts.pickup_address || facts.facility_name) && !requiresAuthorityVerificationBeforeDispatch(facts));
+}
+
+export function requiresAuthorityVerificationBeforeDispatch(facts: Partial<FirstCallFacts>): boolean {
+  return facts.place_of_death_type === "residence" && !hasAuthorizedRemovalSource(facts);
+}
+
+function hasAuthorizedRemovalSource(facts: Partial<FirstCallFacts>): boolean {
+  if (facts.caller_relationship_to_decedent === "facility_staff") return true;
+  if (facts.facility_name && facts.place_of_death_type && facts.place_of_death_type !== "residence") return true;
+  return isAuthorityRole(facts.facility_contact_role);
+}
+
+function isAuthorityRole(role: string | undefined): boolean {
+  return /^(?:nurse|doctor|social_worker|chaplain|case_manager|investigator|medical_examiner|coroner|deputy_coroner|police_officer|officer|detective|deputy|sheriff)$/.test(
+    role ?? "",
+  );
 }

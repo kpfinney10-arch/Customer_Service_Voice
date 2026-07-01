@@ -2,6 +2,7 @@ import type { EscalationReason } from "../../domain/call-types.js";
 import type { CallSession } from "../../session/call-session.js";
 import type { ToolResult } from "../../tools/tool-registry.js";
 import type { FirstCallFacts, FirstCallUrgency } from "./first-call-facts.js";
+import { requiresAuthorityVerificationBeforeDispatch } from "./first-call-facts.js";
 import type { FirstCallFlowDecision } from "./first-call-flow.js";
 
 export type FirstCallHandoffSummary = {
@@ -56,7 +57,7 @@ export function createFirstCallHandoffSummary(input: {
     missingFacts: input.decision.missingTargetFacts,
     completedToolNames: input.toolResults.filter((result) => result.ok).map((result) => result.toolName),
     failedToolNames: input.toolResults.filter((result) => !result.ok).map((result) => result.toolName),
-    recommendedActions: recommendedActions(input.decision.missingTargetFacts, input.toolResults),
+    recommendedActions: recommendedActions(input.facts, input.decision.missingTargetFacts, input.toolResults),
   };
 
   addIfPresent(summary.caller, "name", input.facts.caller_name);
@@ -81,8 +82,15 @@ function normalizePriority(urgency: FirstCallUrgency | undefined): FirstCallHand
   return "urgent";
 }
 
-function recommendedActions(missingFacts: string[], toolResults: ToolResult<object>[]): string[] {
+function recommendedActions(
+  facts: Partial<FirstCallFacts>,
+  missingFacts: string[],
+  toolResults: ToolResult<object>[],
+): string[] {
   const actions = ["Connect caller to an on-call funeral home team member."];
+  if (requiresAuthorityVerificationBeforeDispatch(facts)) {
+    actions.push("Verify the death with hospice, law enforcement, or the medical examiner before creating a dispatch/removal request.");
+  }
   if (missingFacts.length > 0) {
     actions.push("Confirm missing first-call details before dispatch finalization.");
   }

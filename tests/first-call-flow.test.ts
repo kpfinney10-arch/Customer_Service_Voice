@@ -24,13 +24,34 @@ test("first-call flow can create CRM intake before dispatch facts are complete",
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
 });
 
-test("first-call flow escalates after enough facts for dispatch review", () => {
+test("first-call flow escalates family residence calls without dispatch review", () => {
   const decision = decideFirstCallNextStep({
     caller_name: "Jane Caller",
     caller_phone: "555-0100",
+    caller_relationship_to_decedent: "daughter",
     decedent_name: "John Smith",
     pickup_address: "100 Main St",
     death_reported: true,
+    place_of_death_type: "residence",
+    urgency: "urgent",
+  });
+
+  assert.equal(decision.step, "escalate");
+  assert.equal(decision.nextState, "ESCALATE");
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
+  assert.equal(decision.escalationReason, "urgent_death_report");
+});
+
+test("first-call flow creates dispatch review for official residence reports", () => {
+  const decision = decideFirstCallNextStep({
+    caller_name: "Officer Jane Caller",
+    caller_phone: "555-0100",
+    caller_relationship_to_decedent: "facility_staff",
+    facility_contact_role: "police_officer",
+    decedent_name: "John Smith",
+    pickup_address: "100 Main St",
+    death_reported: true,
+    place_of_death_type: "residence",
     urgency: "urgent",
   });
 
@@ -42,4 +63,3 @@ test("first-call flow escalates after enough facts for dispatch review", () => {
   ]);
   assert.equal(decision.escalationReason, "urgent_death_report");
 });
-

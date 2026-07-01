@@ -232,6 +232,23 @@ test("first-call extractor handles medical examiner investigator phrasing", () =
   assert.equal(decedent.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor handles police officer residence death reports", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "This is Officer Sarah Miller with Keller Police. We have Robert Jones deceased at 636 Commerce Ave in Keller. My number is 214-639-5723.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Sarah Miller");
+  assert.equal(extraction.facts.caller_phone, "214-639-5723");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "officer");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.pickup_address, "636 Commerce Ave");
+  assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
 test("first-call extractor handles capitalized address is phrasing", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "My name is Amanda. My mother Patricia passed away. Address is 44 Cedar Road.",

@@ -338,23 +338,19 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(turn.body.handoffRouting.destination, "+15555550100");
   assert.equal(turn.body.handoffRouting.queue, "first-call-after-hours");
   assert.equal(turn.body.handoffRouting.priority, "urgent");
-  assert.deepEqual(turn.body.handoff.completedToolNames, [
-    "crm.create_intake_lead",
-    "dispatch.create_removal_request",
-  ]);
-  assert.deepEqual(turn.body.decision.toolNames, [
-    "crm.create_intake_lead",
-    "dispatch.create_removal_request",
-  ]);
-  assert.equal(turn.body.toolResults.length, 2);
+  assert.deepEqual(turn.body.handoff.completedToolNames, ["crm.create_intake_lead"]);
+  assert.deepEqual(turn.body.decision.toolNames, ["crm.create_intake_lead"]);
+  assert.match(
+    turn.body.handoff.recommendedActions.join(" "),
+    /Verify the death with hospice, law enforcement, or the medical examiner/i,
+  );
+  assert.equal(turn.body.toolResults.length, 1);
   assert.deepEqual(
     turn.body.events.map((event: { eventType: string }) => event.eventType),
     [
       "TRANSCRIPT_RECEIVED",
       "INTENT_DETECTED",
       "ESCALATION_TRIGGERED",
-      "TOOL_REQUESTED",
-      "TOOL_EXECUTED",
       "TOOL_REQUESTED",
       "TOOL_EXECUTED",
     ],
@@ -372,8 +368,6 @@ test("first-call API starts a session and handles transcript turn", async () => 
       "ESCALATION_TRIGGERED",
       "TOOL_REQUESTED",
       "TOOL_EXECUTED",
-      "TOOL_REQUESTED",
-      "TOOL_EXECUTED",
     ],
   );
 
@@ -381,14 +375,11 @@ test("first-call API starts a session and handles transcript turn", async () => 
 
   assert.equal(replay.status, 200);
   assert.equal(replay.body.snapshot.currentState, "ESCALATE");
-  assert.equal(replay.body.snapshot.eventCount, 8);
+  assert.equal(replay.body.snapshot.eventCount, 6);
   assert.equal(replay.body.snapshot.latestEventType, "TOOL_EXECUTED");
   assert.equal(replay.body.snapshot.escalated, true);
   assert.equal(replay.body.snapshot.redactedTranscriptCount, 1);
-  assert.deepEqual(replay.body.snapshot.completedToolNames, [
-    "crm.create_intake_lead",
-    "dispatch.create_removal_request",
-  ]);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
   assert.deepEqual(replay.body.snapshot.failedToolNames, []);
   assert.equal(replay.body.snapshot.handoff.caller.name, "Sarah Miller");
 });
@@ -430,7 +421,7 @@ test("telephony inbound-call route starts first-call session", async () => {
 
   const speechTurn = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/calls/provider-call-1/speech-turn", {
     transcript:
-      "This is Michael Turner. My mother Helen Turner passed away at 456 Oak Road, Austin. My number is 555-888-9999.",
+      "This is Officer Michael Turner with Austin Police. We have Helen Turner deceased at 456 Oak Road, Austin. My number is 555-888-9999.",
     confidence: 0.94,
     isFinal: true,
     correlationId: "corr-provider-2",
@@ -1958,10 +1949,11 @@ test("Twilio webhook route accepts reverse caller name phrase and Circle address
   assert.equal(replay.body.session.facts.caller_phone, "432-569-4324");
   assert.equal(replay.body.session.facts.decedent_name, "John McAdams");
   assert.equal(replay.body.session.facts.pickup_address, "12436 Saratoga Circle Fort Worth");
-  assert.deepEqual(replay.body.snapshot.completedToolNames, [
-    "crm.create_intake_lead",
-    "dispatch.create_removal_request",
-  ]);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+  assert.match(
+    replay.body.snapshot.handoff.recommendedActions.join(" "),
+    /Verify the death with hospice, law enforcement, or the medical examiner/i,
+  );
 });
 
 test("Twilio webhook route preserves caller name across phone-only turns and dotted decedent names", async () => {
@@ -3390,7 +3382,11 @@ test("first-call API asks caller to confirm suspicious street-name tokens", asyn
     "GET",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-slot-confirm-address-1/replay",
   );
-  assert.equal(confirmedReplay.body.snapshot.completedToolNames.includes("dispatch.create_removal_request"), true);
+  assert.equal(confirmedReplay.body.snapshot.completedToolNames.includes("dispatch.create_removal_request"), false);
+  assert.match(
+    confirmedReplay.body.snapshot.handoff.recommendedActions.join(" "),
+    /Verify the death with hospice, law enforcement, or the medical examiner/i,
+  );
 });
 
 test("first-call API preserves apartment details from spoken address answers", async () => {
@@ -3449,7 +3445,7 @@ test("first-call API skips disabled tenant handoff tools", async () => {
 
   const turn = await fetchJson("POST", "/v1/tenants/fh-crm-only/first-call/sessions/session-crm-only-1/transcript", {
     transcript:
-      "My name is Laura Fields. My father Thomas Fields passed away at 900 Cedar Lane, Tulsa. My number is 555-777-1212.",
+      "This is Officer Laura Fields with Tulsa Police. We have Thomas Fields deceased at 900 Cedar Lane, Tulsa. My number is 555-777-1212.",
   });
 
   assert.equal(turn.status, 200);

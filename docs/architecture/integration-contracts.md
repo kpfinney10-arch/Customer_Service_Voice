@@ -35,6 +35,7 @@ Purpose:
 - Create a dispatch-reviewable removal request.
 - Avoid letting the LLM directly assign drivers, vehicles, or case status.
 - Keep dispatch control inside the dispatch product.
+- Only run after the voice platform has an authorized removal source. Residence death reports from family or another unverified caller should be captured in CRM and escalated to the funeral director for authority verification before a dispatch request is created.
 
 ## Boundary Rules
 

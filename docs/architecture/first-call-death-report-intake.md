@@ -99,6 +99,7 @@ Useful but not strictly required:
 The system may request `dispatch.create_removal_request` only when it has:
 
 - pickup address or facility name with enough routing context
+- an authorized removal source, such as hospice/facility staff, law enforcement, medical examiner/coroner staff, or another official source
 
 Useful but not strictly required:
 
@@ -108,6 +109,8 @@ Useful but not strictly required:
 - dropoff preference
 
 The dispatch tool creates a review request, not a final driver assignment.
+
+Residence death reports from family members or other unverified callers must still escalate urgently to the on-call funeral director, but the voice system should not create a dispatch/removal request until the director verifies the death with hospice, law enforcement, or the medical examiner/coroner.
 
 ## Escalation Rules
 

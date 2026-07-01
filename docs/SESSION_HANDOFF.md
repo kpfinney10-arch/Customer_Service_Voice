@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `205/205` passing.
+Recent known-good test count from this session: `207/207` passing.
 
 Most recent local prompt fix:
 
@@ -487,6 +487,7 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-06-30 used tunnel `https://ski-pct-painted-counts.trycloudflare.com`; session `CA9b64b80c06112db635958d0d0dede6f4` confirmed the routine location/hours/parking lane sounded good to the caller. The live trace classified as `service_schedule_question`, reached `WRAPUP`, executed only `crm.create_intake_lead`, stored callback `603-731-5845`, caller `Kyle`, `death_reported: false`, `urgency: routine`, `place_of_death_type: unknown`, and did not ask pickup/location questions or dispatch.
 - Follow-up location/hours cleanup now detects office-hours, directions/location, and parking topics in routine family calls, stores a specific CRM note such as `Routine family inquiry about office hours, directions/location, and parking; caller requested office-hours follow-up.`, and pins the live transcript in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `205/205`.
 - Current live local Twilio tunnel after this fix: `https://consent-took-readers-museum.trycloudflare.com`; webhook `https://consent-took-readers-museum.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`. Public readiness smoke passed in unsigned local mode.
+- At-home death policy update: family members can call about a death at home, but the system now treats that as an urgent funeral-director guidance call rather than a dispatch-ready removal request. Residence reports from family or another unverified caller still collect caller/decedent/location details, create the CRM intake, warm-handoff to the on-call director, and add a recommended action to verify with hospice, law enforcement, or the medical examiner before creating dispatch/removal work. Dispatch review remains eligible for hospice/facility staff, law enforcement, medical examiner/coroner staff, and other authorized sources with enough pickup context. Officer/deputy/detective/sheriff phrasing and `We have [name] deceased` are now parsed. Validation after this change: `npm run build && npm test` passed `207/207`.
 
 Ignored `.env.local` example:
 
@@ -535,7 +536,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Move the next live validation to a different after-hours branch, preferably a general unsupported question that should be politely captured for office follow-up, or a fresh first-call death-report regression to make sure routine-lane changes have not disturbed the urgent path.
+1. Move the next live validation to the updated at-home death branch: first a family caller at a residence should warm-handoff with CRM only and authority-verification guidance; then an officer/hospice/ME residence report should allow dispatch review.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

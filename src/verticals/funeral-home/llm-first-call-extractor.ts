@@ -367,7 +367,13 @@ function normalizeRelationship(value: string | undefined): string | undefined {
   ]);
   if (normalized === "dad") return "father";
   if (normalized === "mom") return "mother";
-  if (normalized === "hospital_staff" || normalized === "hospice_staff" || normalized === "staff") return "facility_staff";
+  if (
+    /^(?:hospital_staff|hospice_staff|staff|police_officer|officer|detective|deputy|sheriff|medical_examiner|coroner|deputy_coroner|investigator)$/.test(
+      normalized,
+    )
+  ) {
+    return "facility_staff";
+  }
   return allowed.has(normalized) ? normalized : undefined;
 }
 

@@ -6,6 +6,7 @@ const firstCallTerms = [
   "died",
   "body",
   "decedent",
+  "deceased",
   "removal",
   "pickup",
   "pronounced",
