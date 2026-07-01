@@ -14,6 +14,10 @@ const firstCallTerms = [
 ];
 const familyQuestionTerms = ["service", "visitation", "arrangements", "obituary", "flowers", "family"];
 const serviceScheduleTerms = [
+  "visitation",
+  "service is",
+  "service still scheduled",
+  "scheduled for",
   "office opens",
   "office open",
   "office hours",
@@ -29,6 +33,9 @@ const existingFamilyRoutineTerms = [
   "already helping",
   "already working with",
   "already handling",
+  "already have him in your care",
+  "already have her in your care",
+  "in your care",
   "existing case",
   "not a new death call",
   "not an emergency",
@@ -56,6 +63,7 @@ export function hasNegatedDeathReport(transcript: string): boolean {
   const text = transcript
     .toLowerCase()
     .replace(/\bno\s+1\b/g, "no one")
+    .replace(/[,.!?;:]+/g, " ")
     .replace(/\s+/g, " ");
   return /\b(?:no one|nobody|no-one)\s+(?:has\s+)?(?:passed away|died)\b/.test(text) ||
     /\b(?:no|not)\s+(?:death|deaths)\b/.test(text) ||
