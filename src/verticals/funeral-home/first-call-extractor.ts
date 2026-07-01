@@ -321,6 +321,13 @@ function routineInquiryNotes(text: string): string {
   if (/\bflowers?\b|\bflower deliveries?\b/.test(text)) topics.push("flower delivery");
   if (/\bvisitation\b|\bservice\b/.test(text)) topics.push("service schedule");
   if (/\bfuneral director\b|\bdirector\b/.test(text)) topics.push("funeral director callback");
+  if (/\boffice\b.*\b(?:open|opens|hours?|close|closes)\b|\bwhat time\b.*\b(?:open|opens|office)\b/.test(text)) {
+    topics.push("office hours");
+  }
+  if (/\bdirections?\b|\bwhere\b.*\b(?:located|location|funeral home)\b|\blocat(?:ed|ion)\b/.test(text)) {
+    topics.push("directions/location");
+  }
+  if (/\bparking\b|\bpark\b/.test(text)) topics.push("parking");
   if (topics.length === 0) return "Routine family inquiry; caller requested office-hours follow-up.";
   return `Routine family inquiry about ${formatTopicList(topics)}; caller requested office-hours follow-up.`;
 }

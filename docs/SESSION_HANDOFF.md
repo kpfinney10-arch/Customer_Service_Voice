@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `176/176` passing.
+Recent known-good test count from this session: `205/205` passing.
 
 Most recent local prompt fix:
 
@@ -484,6 +484,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up callback-lane cleanup now drops exact spoken filler words such as `uh`/`um` from normalized caller/decedent names and pins the live director-callback transcript as both extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `200/200`.
 - Live deterministic Twilio validation on 2026-06-30 used tunnel `https://relax-ron-vegetation-hobby.trycloudflare.com`; session `CAccb95bd2dc3addcbe84fcff7081fdb2c` confirmed the routine obituary/flower lane sounded good to the caller. The live trace classified as `family_question`, reached `WRAPUP`, executed only `crm.create_intake_lead`, stored callback `603-731-5845`, caller `Kyle Finny`, decedent `Robert Finny`, `death_reported: false`, `place_of_death_type: unknown`, and did not ask pickup/location questions or dispatch.
 - Follow-up obituary/flower cleanup now detects obituary wording and flower delivery topics in routine family calls, stores a specific CRM note such as `Routine family inquiry about obituary wording and flower delivery; caller requested office-hours follow-up.`, and passes `notes`/`dropoffPreference` into `crm.create_intake_lead` instead of only dispatch requests. Validation after this change: `npm run build && npm test` passed `203/203`.
+- Live deterministic Twilio validation on 2026-06-30 used tunnel `https://ski-pct-painted-counts.trycloudflare.com`; session `CA9b64b80c06112db635958d0d0dede6f4` confirmed the routine location/hours/parking lane sounded good to the caller. The live trace classified as `service_schedule_question`, reached `WRAPUP`, executed only `crm.create_intake_lead`, stored callback `603-731-5845`, caller `Kyle`, `death_reported: false`, `urgency: routine`, `place_of_death_type: unknown`, and did not ask pickup/location questions or dispatch.
+- Follow-up location/hours cleanup now detects office-hours, directions/location, and parking topics in routine family calls, stores a specific CRM note such as `Routine family inquiry about office hours, directions/location, and parking; caller requested office-hours follow-up.`, and pins the live transcript in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `205/205`.
 
 Ignored `.env.local` example:
 
@@ -532,7 +534,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Move the next live validation to a different after-hours branch, preferably an unsupported/general question that should be politely captured for office follow-up, or a caller asking for directions/location/hours without a new death report.
+1. Move the next live validation to a different after-hours branch, preferably a general unsupported question that should be politely captured for office follow-up, or a fresh first-call death-report regression to make sure routine-lane changes have not disturbed the urgent path.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

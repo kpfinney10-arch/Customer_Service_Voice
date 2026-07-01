@@ -1089,6 +1089,66 @@ test("Twilio webhook route closes live visitation schedule phrasing", async () =
   assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
 });
 
+test("Twilio webhook route closes routine location hours and parking inquiry", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-family-location-hours-live-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-family-location-hours-live-1",
+      SpeechResult:
+        "My name is Kyle. Vinnie uh, no 1 has passed away and this is not an emergency. I'm just calling to ask where the funeral home is located. And what time the office opens tomorrow and where visitors should Park my call back. Number is 603-731-5845.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /follow up during office hours/);
+  assert.match(response.body, /<Hangup\/>/);
+  assert.doesNotMatch(response.body, /person who passed away|located right now/i);
+  assert.doesNotMatch(response.body, /<Gather /);
+  assert.doesNotMatch(response.body, /<Dial/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-family-location-hours-live-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "WRAPUP");
+  assert.equal(replay.body.session.intent, "service_schedule_question");
+  assert.equal(replay.body.session.facts.reasonForCall, "service_schedule_question");
+  assert.equal(replay.body.session.facts.death_reported, false);
+  assert.equal(replay.body.session.facts.urgency, "routine");
+  assert.equal(replay.body.session.facts.place_of_death_type, "unknown");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(
+    replay.body.session.facts.special_handling_notes,
+    "Routine family inquiry about office hours, directions/location, and parking; caller requested office-hours follow-up.",
+  );
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+});
+
 test("Twilio webhook route closes routine director callback with repaired phone", async () => {
   await fetchText(
     "POST",

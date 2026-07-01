@@ -135,6 +135,25 @@ test("first-call extractor treats live visitation schedule phrasing as routine",
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
 });
 
+test("first-call extractor captures routine location hours and parking notes", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "My name is Kyle. Vinnie uh, no 1 has passed away and this is not an emergency. I'm just calling to ask where the funeral home is located. And what time the office opens tomorrow and where visitors should Park my call back. Number is 603-731-5845.",
+  );
+
+  assert.equal(extraction.intent, "service_schedule_question");
+  assert.equal(extraction.facts.caller_name, "Kyle");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(
+    extraction.facts.special_handling_notes,
+    "Routine family inquiry about office hours, directions/location, and parking; caller requested office-hours follow-up.",
+  );
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 test("first-call extractor drops filler words from routine family decedent names", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi, my name is Kyle finny. I'm calling about my father. Robert finny, uh, the funeral home is already helping our family. This is not a new death call. Not an emergency. I don't need someone tonight, but I would like the funeral director to call me tomorrow about a question. I have on the arrangements, my call back number is 637315845.",
