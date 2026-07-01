@@ -5,6 +5,7 @@ import {
   createFakeFuneralHomeAdapters,
   createFuneralHomeToolDefinitions,
   decideFirstCallNextStep,
+  decideRoutineInquiryNextStep,
   executeFirstCallTools,
   ToolRegistry,
   updateSession,
@@ -184,4 +185,55 @@ test("first-call tool execution skips already completed tools", async () => {
   assert.equal(output.events[0]?.payload.reason, "already_completed");
   assert.equal(output.events[1]?.eventType, "TOOL_REQUESTED");
   assert.equal(output.events[2]?.eventType, "TOOL_EXECUTED");
+});
+
+test("first-call tool execution sends routine notes to CRM intake", async () => {
+  let eventCount = 0;
+  let toolCount = 0;
+  let capturedArgs: Record<string, unknown> | undefined;
+  const session = updateSession(
+    createCallSession({
+      callId: "call_routine_notes",
+      sessionId: "session_routine_notes",
+      tenantId: "tenant_routine_notes",
+    }),
+    { currentState: "WRAPUP", facts: { reasonForCall: "family_question" } },
+  );
+  const facts = {
+    reasonForCall: "family_question",
+    caller_name: "Kyle Finny",
+    caller_phone: "603-731-5845",
+    decedent_name: "Robert Finny",
+    urgency: "routine" as const,
+    special_handling_notes:
+      "Routine family inquiry about obituary wording and flower delivery; caller requested office-hours follow-up.",
+  };
+  const registry = new ToolRegistry();
+  for (const definition of createFuneralHomeToolDefinitions({
+    ...createFakeFuneralHomeAdapters(),
+    async createCrmIntake(request) {
+      capturedArgs = request.args;
+      return {
+        toolCallId: request.toolCallId,
+        toolName: request.toolName,
+        ok: true,
+        result: { crmLeadId: "fake-crm-routine-notes" },
+      };
+    },
+  })) {
+    registry.registerAny(definition);
+  }
+
+  await executeFirstCallTools({
+    eventIdFactory: () => `event_${++eventCount}`,
+    toolCallIdFactory: () => `tool_${++toolCount}`,
+    correlationId: "corr_routine_notes",
+    session,
+    facts,
+    decision: decideRoutineInquiryNextStep(facts),
+    registry,
+  });
+
+  assert.equal(capturedArgs?.reasonForCall, "family_question");
+  assert.equal(capturedArgs?.notes, facts.special_handling_notes);
 });

@@ -96,6 +96,8 @@ function createToolRequestForFirstCall(
     addIfPresent(args, "existingCaseReference", input.facts.crm_existing_case_reference);
     addIfPresent(args, "placeOfDeathType", input.facts.place_of_death_type);
     addIfPresent(args, "preferredCallbackNumber", input.facts.preferred_callback_number);
+    addIfPresent(args, "dropoffPreference", input.facts.dropoff_preference);
+    addIfPresent(args, "notes", input.facts.special_handling_notes);
     return { ...base, args };
   }
 

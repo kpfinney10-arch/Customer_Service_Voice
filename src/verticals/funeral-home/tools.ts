@@ -8,6 +8,8 @@ export type CreateCrmIntakeArgs = {
   existingCaseReference?: string;
   placeOfDeathType?: string;
   preferredCallbackNumber?: string;
+  dropoffPreference?: string;
+  notes?: string;
   reasonForCall: string;
   urgency: "routine" | "urgent" | "emergency";
 };

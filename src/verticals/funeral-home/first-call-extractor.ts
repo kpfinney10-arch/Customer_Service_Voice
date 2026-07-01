@@ -71,7 +71,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     facts.special_handling_notes = "Pricing inquiry; caller requested office-hours follow-up.";
     factConfidence.special_handling_notes = 0.78;
   } else if (isRoutineInquiryIntent(intent)) {
-    facts.special_handling_notes = "Routine family inquiry; caller requested office-hours follow-up.";
+    facts.special_handling_notes = routineInquiryNotes(lower);
     factConfidence.special_handling_notes = 0.78;
   }
   if (/\b(?:drop off|bring)\s+(?:clothing|clothes)\b/i.test(text)) {
@@ -313,6 +313,22 @@ function inferUrgency(text: string, intent: CallIntent): FirstCallUrgency {
   if (/\b(911|emergency|unsafe|police|fire|medical examiner|coroner)\b/.test(text)) return "emergency";
   if (/\b(just passed|passed away|died|death|body|removal|pronounced|ready for release|release to)\b/.test(text)) return "urgent";
   return "unknown";
+}
+
+function routineInquiryNotes(text: string): string {
+  const topics: string[] = [];
+  if (/\bobituar(?:y|ies)\b/.test(text)) topics.push("obituary wording");
+  if (/\bflowers?\b|\bflower deliveries?\b/.test(text)) topics.push("flower delivery");
+  if (/\bvisitation\b|\bservice\b/.test(text)) topics.push("service schedule");
+  if (/\bfuneral director\b|\bdirector\b/.test(text)) topics.push("funeral director callback");
+  if (topics.length === 0) return "Routine family inquiry; caller requested office-hours follow-up.";
+  return `Routine family inquiry about ${formatTopicList(topics)}; caller requested office-hours follow-up.`;
+}
+
+function formatTopicList(values: string[]): string {
+  if (values.length === 1) return values[0] ?? "";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }
 
 function isRoutineInquiryIntent(intent: CallIntent): boolean {

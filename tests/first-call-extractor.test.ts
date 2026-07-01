@@ -151,6 +151,27 @@ test("first-call extractor drops filler words from routine family decedent names
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
 });
 
+test("first-call extractor captures obituary and flower routine notes", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, my name is Kyle finny, I'm calling about my father. Robert, Finny the funeral home is already helping out our family. It's not a new death call or an emergency. I just wanted to ask Um, how we submit obituary wording, uh, and whether flower delivery should go to the funeral home or the church. I can be reached at, I mean, my call back is 603-731-5845.",
+  );
+
+  assert.equal(extraction.intent, "family_question");
+  assert.equal(extraction.facts.caller_name, "Kyle Finny");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "father");
+  assert.equal(extraction.facts.decedent_name, "Robert Finny");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(
+    extraction.facts.special_handling_notes,
+    "Routine family inquiry about obituary wording and flower delivery; caller requested office-hours follow-up.",
+  );
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 test("first-call extractor handles live hospice staff phrasing", () => {
   const caller = extractFirstCallFactsDeterministic(
     "This is Nurse Sarah at Green Valley. Hospice, my phone here is 214. 639 5723.",
