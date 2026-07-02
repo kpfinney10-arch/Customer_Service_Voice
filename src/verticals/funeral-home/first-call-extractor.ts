@@ -55,7 +55,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const intent = classifyFuneralHomeIntent(text);
   const negatedDeathReport = hasNegatedDeathReport(text);
-  const deathReportMentioned = /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|release to|medical examiner|coroner|morgue)\b/i.test(
+  const deathReportMentioned = /\b(passed away|died|death|deceased|pronounced|body|removal|ready for release|for release|release to|medical examiner|coroner|morgue)\b/i.test(
     text,
   );
   if (negatedDeathReport) {
@@ -120,6 +120,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
+    /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:who|that)\s+(?:has|had|was)?\s*(?:passed away|died|is deceased|deceased)\b)/i,
     /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:at|in)\b)/,
     /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
@@ -157,7 +158,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const address = matchFirst(text, [
     /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
     /\bat\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
-    /\b(?:[Tt]he\s+)?[Aa]ddress(?:\s+here)?\s+is\s+(.+?)(?=[,.!?]?\s+(?:and\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/,
+    /\b(?:(?:the|our)\s+)?(?:pickup\s+)?address[,.]?\s+(?:here\s+)?is\s+(.+?)(?=[,.!?]?\s+(?:and\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/i,
     /\b[Aa]ddress is\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
   ]);
   if (address) {
@@ -241,6 +242,10 @@ function normalizeSpokenAddress(value: string): string {
   const normalizedAddress = normalizedStreetNumber
     .replace(/,\s*(?=(?:a|salve)\b)/gi, " ")
     .replace(
+      /,\s*(?=(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)/gi,
+      " ",
+    )
+    .replace(
       /\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|salve)\s+([A-Za-z])/gi,
       "$1 Ave $2",
     )
@@ -272,7 +277,7 @@ function normalizeSpokenName(value: string): string {
 }
 
 function isSpokenNameFiller(word: string): boolean {
-  return /^(?:uh|um|umm|er|ah)$/i.test(word);
+  return /^(?:uh|um|umm|er|ah|mr|mrs|ms|miss|dr)$/i.test(word);
 }
 
 function normalizeNameWord(word: string): string {
@@ -344,7 +349,7 @@ function normalizeRelationship(value: string): string {
 function inferUrgency(text: string, intent: CallIntent): FirstCallUrgency {
   if (isRoutineInquiryIntent(intent) || hasNegatedDeathReport(text)) return "routine";
   if (/\b(911|emergency|unsafe|police|fire|medical examiner|coroner)\b/.test(text)) return "emergency";
-  if (/\b(just passed|passed away|died|death|body|removal|pronounced|ready for release|release to)\b/.test(text)) return "urgent";
+  if (/\b(just passed|passed away|died|death|body|removal|pronounced|ready for release|for release|release to)\b/.test(text)) return "urgent";
   return "unknown";
 }
 

@@ -87,6 +87,35 @@ test("first-call extractor handles live hospital release phrasing", () => {
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor handles latest live hospital release punctuation", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is David Carter from Sunrise Hospital. Uh, we have Helen Brooks ready here at our hospital. For release family. Has requested your funeral home. Our pickup address, here is 500 Medical Center, Drive in Fort Worth Texas. And my call back is 214 6395723.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.death_reported, true);
+  assert.equal(extraction.facts.caller_name, "David Carter");
+  assert.equal(extraction.facts.caller_phone, "214 6395723");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.decedent_name, "Helen Brooks");
+  assert.equal(extraction.facts.facility_name, "Sunrise Hospital");
+  assert.equal(extraction.facts.pickup_address, "500 Medical Center Drive Fort Worth Texas");
+  assert.equal(extraction.facts.place_of_death_type, "hospital");
+  assert.equal(extraction.facts.requested_funeral_home, "Your Funeral Home");
+  assert.equal(extraction.facts.urgency, "urgent");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
+test("first-call extractor strips courtesy titles from decedent name answers", () => {
+  const extraction = extractFirstCallFactsDeterministic("Her name is Miss. Helen Brooks.");
+
+  assert.equal(extraction.facts.decedent_name, "Helen Brooks");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
 test("first-call extractor treats negated death pricing calls as routine inquiries", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
