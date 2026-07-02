@@ -166,6 +166,7 @@ Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
 - Current temporary Cloudflare tunnel URL in the latest test session: `https://nsw-newsletter-earnings-usb.trycloudflare.com`
+- Current local server commit in the latest test session: `a44fe90`
 - Twilio webhook URL configured during the successful test:
 
 ```text
@@ -492,6 +493,7 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up from those calls now captures `I'm with him/her/them now` as `currently_with_decedent: true` and includes non-obvious recommended actions, including authority verification, in the Twilio called-party screening whisper. Validation after this change: `npm run build && npm test` passed `208/208`.
 - Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for a hospice nurse at-home death report. Session `CAe94742ad122c2c5482b74c570a864b7e` reached `ESCALATE`, stored nurse `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Ave Keller Texas`, and executed both `crm.create_intake_lead` and `dispatch.create_removal_request`, but the live call required repeat prompts because the first-turn transcript missed decedent, address, `currently_with_decedent`, and requested funeral home.
 - Follow-up hospice at-home cleanup now captures live phrasing such as `with Mr. Robert Jones at the family's home`, `I'm out here at a house`, `Requested, your Funeral Home`, and `The address here is 636 Commerce, a and Keller, Texas` in one turn. The exact live transcript is pinned in both extractor and Twilio webhook regressions, and the full session path now normalizes callback `214 6395723` to `214-639-5723` before replay/handoff. Validation after this change: `npm run build && npm test` passed `210/210`.
+- Post-commit public Twilio smoke on 2026-07-01 used the same tunnel and server commit `a44fe90`. Synthetic session `twilio-public-hospice-smoke-1782952458140` returned the handoff `<Dial>` immediately with no decedent/location repeat prompt, stored nurse `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Ave Keller Texas`, `currently_with_decedent: true`, requested funeral home `Your Funeral Home`, and completed both CRM and dispatch tools.
 
 Ignored `.env.local` example:
 
@@ -540,7 +542,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Restart the local Twilio server on the latest commit and rerun the hospice nurse at-home script to confirm the patched one-turn capture in a live call.
+1. Run one live hospice nurse at-home phone call against the current tunnel/server to confirm the patched one-turn capture in the actual caller experience.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
