@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `207/207` passing.
+Recent known-good test count from this session: `208/208` passing.
 
 Most recent local prompt fix:
 
@@ -488,6 +488,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up location/hours cleanup now detects office-hours, directions/location, and parking topics in routine family calls, stores a specific CRM note such as `Routine family inquiry about office hours, directions/location, and parking; caller requested office-hours follow-up.`, and pins the live transcript in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `205/205`.
 - Current live local Twilio tunnel after this fix: `https://nato-hint-lie-renew.trycloudflare.com`; webhook `https://nato-hint-lie-renew.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`. Public readiness smoke passed in unsigned local mode.
 - At-home death policy update: family members can call about a death at home, but the system now treats that as an urgent funeral-director guidance call rather than a dispatch-ready removal request. Residence reports from family or another unverified caller still collect caller/decedent/location details, create the CRM intake, warm-handoff to the on-call director, and add a recommended action to verify with hospice, law enforcement, or the medical examiner before creating dispatch/removal work. Dispatch review remains eligible for hospice/facility staff, law enforcement, medical examiner/coroner staff, and other authorized sources with enough pickup context. Officer/deputy/detective/sheriff phrasing and `We have [name] deceased` are now parsed. Validation after this change: `npm run build && npm test` passed `207/207`.
+- Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for two at-home death policy calls. Officer-authorized session `CAbe78d943085026e04e35d7f0d46ec6eb` classified as `first_call_intake`, stored officer `Sarah Miller`, callback `214-639-5723`, decedent `Robert Jones`, residence pickup `636 Commerce Avenue`, requested funeral home `Your Funeral Home`, reached `ESCALATE`, and executed both `crm.create_intake_lead` and `dispatch.create_removal_request`. Family residence session `CAffeff2bdf62b0c9ff94b05c4dc052721` stored caller `Kyle Finney`, callback `603-731-5845`, relationship `father`, decedent `Robert Jones`, residence pickup `636 Commerce Avenue`, reached `ESCALATE`, executed only `crm.create_intake_lead`, and included the authority-verification recommendation in the replay handoff.
+- Follow-up from those calls now captures `I'm with him/her/them now` as `currently_with_decedent: true` and includes non-obvious recommended actions, including authority verification, in the Twilio called-party screening whisper. Validation after this change: `npm run build && npm test` passed `208/208`.
 
 Ignored `.env.local` example:
 

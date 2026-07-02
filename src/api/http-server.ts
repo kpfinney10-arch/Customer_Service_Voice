@@ -1326,11 +1326,18 @@ async function twilioHandoffSummaryText(
     if (handoff.decedent?.name) parts.push(`Deceased ${handoff.decedent.name}.`);
     if (handoff.location?.pickupAddress) parts.push(`Pickup address ${handoff.location.pickupAddress}.`);
     else if (handoff.location?.facilityName) parts.push(`Facility ${handoff.location.facilityName}.`);
-    if (handoff.missingFacts?.length) parts.push(`Missing ${handoff.missingFacts.join(", ")}.`);
+    if (handoff.missingFacts?.length) parts.push(`Missing ${handoff.missingFacts.map(formatFactLabel).join(", ")}.`);
+    for (const action of (handoff.recommendedActions ?? []).filter((item) => !/^Connect caller\b/i.test(item))) {
+      parts.push(`Action: ${action}`);
+    }
     return parts.join(" ");
   } catch {
     return "Incoming funeral home handoff.";
   }
+}
+
+function formatFactLabel(value: string): string {
+  return value.replace(/_/g, " ");
 }
 
 function twilioHandoffScreenPath(tenantId: string): string {

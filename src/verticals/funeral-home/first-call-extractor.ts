@@ -169,7 +169,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   facts.place_of_death_type = placeOfDeath ?? "unknown";
   factConfidence.place_of_death_type = placeOfDeath ? 0.72 : 0.3;
 
-  if (/\b(i am|we are|family is|nurse is)\s+(here|with)\b/i.test(text)) {
+  if (/\b(?:i am|i'm|we are|we're|family is|nurse is)\s+(?:here|with(?:\s+(?:him|her|them))?)\b/i.test(text)) {
     facts.currently_with_decedent = true;
     factConfidence.currently_with_decedent = 0.78;
   }

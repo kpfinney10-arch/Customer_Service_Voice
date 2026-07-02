@@ -874,6 +874,7 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
   assert.match(screening.body, /<Gather input="dtmf" numDigits="1"/);
   assert.match(screening.body, /Caller Sarah Miller/);
   assert.match(screening.body, /Deceased Robert Miller/);
+  assert.match(screening.body, /Action: Verify the death with hospice, law enforcement, or the medical examiner/);
   assert.match(screening.body, /Press 1 to accept this call/);
 
   const accepted = await fetchText(
