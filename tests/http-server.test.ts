@@ -956,6 +956,65 @@ test("Twilio webhook route handles live hospice at-home transcript in one turn",
   ]);
 });
 
+test("Twilio webhook route handles latest live hospice nurse punctuation in one turn", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-2",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-2",
+      SpeechResult:
+        "Hi, yes. Um, this is Nurse. Emily Johnson with Gentle Care, Hospice. I'm at the family's home with Mr. Robert Jones who was passed away. The family has requested, your funeral home. The address here is 636 Commerce a Keller Texas. You might call back is 214 6395723.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospice-at-home-live-2/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Emily Johnson");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(replay.body.session.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(replay.body.session.facts.pickup_address, "636 Commerce Ave Keller Texas");
+  assert.equal(replay.body.session.facts.currently_with_decedent, true);
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Your Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route closes routine pricing inquiries after contact capture", async () => {
   await fetchText(
     "POST",

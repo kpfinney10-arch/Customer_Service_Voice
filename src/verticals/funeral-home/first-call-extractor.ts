@@ -86,7 +86,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const callerName = matchFirst(text, [
-    /\bthis is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner|Police Officer|Officer|Detective|Deputy|Sheriff),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
+    /\bthis is\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner|Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
     /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+(?:[,\s]+(?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:and\s+)?(?:at|from|my|call|callback|phone|number)\b|\s*$)/i,
     /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
@@ -120,6 +120,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
+    /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:who|that)\s+(?:has|had|was)?\s*(?:passed away|died|is deceased|deceased)\b)/i,
     /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:at|in)\b)/,
     /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
@@ -156,7 +157,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const address = matchFirst(text, [
     /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
     /\bat\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
-    /\b(?:[Tt]he\s+)?[Aa]ddress(?:\s+here)?\s+is\s+(.+?)(?=[,.]?\s+(?:and\s+)?(?:my\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/,
+    /\b(?:[Tt]he\s+)?[Aa]ddress(?:\s+here)?\s+is\s+(.+?)(?=[,.!?]?\s+(?:and\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/,
     /\b[Aa]ddress is\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
   ]);
   if (address) {
@@ -173,7 +174,8 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   if (
     /\b(?:i am|i'm|we are|we're|family is|nurse is)\s+(?:here|with(?:\s+(?:him|her|them))?)\b/i.test(text) ||
-    /\b(?:i am|i'm|we are|we're)\s+out\s+here\b/i.test(text)
+    /\b(?:i am|i'm|we are|we're)\s+out\s+here\b/i.test(text) ||
+    /\b(?:i am|i'm|we are|we're)\s+at\s+(?:the\s+)?(?:family(?:'s|s')\s+)?(?:home|house)\s+with\b/i.test(text)
   ) {
     facts.currently_with_decedent = true;
     factConfidence.currently_with_decedent = 0.78;

@@ -233,6 +233,27 @@ test("first-call extractor handles live hospice at-home transcript in one turn",
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor handles latest live hospice nurse punctuation", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, yes. Um, this is Nurse. Emily Johnson with Gentle Care, Hospice. I'm at the family's home with Mr. Robert Jones who was passed away. The family has requested, your funeral home. The address here is 636 Commerce a Keller Texas. You might call back is 214 6395723.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Emily Johnson");
+  assert.equal(extraction.facts.caller_phone, "214 6395723");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "nurse");
+  assert.equal(extraction.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.pickup_address, "636 Commerce Ave Keller Texas");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.requested_funeral_home, "Your Funeral Home");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
 test("first-call extractor handles medical examiner investigator phrasing", () => {
   const caller = extractFirstCallFactsDeterministic(
     "This is investigator, Sarah Miller with the Terra County Medical examiner's Office, my call back. Number is 214. 639 5723.",
