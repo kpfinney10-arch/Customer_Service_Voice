@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-27
+Last updated: 2026-07-01
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `208/208` passing.
+Recent known-good test count from this session: `210/210` passing.
 
 Most recent local prompt fix:
 
@@ -165,11 +165,11 @@ The Cloudflare URL above is temporary and may be stale in a later session. Gener
 Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
-- Current temporary Cloudflare tunnel URL in the latest test session: `https://dollar-heating-large-petite.trycloudflare.com`
+- Current temporary Cloudflare tunnel URL in the latest test session: `https://nsw-newsletter-earnings-usb.trycloudflare.com`
 - Twilio webhook URL configured during the successful test:
 
 ```text
-https://dollar-heating-large-petite.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
+https://nsw-newsletter-earnings-usb.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
 ```
 
 The Cloudflare URL is temporary. If the tunnel is restarted, update the Twilio number's Voice Configuration with the new URL.
@@ -490,6 +490,8 @@ Latest OpenAI-backed Twilio live status:
 - At-home death policy update: family members can call about a death at home, but the system now treats that as an urgent funeral-director guidance call rather than a dispatch-ready removal request. Residence reports from family or another unverified caller still collect caller/decedent/location details, create the CRM intake, warm-handoff to the on-call director, and add a recommended action to verify with hospice, law enforcement, or the medical examiner before creating dispatch/removal work. Dispatch review remains eligible for hospice/facility staff, law enforcement, medical examiner/coroner staff, and other authorized sources with enough pickup context. Officer/deputy/detective/sheriff phrasing and `We have [name] deceased` are now parsed. Validation after this change: `npm run build && npm test` passed `207/207`.
 - Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for two at-home death policy calls. Officer-authorized session `CAbe78d943085026e04e35d7f0d46ec6eb` classified as `first_call_intake`, stored officer `Sarah Miller`, callback `214-639-5723`, decedent `Robert Jones`, residence pickup `636 Commerce Avenue`, requested funeral home `Your Funeral Home`, reached `ESCALATE`, and executed both `crm.create_intake_lead` and `dispatch.create_removal_request`. Family residence session `CAffeff2bdf62b0c9ff94b05c4dc052721` stored caller `Kyle Finney`, callback `603-731-5845`, relationship `father`, decedent `Robert Jones`, residence pickup `636 Commerce Avenue`, reached `ESCALATE`, executed only `crm.create_intake_lead`, and included the authority-verification recommendation in the replay handoff.
 - Follow-up from those calls now captures `I'm with him/her/them now` as `currently_with_decedent: true` and includes non-obvious recommended actions, including authority verification, in the Twilio called-party screening whisper. Validation after this change: `npm run build && npm test` passed `208/208`.
+- Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for a hospice nurse at-home death report. Session `CAe94742ad122c2c5482b74c570a864b7e` reached `ESCALATE`, stored nurse `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Ave Keller Texas`, and executed both `crm.create_intake_lead` and `dispatch.create_removal_request`, but the live call required repeat prompts because the first-turn transcript missed decedent, address, `currently_with_decedent`, and requested funeral home.
+- Follow-up hospice at-home cleanup now captures live phrasing such as `with Mr. Robert Jones at the family's home`, `I'm out here at a house`, `Requested, your Funeral Home`, and `The address here is 636 Commerce, a and Keller, Texas` in one turn. The exact live transcript is pinned in both extractor and Twilio webhook regressions, and the full session path now normalizes callback `214 6395723` to `214-639-5723` before replay/handoff. Validation after this change: `npm run build && npm test` passed `210/210`.
 
 Ignored `.env.local` example:
 
@@ -538,7 +540,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Move the next live validation to the updated at-home death branch: first a family caller at a residence should warm-handoff with CRM only and authority-verification guidance; then an officer/hospice/ME residence report should allow dispatch review.
+1. Restart the local Twilio server on the latest commit and rerun the hospice nurse at-home script to confirm the patched one-turn capture in a live call.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
