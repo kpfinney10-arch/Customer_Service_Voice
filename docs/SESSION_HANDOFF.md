@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `212/212` passing.
+Recent known-good test count from this session: `215/215` passing.
 
 Most recent local prompt fix:
 
@@ -165,12 +165,12 @@ The Cloudflare URL above is temporary and may be stale in a later session. Gener
 Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
-- Current temporary Cloudflare tunnel URL in the latest test session: `https://nsw-newsletter-earnings-usb.trycloudflare.com`
-- Current local server commit after the latest restart: `7ba8d3e`
+- Current temporary Cloudflare tunnel URL in the latest test session: `https://tales-efforts-invitation-insight.trycloudflare.com`
+- Current local server commit after the latest restart: `ec99b8d`
 - Twilio webhook URL configured during the successful test:
 
 ```text
-https://nsw-newsletter-earnings-usb.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
+https://tales-efforts-invitation-insight.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
 ```
 
 The Cloudflare URL is temporary. If the tunnel is restarted, update the Twilio number's Voice Configuration with the new URL.
@@ -497,6 +497,9 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for another hospice nurse at-home call. Caller feedback was good and session `CA6b17e20b235bc0c56b21b73bee9054da` reached `ESCALATE`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, and completed both CRM and dispatch tools. Replay still exposed quiet cleanup targets: Twilio heard `this is Nurse. Emily Johnson...`, so caller name stored as `Nurse`; the address stored as `636 Commerce Ave Keller Texas You might`; and `currently_with_decedent` was missed from `I'm at the family's home with...`.
 - Follow-up latest-hospice cleanup commit `39d4776` now accepts title punctuation such as `Nurse. Emily Johnson`, captures decedent names from `with Mr. Robert Jones who was passed away`, stops address capture before misheard callback cues such as `You might call back`, and marks `I'm at the family's home with...` as `currently_with_decedent: true`. The exact live transcript is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `212/212`.
 - Post-restart public Twilio smoke on 2026-07-01 used the same tunnel and server commit `7ba8d3e`. Synthetic session `twilio-public-hospice-smoke-1782953048364` returned the handoff `<Dial>` immediately with no repeat prompt and stored caller `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Ave Keller Texas`, `currently_with_decedent: true`, requested funeral home `Your Funeral Home`, and completed both CRM and dispatch tools.
+- Live deterministic Twilio validation on 2026-07-01 used tunnel `https://nsw-newsletter-earnings-usb.trycloudflare.com` for a hospital release call. Session `CA97e91c979fd04e0227928ca8d24ee27f` reached `ESCALATE`, stored caller `David Carter`, callback `214-639-5723`, facility `Sunrise Hospital`, decedent `Miss Helen Brooks`, pickup address `500 Medical Center Drive Fort Worth`, and completed CRM plus dispatch, but the first turn still asked for a decedent/location repeat because Twilio heard `ready here at our hospital. For release` and `Our pickup address, here is...`.
+- Follow-up latest-hospital cleanup commit `ec99b8d` now captures hospital release phrases with filler between `ready` and `for release`, accepts `pickup address, here is...`, strips courtesy titles such as `Miss` from decedent names, removes commas before street suffixes such as `Center, Drive`, and treats `for release` as an urgent death/release cue. The exact live transcript is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `215/215`.
+- Current public Twilio smoke on 2026-07-05 used tunnel `https://tales-efforts-invitation-insight.trycloudflare.com` and server commit `ec99b8d`. Synthetic session `twilio-public-hospital-smoke-1783275318792` returned the handoff `<Dial>` immediately with no repeat prompt and stored caller `David Carter`, callback `214-639-5723`, facility `Sunrise Hospital`, decedent `Helen Brooks`, pickup address `500 Medical Center Drive Fort Worth Texas`, requested funeral home `Your Funeral Home`, urgency `urgent`, and completed both CRM and dispatch tools.
 
 Ignored `.env.local` example:
 
@@ -545,7 +548,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Either repeat one hospice live call against the patched server or move to the next validation lane.
+1. Update the Twilio Voice webhook to the current tunnel URL and repeat one live hospital release call against the patched server.
 2. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 3. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
 4. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
