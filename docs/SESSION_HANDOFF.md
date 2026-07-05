@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `217/217` passing.
+Recent known-good test count from this session: `219/219` passing.
 
 Most recent local prompt fix:
 
@@ -166,7 +166,7 @@ Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
 - Current temporary Cloudflare tunnel URL in the latest test session: `https://tales-efforts-invitation-insight.trycloudflare.com`
-- Current local server commit after the latest restart: `a8aef65`
+- Current local server commit after the latest restart: `f540432`
 - Twilio webhook URL configured during the successful test:
 
 ```text
@@ -502,6 +502,8 @@ Latest OpenAI-backed Twilio live status:
 - Current public Twilio smoke on 2026-07-05 used tunnel `https://tales-efforts-invitation-insight.trycloudflare.com` and server commit `ec99b8d`. Synthetic session `twilio-public-hospital-smoke-1783275318792` returned the handoff `<Dial>` immediately with no repeat prompt and stored caller `David Carter`, callback `214-639-5723`, facility `Sunrise Hospital`, decedent `Helen Brooks`, pickup address `500 Medical Center Drive Fort Worth Texas`, requested funeral home `Your Funeral Home`, urgency `urgent`, and completed both CRM and dispatch tools.
 - Live deterministic Twilio validation on 2026-07-05 used tunnel `https://tales-efforts-invitation-insight.trycloudflare.com` for another hospital release call. Session `CA6f5d63de57ad735b98911b3e712067d4` reached `ESCALATE`, stored caller `David Carter`, callback `214-639-5723`, facility `Sunrise Hospital`, pickup address `500 Medical Center Drive Fort Worth Texas`, requested funeral home `Your Funeral Home`, urgency `urgent`, and completed CRM plus dispatch. Replay still exposed one cleanup target: Twilio heard `Helen. Brooks` with a period between first and last name, so the first turn missed the decedent and asked once more.
 - Follow-up dotted-hospital cleanup commit `a8aef65` now accepts dotted first/last decedent names in `we have [name] ready for release` phrases. The exact live transcript is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `217/217`. Public smoke `twilio-public-hospital-smoke-1783275751221` on the same tunnel and server commit `a8aef65` returned the handoff `<Dial>` immediately with no repeat prompt and stored decedent `Helen Brooks` cleanly.
+- Live deterministic Twilio validation on 2026-07-05 used tunnel `https://tales-efforts-invitation-insight.trycloudflare.com` for a medical examiner release call. Session `CA81f79ea14657849db9434673bc0740d4` reached `ESCALATE`, stored investigator `Sarah Miller`, callback `214-639-5723`, case reference `2611232`, decedent `Robert Jones`, and completed CRM plus dispatch in one turn. Replay exposed quiet data cleanup targets: Twilio heard `Terry County Medical Examiner's Office` instead of Tarrant County, `Felix glows place` instead of Feliks Gwozdz Place, and missed requested funeral home from `release to your Funeral Home`.
+- Follow-up medical-examiner false-friend cleanup commit `f540432` normalizes the known Tarrant County Medical Examiner and Feliks Gwozdz Place phrases and captures `release to your Funeral Home` as requested funeral home. The exact live transcript is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `219/219`. Public smoke `twilio-public-me-smoke-1783276052382` on the same tunnel and server commit `f540432` returned the handoff `<Dial>` immediately with no repeat prompt and stored all ME facts cleanly.
 
 Ignored `.env.local` example:
 
