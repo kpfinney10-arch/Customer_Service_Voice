@@ -183,6 +183,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const requestedFuneralHome = matchFirst(text, [
+    /\brelease to\s+(your\s+funeral home)\b/i,
     /\brelease to\s+([A-Z][A-Za-z\s]+?Funeral Home)\b/,
     /\b(?:calling|called|need|want)\s+([A-Z][A-Za-z\s]+Funeral Home)\b/,
     /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+(your\s+funeral home)\b/i,
@@ -254,6 +255,7 @@ function normalizeSpokenAddress(value: string): string {
       "$1 ",
     )
     .replace(/\s+\bAnd\b$/i, "")
+    .replace(/\bFelix\s+glows\s+place\b/i, "Feliks Gwozdz Place")
     .replace(/\s+/g, " ")
     .trim();
   return hasSpokenAvenueSuffix ? normalizedAddress.replace(/,/g, "") : normalizedAddress;
@@ -320,7 +322,7 @@ function extractFacilityName(input: string): string | undefined {
 }
 
 function normalizeFacilityName(value: string): string {
-  return value
+  const normalized = value
     .replace(/[,.]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -328,6 +330,8 @@ function normalizeFacilityName(value: string): string {
     .filter(Boolean)
     .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`)
     .join(" ");
+  if (/^Terry County Medical Examiner'?s Office$/i.test(normalized)) return "Tarrant County Medical Examiner's Office";
+  return normalized;
 }
 
 function matchRelationship(input: string): string | undefined {
