@@ -1015,6 +1015,121 @@ test("Twilio webhook route handles latest live hospice nurse punctuation in one 
   ]);
 });
 
+test("Twilio webhook route handles live officer residence report across slot prompts", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-2",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-2",
+      SpeechResult: "My name is Officer Mendes with the Fort Worth Police Department needing to report a death.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /best phone number|callback number/i);
+
+  const contact = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-2",
+      SpeechResult: "Officer Mendes at 817-632-4211.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(contact.status, 200);
+  assert.match(contact.body, /May I have the name of the person who passed away/i);
+
+  const decedent = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-2",
+      SpeechResult: "Her name is Elizabeth, Carter.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(decedent.status, 200);
+  assert.match(decedent.body, /Where is your loved one located right now/i);
+
+  const location = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-2",
+      SpeechResult: "She's at 5213 Hidden Oaks Lane in Fort Worth Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.match(location.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(location.body, /<Dial /);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-police-residence-live-2/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Officer Mendes");
+  assert.equal(replay.body.session.facts.caller_phone, "817-632-4211");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_contact_role, "officer");
+  assert.equal(replay.body.session.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(replay.body.session.facts.decedent_name, "Elizabeth Carter");
+  assert.equal(replay.body.session.facts.pickup_address, "5213 Hidden Oaks Lane Fort Worth Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "residence");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+  assert.doesNotMatch(
+    replay.body.snapshot.handoff.recommendedActions.join(" "),
+    /Verify the death with hospice, law enforcement, or the medical examiner/i,
+  );
+});
+
 test("Twilio webhook route handles latest live hospital release punctuation in one turn", async () => {
   await fetchText(
     "POST",
