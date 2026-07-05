@@ -3138,6 +3138,35 @@ test("first-call API asks for spelling when Twilio separates suspicious surname 
   assert.equal(spellingTurn.body.decision.step, "collect_decedent");
 });
 
+test("first-call API accepts trailing spelled letters after false-friend lead-in", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-spelling-false-friend-1",
+  });
+
+  await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-false-friend-1/transcript",
+    {
+      transcript: "My name is Kyle, finny My Father Robert Jones passed away at home and I'm with him. Now my call back number is 603-731-5845.",
+    },
+  );
+
+  const spellingTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-false-friend-1/transcript",
+    {
+      transcript: "Any is f i n. N e y.",
+    },
+  );
+
+  assert.equal(spellingTurn.status, 200);
+  assert.equal(spellingTurn.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.pickup_contact_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_status, "confirmed");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_corrected, "Kyle Finney");
+  assert.equal(spellingTurn.body.decision.step, "collect_location");
+});
+
 test("first-call API does not ask ordinary caller names for spelling", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-spelling-ordinary-1",
@@ -3359,6 +3388,32 @@ test("first-call API repairs spoken Avenue heard as salve in pickup-address slot
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-salve-1/transcript",
     {
       transcript: "636 Commerce Salve and Keller, Texas.",
+    },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "636 Commerce Ave Keller Texas");
+  assert.equal(turn.body.session.currentState, "ESCALATE");
+  assert.equal(turn.body.decision.step, "escalate");
+});
+
+test("first-call API repairs spoken Avenue heard as as-in in pickup-address slot", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-address-avenue-as-in-1",
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-as-in-1/transcript", {
+    transcript: "My name is Kyle Finney. My phone number is 603-731-5845.",
+  });
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-as-in-1/transcript", {
+    transcript: "Robert Jones.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-address-avenue-as-in-1/transcript",
+    {
+      transcript: "He's at 636 Commerce as in Keller, Texas.",
     },
   );
 

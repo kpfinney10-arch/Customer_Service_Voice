@@ -1255,7 +1255,21 @@ function spelledNameAnswer(transcript: string): string | undefined {
   if (words.length >= 2 && words.length <= 20 && words.every((word) => /^[A-Za-z]$/.test(word))) {
     return normalizeNameWord(words.join(""));
   }
+  const trailingLetters = trailingSingleLetterWords(words);
+  if (trailingLetters.length >= 2 && trailingLetters.length <= 20) {
+    return normalizeNameWord(trailingLetters.join(""));
+  }
   return undefined;
+}
+
+function trailingSingleLetterWords(words: string[]): string[] {
+  const letters: string[] = [];
+  for (let index = words.length - 1; index >= 0; index -= 1) {
+    const word = words[index] ?? "";
+    if (!/^[A-Za-z]$/.test(word)) break;
+    letters.unshift(word);
+  }
+  return letters;
 }
 
 function replaceSuspiciousNameToken(name: string, spelledName: string): string | undefined {
@@ -1291,7 +1305,7 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/\b(\d)\s+(\d)\s+(\d)\b/g, "$1$2$3")
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
-    .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|salve)\s+([A-Za-z])/gi, "$1 Ave $2")
+    .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|as|salve)\s+([A-Za-z])/gi, "$1 Ave $2")
     .replace(
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
