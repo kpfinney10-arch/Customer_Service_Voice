@@ -1076,6 +1076,67 @@ test("Twilio webhook route handles latest live hospital release punctuation in o
   ]);
 });
 
+test("Twilio webhook route handles dotted live hospital release decedent in one turn", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospital-release-live-3",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospital-release-live-3",
+      SpeechResult:
+        "Hi. This is David Carter from Sunrise Hospital. We have Helen. Brooks ready for release. The family has requested. Your funeral home. Pick up. Address is 500. Medical Center. Drive in Fort Worth Texas. My call back is 214 6395723.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospital-release-live-3/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.death_reported, true);
+  assert.equal(replay.body.session.facts.caller_name, "David Carter");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_name, "Sunrise Hospital");
+  assert.equal(replay.body.session.facts.decedent_name, "Helen Brooks");
+  assert.equal(replay.body.session.facts.pickup_address, "500 Medical Center Drive Fort Worth Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "hospital");
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Your Funeral Home");
+  assert.equal(replay.body.session.facts.urgency, "urgent");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route closes routine pricing inquiries after contact capture", async () => {
   await fetchText(
     "POST",

@@ -120,10 +120,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
-    /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
+    /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:who|that)\s+(?:has|had|was)?\s*(?:passed away|died|is deceased|deceased)\b)/i,
     /\bwith\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:at|in)\b)/,
-    /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}?)(?=\s+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
+    /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
