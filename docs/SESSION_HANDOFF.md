@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-07-05
+Last updated: 2026-07-06
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `219/219` passing.
+Recent known-good test count from this session: `225/225` passing.
 
 Most recent local prompt fix:
 
@@ -165,12 +165,12 @@ The Cloudflare URL above is temporary and may be stale in a later session. Gener
 Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
-- Current temporary Cloudflare tunnel URL in the latest test session: `https://tales-efforts-invitation-insight.trycloudflare.com`
-- Current local server commit after the latest restart: `f540432`
+- Current temporary Cloudflare tunnel URL in the latest test session: `https://settings-turned-flickr-wax.trycloudflare.com`
+- Current local server commit after the latest restart: `6771c9a`
 - Twilio webhook URL configured during the successful test:
 
 ```text
-https://tales-efforts-invitation-insight.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
+https://settings-turned-flickr-wax.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
 ```
 
 The Cloudflare URL is temporary. If the tunnel is restarted, update the Twilio number's Voice Configuration with the new URL.
@@ -514,6 +514,9 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-07-05 repeated the family at-home death report against server commit `4cabf90`. Session `CAdd34010683c17e81daf416d91710fa71` confirmed the patch in real Twilio audio: caller corrected to `Kyle Finney`, callback `603-731-5845`, relationship `father`, decedent `Robert Jones`, `currently_with_decedent: true`, pickup address `636 Commerce Avenue Keller Texas`, reached `ESCALATE`, completed only `crm.create_intake_lead`, skipped dispatch, included the authority-verification recommendation, and dialed the configured cell handoff. The only remaining missing handoff fact was `requested_funeral_home`; next family-at-home test should explicitly include `we want your funeral home` or a named funeral home.
 - Live deterministic Twilio validation on 2026-07-05 repeated the family at-home death report with explicit funeral-home request language against server commit `4cabf90`. Session `CAe850523bb2646ba87473685f84d70b8e` stored caller `Kyle Finney`, callback `603-731-5845`, relationship `father`, decedent `Robert Jones`, `currently_with_decedent: true`, requested funeral home `Your Funeral Home`, and pickup address `636 Commerce Ave Keller Texas`; reached `ESCALATE`; completed only `crm.create_intake_lead`; skipped dispatch; included the authority-verification recommendation; and had no missing handoff facts. This confirms the family-at-home lane is clean when the caller says `we want your funeral home to help us`.
 - Live deterministic Twilio validation on 2026-07-06 used fresh tunnel `https://settings-turned-flickr-wax.trycloudflare.com` against server commit `4cabf90` for a family at-home death report with a named funeral home. Session `CAdfc2f690cf85c9e29e666ff39589d662` stored caller `Kyle Finney`, callback `603-731-5845`, relationship `father`, decedent `Robert Jones`, `currently_with_decedent: true`, requested funeral home `Smith Family Funeral Home`, and pickup address `636 Commerce Avenue Keller Texas`; reached `ESCALATE`; completed only `crm.create_intake_lead`; skipped dispatch; included the authority-verification recommendation; and had no missing handoff facts. This confirms named requested funeral homes are captured cleanly in the family-at-home lane.
+- Live deterministic Twilio validation on 2026-07-06 used the same tunnel against server commit `4cabf90` for a hospice nurse at-home report with a named funeral home. Session `CA075f6235bc2a7dd12e1e3bd7dc7fe54a` reached `ESCALATE`, completed `crm.create_intake_lead` and `dispatch.create_removal_request`, and correctly avoided the family-at-home authority-verification warning because the caller was hospice staff. Replay exposed cleanup targets from Twilio sentence breaks: `Nurse Emily. Johnson` stored caller `Emily`, `with Mr. Robert Jones. He has passed away` missed decedent on the first turn, and `Smith Family. Funeral Home` missed `requested_funeral_home`.
+- Follow-up hospice punctuation cleanup commit `6771c9a` now accepts title/caller-name sentence breaks such as `Nurse Emily. Johnson`, decedent phrases such as `with Mr. Robert Jones. He has passed away`, requested funeral homes split as `Smith Family. Funeral Home`, and one-turn addresses phrased as `636 Commerce Avenue in Keller, Texas`. The exact live shape is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `225/225`.
+- Post-restart public Twilio smoke on 2026-07-06 used tunnel `https://settings-turned-flickr-wax.trycloudflare.com` and server commit `6771c9a`. Synthetic session `twilio-public-hospice-named-smoke-1783382732` returned the handoff `<Dial>` immediately with no repeat prompt, dialed `+16037315845`, stored caller `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Avenue Keller Texas`, `currently_with_decedent: true`, requested funeral home `Smith Family Funeral Home`, and completed both CRM and dispatch tools.
 
 Ignored `.env.local` example:
 
@@ -562,10 +565,10 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Repeat the family at-home death report once against server commit `4cabf90` to confirm the spelling and `Commerce Ave` cleanup with real Twilio audio.
-2. Test a family at-home call that explicitly says `we want your funeral home` or names the funeral home, to reduce the missing `requested_funeral_home` handoff fact.
-3. Continue expanding confirmation flows for other suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
-4. Start shaping production deployment: stable HTTPS endpoint or named tunnel, secret management, and durable persistence.
+1. Run one live hospice nurse at-home named-funeral-home call against server commit `6771c9a` to confirm the sentence-break cleanup with real Twilio audio.
+2. If that passes, continue live variants for medical examiner, hospital release, hospice, law enforcement, and routine office-hours calls while logging any repeated STT cleanup targets.
+3. Continue expanding confirmation flows for suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
+4. Start shaping production deployment: stable HTTPS endpoint or named tunnel, Twilio signature verification, secret management, and durable persistence.
 5. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
 6. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
 7. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
