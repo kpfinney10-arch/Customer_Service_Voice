@@ -25,7 +25,13 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `235/235` passing.
+Recent known-good test count from this session: `243/243` passing.
+
+Latest parser hardening commit from this session:
+
+- `2ac01a7` - hardened creative funeral-call parsing for realistic Twilio STT variants.
+- Added support for `St. Clair` style caller names, relationship-led decedent phrases such as `my grandmother Cordelia van Burren passed away`, pronoun answers such as `Her name is. Evangelene De La Cruz`, apartment suffixes such as `Apartment 4 B`, and family funeral-home preference phrases such as `our family would like Smith Family Funeral Home to help us`.
+- Confirmed safety behavior remains intact: family residence death reports create CRM/human escalation only; official hospice/police/medical-examiner style reports can create dispatch when minimum facts are present.
 
 Most recent local prompt fix:
 
@@ -36,13 +42,14 @@ Most recent local prompt fix:
 
 ## Progress Snapshot
 
-Status as of 2026-06-17:
+Status as of 2026-07-07:
 
-- Overall MVP progress: roughly 75% complete for a local/dev funeral-home first-call voice intake pilot.
+- Overall MVP progress: roughly 82% complete for a local/dev funeral-home first-call voice intake pilot.
+- Production readiness progress: roughly 55-60%; remaining lift is mostly reliability hardening, observability, durable infrastructure, compliance review, tenant onboarding/admin UI, and broader live-call validation.
 - Backend platform scaffold: complete for MVP local testing.
 - First-call death report workflow: complete for current MVP scope, with deterministic extraction plus optional OpenAI fallback.
 - Tenant routing/readiness: complete for demo tenant and ready for per-funeral-home configuration expansion.
-- Twilio live inbound path: working in local tunnel testing; warm handoff screening is now implemented in TwiML and covered by tests. Next step is live validation through a public tunnel.
+- Twilio live inbound path: working in local tunnel testing through a public Cloudflare tunnel; warm handoff screening is implemented in TwiML and covered by tests.
 - Telnyx live inbound path: backend adapter and API client are built, but inbound PSTN traffic is blocked by Telnyx `D61` / SIP `486` before webhook delivery.
 - OpenAI extraction validation: live smoke passed with `13/13` expected facts matched.
 - Security/compliance basics: tenant API keys, redaction, idempotency, rate limits, webhook signature verification, and no-secret logging are in place for MVP.
@@ -166,7 +173,8 @@ Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
 - Current temporary Cloudflare tunnel URL in the latest test session: `https://vessel-enrollment-garcia-floors.trycloudflare.com`
-- Current local server commit after the latest restart: `f25c7fd`
+- Latest code hardening commit: `2ac01a7`
+- Current local server should be restarted after this commit before the next live test.
 - Twilio webhook URL configured during the successful test:
 
 ```text
@@ -237,6 +245,19 @@ Handoff from the successful call:
 - Reason: `urgent_death_report`
 - Missing facts at escalation: `currently_with_decedent`, `requested_funeral_home`
 - Recommended action: connect caller to on-call funeral home team member and confirm missing details before dispatch finalization.
+
+Latest creative live-call validation from 2026-07-07:
+
+- Hospice call session: `CA050bdaeadb67402d34ad4f5295fb5fec`
+  - Outcome before hardening: correctly escalated with CRM + dispatch, but lost part of apartment/city from `7421 Blue Bonnet Crossing Parkway Apartment 4 B. And Waxahachie Texas`.
+  - Hardening added: preserves `Apartment 4B`, `Waxahachie Texas`, and normalizes `Bluebonnet`; accepts `Her name is. Evangelene De La Cruz` as `Evangeline De La Cruz`.
+- Family-at-home stream-of-thought session: `CA049954590c6f93b5e6c936f3481dba47`
+  - Outcome before hardening: correctly avoided dispatch and recommended authority verification, but captured `Mateo St`, `Cordelia Van Burren`, `Chisum Trail`, and `Family Would Like Smith Family Funeral Home`.
+  - Hardening added: normalizes `Mateo St. Claire` to `Mateo St Clair`, `Cordelia van Burren` to `Cordelia Van Buren`, `Chisum Trail` to `Chisholm Trail`, and requested funeral home to `Smith Family Funeral Home`.
+- Regression coverage:
+  - `tests/first-call-extractor.test.ts` covers the creative family stream and dotted pronoun decedent answer.
+  - `tests/http-server.test.ts` covers the hospice multi-turn slot flow and family-at-home one-turn stream flow.
+  - Full suite passed after the patch: `243/243`.
 
 ## Current Telnyx Blocker
 
