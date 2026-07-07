@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Project
 
@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `229/229` passing.
+Recent known-good test count from this session: `235/235` passing.
 
 Most recent local prompt fix:
 
@@ -165,12 +165,12 @@ The Cloudflare URL above is temporary and may be stale in a later session. Gener
 Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
-- Current temporary Cloudflare tunnel URL in the latest test session: `https://settings-turned-flickr-wax.trycloudflare.com`
-- Current local server commit after the latest restart: `b3fe802`
+- Current temporary Cloudflare tunnel URL in the latest test session: `https://vessel-enrollment-garcia-floors.trycloudflare.com`
+- Current local server commit after the latest restart: `f25c7fd`
 - Twilio webhook URL configured during the successful test:
 
 ```text
-https://settings-turned-flickr-wax.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
+https://vessel-enrollment-garcia-floors.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook
 ```
 
 The Cloudflare URL is temporary. If the tunnel is restarted, update the Twilio number's Voice Configuration with the new URL.
@@ -528,6 +528,10 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up medical-examiner dotted-phrase cleanup commit `b54c561` now accepts `Funeral. Home`, captures `pickup is at...` release phrasing with broken `call. Back` punctuation, normalizes `Felix WS Place` and `Felix goes place` to `Feliks Gwozdz Place`, preserves dotted city/state text without absorbing callback cue words, and infers `currently_with_decedent: true` for official facility release calls. The exact live transcript is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `231/231`.
 - Current live local Twilio tunnel after this fix: `https://mall-feedback-taylor-advertisers.trycloudflare.com`; webhook `https://mall-feedback-taylor-advertisers.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`; local server commit `b54c561`; runtime `fh-demo` urgent on-call handoff is configured to `+16037315845`.
 - Post-restart public Twilio smoke on 2026-07-06 used tunnel `https://mall-feedback-taylor-advertisers.trycloudflare.com` and server commit `b54c561`. Synthetic session `twilio-public-me-dotted-smoke-1783389137` returned the handoff `<Dial>` immediately with no repeat prompt, stored investigator `Sarah Miller`, callback `214-639-5723`, case reference `2611232`, facility `Tarrant County Medical Examiner's Office`, decedent `Robert Jones`, pickup address `200 Feliks Gwozdz Place Fort Worth Texas`, `currently_with_decedent: true`, requested funeral home `Smith Family Funeral Home`, no missing handoff facts, and completed both CRM and dispatch tools.
+- Live deterministic Twilio validation on 2026-07-07 used fresh tunnel `https://vessel-enrollment-garcia-floors.trycloudflare.com` for a medical examiner release call. Session `CAbdcc28825902236c538beafcf5ffa8a9` reached handoff but did not ask for the medical examiner case number before collecting location. Replay showed facility context from the Tarrant County Medical Examiner's Office, but `crm_existing_case_reference` was missing; it also exposed live STT variants including `I have a Mr. Robert Jones. He is ready for release...`, `Tenant County Medical Examiner's Office`, and `Felix Groves place`.
+- Follow-up medical-examiner case-number commit `f25c7fd` now requires a medical examiner/coroner case number before location and handoff whenever the call context identifies an ME/coroner release. It also accepts bare case-number answers such as `2611232`, captures `case number is...`, normalizes the latest Tarrant County and Feliks Gwozdz STT variants, infers `currently_with_decedent: true` for official release calls, and preserves `medical_examiner`/`emergency` context across later address-only turns. Validation after this change: `npm run build && npm test` passed `235/235`.
+- Post-restart public Twilio smoke on 2026-07-07 used tunnel `https://vessel-enrollment-garcia-floors.trycloudflare.com` and server commit `f25c7fd`. Synthetic session `twilio-public-me-missing-case-smoke-1783462175` asked `May I have the medical examiner case number?` after the release transcript omitted the case number, accepted bare answer `2611232`, then collected location and returned the handoff `<Dial>`. Replay stored investigator `Sarah Miller`, callback `214-639-5723`, facility `Tarrant County Medical Examiner's Office`, decedent `Robert Jones`, case reference `2611232`, pickup address `200 Feliks Gwozdz Place Fort Worth Texas`, place type `medical_examiner`, urgency `emergency`, requested funeral home `Smith Family Funeral Home`, `currently_with_decedent: true`, no missing handoff facts, and completed both CRM and dispatch tools.
+- Current live local Twilio tunnel after this fix: `https://vessel-enrollment-garcia-floors.trycloudflare.com`; webhook `https://vessel-enrollment-garcia-floors.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`; local server commit `f25c7fd`; runtime `fh-demo` urgent on-call handoff is configured to `+16037315845`.
 
 Ignored `.env.local` example:
 
@@ -576,7 +580,7 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Optionally repeat the dotted medical examiner script against server commit `b54c561` for real-audio confirmation; the public Twilio smoke already passed the exact transcript shape with no missing handoff facts.
+1. Repeat the medical examiner missing-case-number script against server commit `f25c7fd` for real-audio confirmation; the public Twilio smoke already passed the exact transcript shape with no missing handoff facts.
 2. Start a small scenario matrix so each lane has at least one clean real-audio pass and one deliberate STT-noise/filler pass.
 3. Continue expanding confirmation flows for suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 4. Start shaping production deployment: stable HTTPS endpoint or named tunnel, Twilio signature verification, secret management, and durable persistence.
