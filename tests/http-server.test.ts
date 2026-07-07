@@ -1074,6 +1074,81 @@ test("Twilio webhook route handles hospice name and funeral home sentence breaks
   ]);
 });
 
+test("Twilio webhook route handles hospice article before titled decedent", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-4",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-4",
+      SpeechResult: "Okay.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-4",
+      SpeechResult:
+        "Hi, this is Nurse. Emily. Johnson with Gentle Care. Hospice. I'm at the family's home with a Mr. Robert Jones. He has passed away in the family's. Requested Smith. Family Funeral Home my call back. Number is 214-639-5723. The address here is 636 Commerce Avenue. Keller Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospice-at-home-live-4/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Emily Johnson");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(replay.body.session.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(replay.body.session.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+  assert.equal(replay.body.session.facts.currently_with_decedent, true);
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route handles live officer residence report across slot prompts", async () => {
   await fetchText(
     "POST",
