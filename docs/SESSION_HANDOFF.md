@@ -25,7 +25,7 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `225/225` passing.
+Recent known-good test count from this session: `227/227` passing.
 
 Most recent local prompt fix:
 
@@ -166,7 +166,7 @@ Twilio is currently the confirmed working telephony path for live inbound calls.
 
 - Twilio number under test: `+1 855 257 1060`
 - Current temporary Cloudflare tunnel URL in the latest test session: `https://settings-turned-flickr-wax.trycloudflare.com`
-- Current local server commit after the latest restart: `6771c9a`
+- Current local server commit after the latest restart: `ee6b66d`
 - Twilio webhook URL configured during the successful test:
 
 ```text
@@ -517,6 +517,9 @@ Latest OpenAI-backed Twilio live status:
 - Live deterministic Twilio validation on 2026-07-06 used the same tunnel against server commit `4cabf90` for a hospice nurse at-home report with a named funeral home. Session `CA075f6235bc2a7dd12e1e3bd7dc7fe54a` reached `ESCALATE`, completed `crm.create_intake_lead` and `dispatch.create_removal_request`, and correctly avoided the family-at-home authority-verification warning because the caller was hospice staff. Replay exposed cleanup targets from Twilio sentence breaks: `Nurse Emily. Johnson` stored caller `Emily`, `with Mr. Robert Jones. He has passed away` missed decedent on the first turn, and `Smith Family. Funeral Home` missed `requested_funeral_home`.
 - Follow-up hospice punctuation cleanup commit `6771c9a` now accepts title/caller-name sentence breaks such as `Nurse Emily. Johnson`, decedent phrases such as `with Mr. Robert Jones. He has passed away`, requested funeral homes split as `Smith Family. Funeral Home`, and one-turn addresses phrased as `636 Commerce Avenue in Keller, Texas`. The exact live shape is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `225/225`.
 - Post-restart public Twilio smoke on 2026-07-06 used tunnel `https://settings-turned-flickr-wax.trycloudflare.com` and server commit `6771c9a`. Synthetic session `twilio-public-hospice-named-smoke-1783382732` returned the handoff `<Dial>` immediately with no repeat prompt, dialed `+16037315845`, stored caller `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Avenue Keller Texas`, `currently_with_decedent: true`, requested funeral home `Smith Family Funeral Home`, and completed both CRM and dispatch tools.
+- Live deterministic Twilio validation on 2026-07-06 used the same tunnel against server commit `6771c9a` for another hospice nurse at-home named-funeral-home report. Session `CA169ea0334f153abdb704fc5f128f5e6e` reached `ESCALATE`, stored caller `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, requested funeral home `Smith Family Funeral Home`, pickup address `636 Commerce Avenue Keller Texas`, completed CRM plus dispatch, and had no missing handoff facts. Replay exposed one remaining first-turn cleanup target: Twilio heard `with a Mr. Robert Jones. He has passed away`, so the first turn missed decedent and asked one repeat before final escalation.
+- Follow-up hospice article cleanup commit `ee6b66d` now accepts `with a Mr. ...`, `with the Mr. ...`, and the same article shape before titled decedents across the `with ... he/she passed`, `with ... who passed`, and `with ... at/in` patterns. The exact live shape, including an initial filler `Okay.` turn, is pinned in extractor and Twilio webhook regressions. Validation after this change: `npm run build && npm test` passed `227/227`.
+- Post-restart public Twilio smoke on 2026-07-06 used tunnel `https://settings-turned-flickr-wax.trycloudflare.com` and server commit `ee6b66d`. Synthetic session `twilio-public-hospice-article-smoke-1783383126` returned the handoff `<Dial>` immediately with no decedent repeat prompt, dialed `+16037315845`, stored caller `Emily Johnson`, callback `214-639-5723`, facility `Gentle Care Hospice`, decedent `Robert Jones`, pickup address `636 Commerce Avenue Keller Texas`, `currently_with_decedent: true`, requested funeral home `Smith Family Funeral Home`, and completed both CRM and dispatch tools.
 
 Ignored `.env.local` example:
 
@@ -565,8 +568,8 @@ Recent failed Call UUIDs from screenshots:
 
 ## Next Recommended Steps
 
-1. Run one live hospice nurse at-home named-funeral-home call against server commit `6771c9a` to confirm the sentence-break cleanup with real Twilio audio.
-2. If that passes, continue live variants for medical examiner, hospital release, hospice, law enforcement, and routine office-hours calls while logging any repeated STT cleanup targets.
+1. Optionally run one more live hospice nurse at-home named-funeral-home call against server commit `ee6b66d` if we want real-audio confirmation of the `with a Mr.` cleanup; the public Twilio smoke already passed this exact transcript shape.
+2. Continue live variants for medical examiner, hospital release, hospice, law enforcement, and routine office-hours calls while logging any repeated STT cleanup targets.
 3. Continue expanding confirmation flows for suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 4. Start shaping production deployment: stable HTTPS endpoint or named tunnel, Twilio signature verification, secret management, and durable persistence.
 5. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.
