@@ -24,6 +24,26 @@ test("first-call flow can create CRM intake before dispatch facts are complete",
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
 });
 
+test("first-call flow asks medical examiner callers for the case number before location", () => {
+  const decision = decideFirstCallNextStep({
+    caller_name: "Sarah Miller",
+    caller_phone: "214-639-5723",
+    caller_relationship_to_decedent: "facility_staff",
+    facility_contact_role: "investigator",
+    facility_name: "Tarrant County Medical Examiner's Office",
+    decedent_name: "Robert Jones",
+    death_reported: true,
+    place_of_death_type: "medical_examiner",
+    urgency: "emergency",
+  });
+
+  assert.equal(decision.step, "collect_case_reference");
+  assert.equal(decision.nextState, "RESOLVE_REQUEST");
+  assert.deepEqual(decision.toolNames, []);
+  assert.equal(decision.missingTargetFacts.includes("crm_existing_case_reference"), true);
+  assert.match(firstCallPromptForStep(decision.step), /case number/i);
+});
+
 test("first-call flow escalates family residence calls without dispatch review", () => {
   const decision = decideFirstCallNextStep({
     caller_name: "Jane Caller",

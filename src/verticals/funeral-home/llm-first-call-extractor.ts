@@ -232,6 +232,8 @@ function activeValidationFacts(context: FirstCallExtractionContext): Array<keyof
       return ["caller_name", "caller_phone"];
     case "collect_decedent":
       return ["decedent_name"];
+    case "collect_case_reference":
+      return ["crm_existing_case_reference"];
     case "collect_location":
       return ["pickup_address", "facility_name"];
     default:

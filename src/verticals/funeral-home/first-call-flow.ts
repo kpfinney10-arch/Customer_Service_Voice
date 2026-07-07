@@ -4,12 +4,14 @@ import {
   hasMinimumCrmIntakeFacts,
   hasMinimumDispatchRequestFacts,
   missingFirstCallTargetFacts,
+  requiresMedicalExaminerCaseReference,
 } from "./first-call-facts.js";
 
 export type FirstCallStep =
   | "acknowledge"
   | "collect_caller"
   | "collect_decedent"
+  | "collect_case_reference"
   | "collect_location"
   | "create_crm_intake"
   | "create_dispatch_review_request"
@@ -25,7 +27,7 @@ export type FirstCallFlowDecision = {
 };
 
 export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCallFlowDecision {
-  const missingTargetFacts = missingFirstCallTargetFacts(facts);
+  const missingTargetFacts = missingFirstCallFlowFacts(facts);
 
   if (!facts.caller_name || !facts.caller_phone) {
     return {
@@ -40,6 +42,15 @@ export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCa
     return {
       nextState: "RESOLVE_REQUEST",
       step: "collect_decedent",
+      missingTargetFacts,
+      toolNames: [],
+    };
+  }
+
+  if (requiresMedicalExaminerCaseReference(facts) && !facts.crm_existing_case_reference) {
+    return {
+      nextState: "RESOLVE_REQUEST",
+      step: "collect_case_reference",
       missingTargetFacts,
       toolNames: [],
     };
@@ -66,6 +77,14 @@ export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCa
     toolNames,
     escalationReason: "urgent_death_report",
   };
+}
+
+function missingFirstCallFlowFacts(facts: Partial<FirstCallFacts>): string[] {
+  const missingFacts: string[] = [...missingFirstCallTargetFacts(facts)];
+  if (requiresMedicalExaminerCaseReference(facts) && !facts.crm_existing_case_reference) {
+    missingFacts.push("crm_existing_case_reference");
+  }
+  return missingFacts;
 }
 
 export function decideRoutineInquiryNextStep(facts: Partial<FirstCallFacts>): FirstCallFlowDecision {
@@ -98,6 +117,8 @@ export function firstCallPromptForStep(step: FirstCallStep): string {
       return "May I have your name and the best phone number in case we are disconnected?";
     case "collect_decedent":
       return "May I have the name of the person who passed away?";
+    case "collect_case_reference":
+      return "May I have the medical examiner case number?";
     case "collect_location":
       return "Where is your loved one located right now?";
     case "create_crm_intake":

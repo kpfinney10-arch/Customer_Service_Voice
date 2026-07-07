@@ -3023,6 +3023,91 @@ test("first-call API preserves medical examiner context and case reference", asy
   assert.equal(location.body.decision.step, "escalate");
 });
 
+test("first-call API asks medical examiner callers for missing case number before location", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-medical-examiner-missing-case-1",
+    callerPhone: "603-731-5845",
+  });
+
+  const caller = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-missing-case-1/transcript",
+    {
+      transcript: "Hi. This is investigator. Sarah Miller with the Tarrant County Medical examiner's Office.",
+    },
+  );
+
+  assert.equal(caller.status, 200);
+  assert.equal(caller.body.session.facts.caller_name, "Sarah Miller");
+  assert.equal(caller.body.session.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(caller.body.decision.step, "collect_caller");
+
+  const phone = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-missing-case-1/transcript",
+    {
+      transcript: "I'm at 214-639-5723.",
+    },
+  );
+
+  assert.equal(phone.status, 200);
+  assert.equal(phone.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(phone.body.decision.step, "collect_decedent");
+
+  const release = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-missing-case-1/transcript",
+    {
+      transcript: "I have a Mr. Robert Jones. He is ready for release to Smith Family Funeral Home.",
+    },
+  );
+
+  assert.equal(release.status, 200);
+  assert.equal(release.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(release.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.equal(release.body.session.facts.currently_with_decedent, true);
+  assert.equal(release.body.session.facts.crm_existing_case_reference, undefined);
+  assert.equal(release.body.decision.step, "collect_case_reference");
+  assert.match(release.body.responseText, /case number/i);
+  assert.equal(release.body.decision.missingTargetFacts.includes("crm_existing_case_reference"), true);
+
+  const caseNumber = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-missing-case-1/transcript",
+    {
+      transcript: "2611232.",
+    },
+  );
+
+  assert.equal(caseNumber.status, 200);
+  assert.equal(caseNumber.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(caseNumber.body.decision.step, "collect_location");
+  assert.deepEqual(caseNumber.body.toolResults.map((result: { toolName: string }) => result.toolName), [
+    "crm.create_intake_lead",
+  ]);
+
+  const location = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-medical-examiner-missing-case-1/transcript",
+    {
+      transcript: "He can be picked up at 200 Felix. Groves place in Fort Worth Texas.",
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.equal(location.body.session.facts.pickup_address, "200 Feliks Gwozdz Place Fort Worth Texas");
+  assert.equal(location.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(location.body.session.facts.place_of_death_type, "medical_examiner");
+  assert.equal(location.body.session.facts.urgency, "emergency");
+  assert.equal(location.body.session.currentState, "ESCALATE");
+  assert.equal(location.body.decision.step, "escalate");
+  assert.equal(location.body.handoff.missingFacts.includes("crm_existing_case_reference"), false);
+  assert.deepEqual(location.body.handoff.completedToolNames, ["dispatch.create_removal_request"]);
+  assert.deepEqual(location.body.toolResults.map((result: { toolName: string }) => result.toolName), [
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("first-call API captures hospital release decedent on the first turn", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-hospital-release-1",

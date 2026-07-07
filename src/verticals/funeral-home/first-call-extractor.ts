@@ -121,6 +121,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=(?:\s+(?:uh|um|umm|er|ah)[,.]?)?\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
+    /\b(?:i|we)\s+have\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.!?\s]+(?:he|she|they|the patient|the resident)\s+(?:is\s+)?ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\bwith\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3})(?=[.!?]\s+(?:he|she|they|the patient|the resident)(?:\s+(?:has|had|was|is)|'s)?\s+(?:passed away|died|is deceased|deceased)\b)/i,
     /\bwith\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:who|that)\s+(?:has|had|was)?\s*(?:passed away|died|is deceased|deceased)\b)/i,
@@ -141,7 +142,8 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const caseReference = matchFirst(text, [
-    /\bcase[.,:;]?\s*(?:number|no\.?|#)?\s*([A-Za-z0-9][A-Za-z0-9-]{2,})\b/i,
+    /\bcase[.,:;]?\s*(?:number|no\.?|#)[.,:;]?\s*(?:is\s+)?((?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{2,})\b/i,
+    /\bcase[.,:;]?\s*(?!number\b|no\b|is\b)((?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{2,})\b/i,
   ]);
   if (caseReference) {
     facts.crm_existing_case_reference = caseReference;
@@ -159,13 +161,13 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const address = matchFirst(text, [
-    /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
-    /\bat\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b\s+(?:in|from)\s+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+(?:[.\s]+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+){0,3}(?:,\s*(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+(?:[.\s]+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+){0,3})*)/,
-    /\bat\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
+    /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/i,
+    /\bat\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b\s+(?:in|from)\s+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+(?:[.\s]+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+){0,3}(?:,\s*(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+(?:[.\s]+(?!My\b|Your\b|Call\b|Callback\b|Phone\b|Number\b)[A-Z][A-Za-z]+){0,3})*)/i,
+    /\bat\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/i,
     /\bpick\s*up\s+(?!address\b|location\b)(?:is\s+)?(?:at\s+)?(.+?)(?=[,.!?]?\s+(?:(?:and|in)\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call[.\s]*back|callback|phone|number)\b|[.!?]\s*$|$)/i,
     /\b(?:pickup\s+)?location[,.]?\s+(?:is\s+)?(?:at\s+)?(.+?)(?=[,.!?]?\s+(?:(?:and|in)\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call[.\s]*back|callback|phone|number)\b|[.!?]\s*$|$)/i,
     /\b(?:(?:the|our)\s+)?(?:pickup\s+)?address[,.]?\s+(?:here\s+)?is\s+(.+?)(?=[,.!?]?\s+(?:(?:and|in)\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call[.\s]*back|callback|phone|number)\b|[.!?]\s*$|$)/i,
-    /\b[Aa]ddress is\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
+    /\b[Aa]ddress is\s+(\d{2,6}[.\s]+[A-Z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/i,
   ]);
   if (address) {
     facts.pickup_address = normalizeSpokenAddress(address.trim());
@@ -267,8 +269,8 @@ function normalizeSpokenAddress(value: string): string {
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
     )
-    .replace(/\s+\bAnd\b$/i, "")
-    .replace(/\bFelix\s+(?:glows|goes|w\s*s)\s+place\b/i, "Feliks Gwozdz Place")
+    .replace(/\s+\b(?:And|In)\b$/i, "")
+    .replace(/\bFelix\s+(?:glows|goes|groves|w\s*s)\s+place\b/i, "Feliks Gwozdz Place")
     .replace(/\s+/g, " ")
     .trim();
   return normalizedAddress.replace(/,/g, "");
@@ -356,7 +358,7 @@ function normalizeFacilityName(value: string): string {
     .filter(Boolean)
     .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`)
     .join(" ");
-  if (/^(?:Terry|Tent) County Medical Examiner'?s Office$/i.test(normalized)) {
+  if (/^(?:Terry|Tent|Tenant) County Medical Examiner'?s Office$/i.test(normalized)) {
     return "Tarrant County Medical Examiner's Office";
   }
   return normalized;

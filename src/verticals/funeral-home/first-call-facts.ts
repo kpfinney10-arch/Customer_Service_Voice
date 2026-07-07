@@ -75,6 +75,12 @@ export function missingFirstCallTargetFacts(
   return targetFacts.filter((fact) => facts[fact] == null || facts[fact] === "");
 }
 
+export function requiresMedicalExaminerCaseReference(facts: Partial<FirstCallFacts>): boolean {
+  if (facts.place_of_death_type === "medical_examiner") return true;
+  if (/^(?:medical_examiner|coroner|deputy_coroner)$/.test(facts.facility_contact_role ?? "")) return true;
+  return /\b(?:medical examiner|coroner|morgue)\b/i.test(facts.facility_name ?? "");
+}
+
 export function hasMinimumCrmIntakeFacts(facts: Partial<FirstCallFacts>): boolean {
   return Boolean(facts.urgency);
 }

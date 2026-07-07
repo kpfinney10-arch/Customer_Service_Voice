@@ -28,6 +28,7 @@ import {
 } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFlowDecision, FirstCallStep } from "../verticals/funeral-home/first-call-flow.js";
 import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.js";
+import { requiresMedicalExaminerCaseReference } from "../verticals/funeral-home/first-call-facts.js";
 import { executeFirstCallTools } from "../verticals/funeral-home/first-call-tools.js";
 import { routeFirstCallHandoff } from "../verticals/funeral-home/handoff-routing.js";
 import type { HandoffRoutingDecision } from "../verticals/funeral-home/handoff-routing.js";
@@ -610,11 +611,23 @@ function sessionFactsForIntent(
       urgency: facts.urgency && facts.urgency !== "unknown" ? facts.urgency : "routine",
     };
   }
-  return {
+  const derivedFacts = {
     ...facts,
-    death_reported: existing.death_reported === true ? true : (facts.death_reported ?? true),
-    reasonForCall: facts.reasonForCall ?? "first_call_death_report",
   };
+  if (shouldInferOfficialReleasePresence(derivedFacts)) {
+    derivedFacts.currently_with_decedent = true;
+  }
+  return {
+    ...derivedFacts,
+    death_reported: existing.death_reported === true ? true : (derivedFacts.death_reported ?? true),
+    reasonForCall: derivedFacts.reasonForCall ?? "first_call_death_report",
+  };
+}
+
+function shouldInferOfficialReleasePresence(facts: Partial<FirstCallFacts>): boolean {
+  if (facts.currently_with_decedent != null) return false;
+  if (!requiresMedicalExaminerCaseReference(facts)) return false;
+  return facts.death_reported === true && Boolean(facts.facility_name || facts.pickup_address || facts.requested_funeral_home);
 }
 
 function enabledToolNamesForTenant(config: TenantConfig | undefined): Set<string> | undefined {
@@ -655,7 +668,10 @@ function inferContextualFacts(session: CallSession, transcript: string, activeSt
   Object.assign(facts, decedentResult.facts);
 
   const afterDecedentFacts = { ...afterCallerFacts, ...decedentResult.facts };
-  Object.assign(facts, inferPickupAddressFactsForTurn(afterDecedentFacts, transcript, activeStep, decedentResult.capturedThisTurn));
+  Object.assign(facts, inferCaseReferenceFactsForTurn(afterDecedentFacts, transcript, activeStep));
+
+  const afterCaseFacts = { ...afterDecedentFacts, ...facts };
+  Object.assign(facts, inferPickupAddressFactsForTurn(afterCaseFacts, transcript, activeStep, decedentResult.capturedThisTurn));
   return facts;
 }
 
@@ -713,6 +729,25 @@ function decedentNameFromTranscript(transcript: string, activeStep?: FirstCallSt
       ? extractContextualCallerName(transcript) ?? leadingNameFromMixedAnswer(transcript)
       : undefined)
   );
+}
+
+function inferCaseReferenceFactsForTurn(
+  facts: Partial<FirstCallFacts>,
+  transcript: string,
+  activeStep?: FirstCallStep,
+): Partial<FirstCallFacts> {
+  if (!requiresMedicalExaminerCaseReference(facts) || facts.crm_existing_case_reference) return {};
+  const caseReference = caseReferenceFromTranscript(transcript, activeStep);
+  return caseReference ? { crm_existing_case_reference: caseReference } : {};
+}
+
+function caseReferenceFromTranscript(transcript: string, activeStep?: FirstCallStep): string | undefined {
+  const explicit =
+    transcript.match(/\bcase[.,:;]?\s*(?:number|no\.?|#)[.,:;]?\s*(?:is\s+)?((?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{2,})\b/i)?.[1] ??
+    transcript.match(/\bcase[.,:;]?\s*(?!number\b|no\b|is\b)((?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{2,})\b/i)?.[1];
+  if (explicit) return explicit;
+  if (activeStep !== "collect_case_reference") return undefined;
+  return transcript.match(/\b((?=[A-Za-z0-9-]*\d)[A-Za-z0-9][A-Za-z0-9-]{2,})\b/)?.[1];
 }
 
 function inferPickupAddressFactsForTurn(
@@ -787,7 +822,8 @@ function shouldPreserveExistingUrgency(
   existing: Partial<FirstCallFacts>,
 ): boolean {
   if (key !== "urgency") return false;
-  return extractedValue === "unknown" && Boolean(existing.urgency && existing.urgency !== "unknown");
+  if (!existing.urgency || existing.urgency === "unknown") return false;
+  return urgencyRank(extractedValue) < urgencyRank(existing.urgency);
 }
 
 function shouldPreserveExistingPlaceOfDeath(
@@ -796,7 +832,22 @@ function shouldPreserveExistingPlaceOfDeath(
   existing: Partial<FirstCallFacts>,
 ): boolean {
   if (key !== "place_of_death_type") return false;
-  return extractedValue === "unknown" && Boolean(existing.place_of_death_type && existing.place_of_death_type !== "unknown");
+  if (!existing.place_of_death_type || existing.place_of_death_type === "unknown") return false;
+  if (extractedValue === "unknown") return true;
+  return extractedValue === "residence" && existing.place_of_death_type !== "residence";
+}
+
+function urgencyRank(value: FirstCallFacts[keyof FirstCallFacts]): number {
+  switch (value) {
+    case "emergency":
+      return 3;
+    case "urgent":
+      return 2;
+    case "routine":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 function shouldPreserveExistingCallerIdentity(
@@ -859,6 +910,7 @@ function inferContextualFactConfidence(facts: Partial<FirstCallFacts>): FirstCal
   if (facts.preferred_callback_number) confidence.preferred_callback_number = confidence.caller_phone ?? 0.92;
   if (facts.pickup_contact_phone) confidence.pickup_contact_phone = confidence.caller_phone ?? 0.92;
   if (facts.decedent_name) confidence.decedent_name = 0.84;
+  if (facts.crm_existing_case_reference) confidence.crm_existing_case_reference = 0.84;
   if (facts.pickup_address) confidence.pickup_address = contextualPickupAddressConfidence(facts.pickup_address);
   if (facts.facility_name) confidence.facility_name = 0.82;
   if (facts.place_of_death_type) confidence.place_of_death_type = facts.place_of_death_type === "unknown" ? 0.35 : 0.72;
@@ -1306,13 +1358,14 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
     .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|as|salve)\s+([A-Za-z])/gi, "$1 Ave $2")
+    .replace(/\bFelix\s+(?:glows|goes|groves|w\s*s)\s+place\b/gi, "Feliks Gwozdz Place")
     .replace(
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
     )
     .replace(/\s+/g, " ");
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
   )?.[1];
   return address?.trim();
 }

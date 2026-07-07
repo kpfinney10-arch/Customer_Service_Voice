@@ -434,6 +434,38 @@ test("first-call extractor handles live medical examiner dotted funeral home and
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor handles medical examiner case number is phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi this is investigator Sarah Miller with a tenant County medical examiner's office and I'm calling about Mr. Robert Jones. His case number is 2611232. He is ready for release to The Smith. Family Funeral Home, pick up is at 200 Felix glows place in Fort Worth Texas and my call back is 214-639-5723.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.crm_existing_case_reference, "2611232");
+  assert.equal(extraction.facts.pickup_address, "200 Feliks Gwozdz Place Fort Worth Texas");
+  assert.equal(extraction.facts.requested_funeral_home, "The Smith Family Funeral Home");
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
+test("first-call extractor asks medical examiner calls for missing case reference", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is investigator Sarah Miller with the Tarrant County Medical examiner's Office. I have a Mr. Robert Jones. He is ready for release to Smith Family Funeral Home. He can be picked up at 200 Felix. Groves place in Fort Worth Texas. My call back is 214-639-5723.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.crm_existing_case_reference, undefined);
+  assert.equal(extraction.facts.pickup_address, "200 Feliks Gwozdz Place Fort Worth Texas");
+  assert.equal(extraction.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.equal(decision.step, "collect_case_reference");
+  assert.equal(decision.missingTargetFacts.includes("crm_existing_case_reference"), true);
+  assert.deepEqual(decision.toolNames, []);
+});
+
 test("first-call extractor handles police officer residence death reports", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "This is Officer Sarah Miller with Keller Police. We have Robert Jones deceased at 636 Commerce Ave in Keller. My number is 214-639-5723.",
