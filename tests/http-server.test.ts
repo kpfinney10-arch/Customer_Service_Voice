@@ -1448,6 +1448,68 @@ test("Twilio webhook route handles live medical examiner false friends in one tu
   ]);
 });
 
+test("Twilio webhook route handles latest medical examiner release phrasing in one turn", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-3",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-3",
+      SpeechResult:
+        "Hi. This is investigator Sarah Miller with a tent County, medical examiner's office. I'm calling about Robert Jones uh, case number 2611232. He is ready for release to Smith's family funeral home. Uh, his pickup location is at 200. Felix glows place in Fort Worth Texas. My call back is 214-639-5723.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-medical-examiner-live-3/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.death_reported, true);
+  assert.equal(replay.body.session.facts.caller_name, "Sarah Miller");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_contact_role, "investigator");
+  assert.equal(replay.body.session.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(replay.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(replay.body.session.facts.pickup_address, "200 Feliks Gwozdz Place Fort Worth Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "medical_examiner");
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route closes routine pricing inquiries after contact capture", async () => {
   await fetchText(
     "POST",

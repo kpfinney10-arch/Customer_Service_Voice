@@ -119,7 +119,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const decedentName = matchFirst(text, [
-    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
+    /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=(?:\s+(?:uh|um|umm|er|ah)[,.]?)?\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
     /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\bwith\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3})(?=[.!?]\s+(?:he|she|they|the patient|the resident)(?:\s+(?:has|had|was|is)|'s)?\s+(?:passed away|died|is deceased|deceased)\b)/i,
@@ -162,6 +162,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     /\bat\s+(\d{1,3}:\d{2}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
     /\bat\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b\s+(?:in|from)\s+[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3}(?:,\s*[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})*)/,
     /\bat\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
+    /\b(?:pickup\s+)?location[,.]?\s+(?:is\s+)?(?:at\s+)?(.+?)(?=[,.!?]?\s+(?:and\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/i,
     /\b(?:(?:the|our)\s+)?(?:pickup\s+)?address[,.]?\s+(?:here\s+)?is\s+(.+?)(?=[,.!?]?\s+(?:and\s+)?(?:(?:[Mm]y|[Yy]our)\s+|[Yy]ou\s+might\s+)?(?:call\s+back|callback|phone|number)\b|[.!?]\s*$|$)/i,
     /\b[Aa]ddress is\s+(\d{2,6}\s+[A-Z0-9][A-Za-z0-9\s.-]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:,\s*[A-Z][A-Za-z\s]+)*)/,
   ]);
@@ -188,11 +189,11 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
 
   const requestedFuneralHome = matchFirst(text, [
     /\brelease to\s+(your\s+funeral home)\b/i,
-    /\brelease to\s+([A-Z][A-Za-z\s]+?Funeral Home)\b/,
-    /\b(?:calling|called|need|want)\s+([A-Z][A-Za-z\s]+Funeral Home)\b/,
+    /\brelease to\s+([A-Z][A-Za-z'\s]+?Funeral Home)\b/i,
+    /\b(?:calling|called|need|want)\s+([A-Z][A-Za-z'\s]+Funeral Home)\b/i,
     /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+(your\s+funeral home)\b/i,
-    /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+([A-Z][A-Za-z]+(?:[.\s]+[A-Z][A-Za-z]+){0,4}[.\s]+Funeral Home)\b/i,
-    /\b([A-Z][A-Za-z]+(?:[.\s]+[A-Z][A-Za-z]+){0,4}[.\s]+Funeral Home)\b/,
+    /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+([A-Z][A-Za-z']+(?:[.\s]+[A-Z][A-Za-z']+){0,4}[.\s]+Funeral Home)\b/i,
+    /\b([A-Z][A-Za-z']+(?:[.\s]+[A-Z][A-Za-z']+){0,4}[.\s]+Funeral Home)\b/i,
   ]);
   if (requestedFuneralHome) {
     facts.requested_funeral_home = normalizeRequestedFuneralHome(requestedFuneralHome);
@@ -267,7 +268,15 @@ function normalizeSpokenAddress(value: string): string {
 
 function normalizeRequestedFuneralHome(value: string): string {
   if (/^your\s+funeral home$/i.test(value.trim())) return "Your Funeral Home";
-  return value.replace(/[,.]+/g, " ").replace(/\s+/g, " ").trim();
+  return value
+    .replace(/\b([A-Za-z]+)'s\b/g, "$1")
+    .replace(/[,.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map(normalizeNameWord)
+    .join(" ");
 }
 
 function normalizeSpokenName(value: string): string {
@@ -316,9 +325,9 @@ function normalizeFacilityContactRole(value: string): string {
 
 function extractFacilityName(input: string): string | undefined {
   const patterns = [
-    /\b(?:at|from|with)\s+(?:the\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(medical examiner'?s office|medical examiner office|coroner'?s office|county morgue)\b/i,
-    /\b(?:at|from|with)\s+(?:the\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(police department|police dept\.?|police|sheriff'?s office|sheriff office|law enforcement agency)\b/i,
-    /\b(?:at|from|with)\s+(?:the\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
+    /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(medical examiner'?s office|medical examiner office|coroner'?s office|county morgue)\b/i,
+    /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(police department|police dept\.?|police|sheriff'?s office|sheriff office|law enforcement agency)\b/i,
+    /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
   ];
   for (const pattern of patterns) {
     const match = input.match(pattern);
@@ -339,7 +348,9 @@ function normalizeFacilityName(value: string): string {
     .filter(Boolean)
     .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`)
     .join(" ");
-  if (/^Terry County Medical Examiner'?s Office$/i.test(normalized)) return "Tarrant County Medical Examiner's Office";
+  if (/^(?:Terry|Tent) County Medical Examiner'?s Office$/i.test(normalized)) {
+    return "Tarrant County Medical Examiner's Office";
+  }
   return normalized;
 }
 
