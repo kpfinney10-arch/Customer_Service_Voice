@@ -466,6 +466,39 @@ test("first-call extractor asks medical examiner calls for missing case referenc
   assert.deepEqual(decision.toolNames, []);
 });
 
+test("first-call extractor handles stream-of-thought medical examiner pickup phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is investigator, Kyle finny with a tirant County. Medical examiner's office. I have a Mr. Robert Jones. He is ready to be picked up at his home to be transported to Smith Family, Funeral Home. We are currently at the address 636 South Main Street in Keller Texas and my phone is 603-731-5845.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "dispatch_status");
+  assert.equal(extraction.facts.caller_name, "Kyle Finny");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "investigator");
+  assert.equal(extraction.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.pickup_address, "636 South Main Street Keller Texas");
+  assert.equal(extraction.facts.place_of_death_type, "medical_examiner");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.equal(decision.step, "collect_case_reference");
+  assert.deepEqual(decision.toolNames, []);
+});
+
+test("first-call extractor normalizes T County medical examiner and punctuated time street numbers", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, this is investigator. Sean Mullins with the T County, Medical examiner's Office. They're at 6:32. South Main Street in Keller, Texas. Phone is 214-639-2463.",
+  );
+
+  assert.equal(extraction.facts.caller_name, "Sean Mullins");
+  assert.equal(extraction.facts.caller_phone, "214-639-2463");
+  assert.equal(extraction.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(extraction.facts.pickup_address, "632 South Main Street Keller Texas");
+  assert.equal(extraction.facts.place_of_death_type, "medical_examiner");
+});
+
 test("first-call extractor handles police officer residence death reports", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "This is Officer Sarah Miller with Keller Police. We have Robert Jones deceased at 636 Commerce Ave in Keller. My number is 214-639-5723.",

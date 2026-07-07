@@ -1348,7 +1348,7 @@ function stringFact(facts: Partial<FirstCallFacts> | StructuredFacts, key: strin
 function addressOnlyAnswer(transcript: string): string | undefined {
   const normalized = transcript
     .trim()
-    .replace(/\b(\d):(\d{2})(?=\s+[A-Za-z])/g, "$1$2")
+    .replace(/\b(\d):(\d{2})(?=[.?!,\s]+[A-Za-z])/g, "$1$2")
     .replace(/[.?!]+$/, "")
     .replace(/[.?!]+/g, " ")
     .replaceAll(",", " ")
