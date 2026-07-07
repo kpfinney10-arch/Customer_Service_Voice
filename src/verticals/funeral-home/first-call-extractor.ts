@@ -88,6 +88,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const callerName = matchFirst(text, [
     /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+((?:Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
     /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner|Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
+    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+\s+St\.?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|callback|phone|number)\b|\s*$)/i,
     /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+(?:[,\s]+(?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|callback|phone|number)\b|\s*$)/i,
     /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
@@ -128,8 +129,10 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     /\bwith\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:who|that)\s+(?:has|had|was)?\s*(?:passed away|died|is deceased|deceased)\b)/i,
     /\bwith\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=\s+(?:at|in)\b)/,
     /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
+    /\b(?:[Mm]y|[Oo]ur)\s+(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter|[Aa]unt|[Uu]ncle|[Gg]randfather|[Gg]randmother)[,.]?\s+([A-Z][a-z]+(?:\s+(?!(?:just|passed|died)\b)(?:[A-Z][a-z]+|van|von|de|del|la)){0,4})\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:,\s*[A-Z][a-z]+)+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\b)/,
+    /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is[.\s]+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,4})(?=[,.]|\b)/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,
     /\b(?:[Tt]he\s+)?(?:[Dd]ecedent|[Pp]erson who passed|[Pp]erson that passed)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/,
     /\b(?:decedent|patient|resident)\s+(?:is|was|named)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/,
@@ -277,6 +280,9 @@ function normalizeSpokenAddress(value: string): string {
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
     )
+    .replace(/\b(apartment|apt|unit|suite)\s+(\d+)\s+([A-Za-z])\b/gi, "$1 $2$3")
+    .replace(/\bBlue\s+Bonnet\b/gi, "Bluebonnet")
+    .replace(/\bChisum\s+Trail\b/gi, "Chisholm Trail")
     .replace(/\s+\b(?:And|In)\s+(?:(?:My|Your)\b.*|Call\b.*|Callback\b.*|Phone\b.*|Number\b.*)$/i, "")
     .replace(/\s+\b(?:And|In)\b$/i, "")
     .replace(/\bFelix\s+(?:glows|goes|groves|w\s*s)\s+place\b/i, "Feliks Gwozdz Place")
@@ -288,6 +294,9 @@ function normalizeSpokenAddress(value: string): string {
 function normalizeRequestedFuneralHome(value: string): string {
   if (/^your\s+funeral home$/i.test(value.trim())) return "Your Funeral Home";
   return value
+    .replace(/^(?:our\s+)?family\s+would\s+like\s+/i, "")
+    .replace(/^(?:the\s+)?family\s+(?:has\s+)?(?:requested|requesting|wants?|would\s+like)\s+/i, "")
+    .replace(/\s+to\s+help\s+us$/i, "")
     .replace(/\b([A-Za-z]+)'s\b/g, "$1")
     .replace(/[,.]+/g, " ")
     .replace(/\s+/g, " ")
@@ -299,7 +308,7 @@ function normalizeRequestedFuneralHome(value: string): string {
 }
 
 function normalizeSpokenName(value: string): string {
-  return value
+  const normalized = value
     .replace(/[.,]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -308,6 +317,14 @@ function normalizeSpokenName(value: string): string {
     .filter((word) => !isSpokenNameFiller(word))
     .map(normalizeNameWord)
     .join(" ");
+  return normalizeCommonNameFalseFriends(normalized);
+}
+
+function normalizeCommonNameFalseFriends(value: string): string {
+  return value
+    .replace(/\bSt Claire\b/g, "St Clair")
+    .replace(/\bVan Burren\b/g, "Van Buren")
+    .replace(/\bEvangelene\b/g, "Evangeline");
 }
 
 function isSpokenNameFiller(word: string): boolean {

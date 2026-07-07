@@ -1036,12 +1036,12 @@ const phoneCuePattern =
 function extractContextualCallerName(transcript: string): string | undefined {
   const beforePhoneCue = transcript.split(phoneCuePattern)[0] ?? transcript;
   const rawName =
-    beforePhoneCue.match(/\b([A-Za-z]+(?:\s+[A-Za-z]+){0,3})\s+is\s+my\s+name\b/i)?.[1] ??
+    beforePhoneCue.match(/\b([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})\s+is\s+my\s+name\b/i)?.[1] ??
     beforePhoneCue.match(
-      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+(?:nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager|investigator|medical examiner|coroner|deputy coroner),?\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s+(?:with|at|from)\b|\s*$)/i,
+      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+(?:nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager|investigator|medical examiner|coroner|deputy coroner),?\s+([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})(?=[,.?!]|\s+(?:with|at|from)\b|\s*$)/i,
     )?.[1] ??
     beforePhoneCue.match(
-      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+([A-Za-z]+(?:\s+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
+      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
     )?.[1];
   return rawName ? nameOnlyAnswer(rawName) : undefined;
 }
@@ -1188,15 +1188,16 @@ function suspiciousStreetTokensInAddress(address: string): string[] {
 function nameOnlyAnswer(transcript: string): string | undefined {
   const trimmed = transcript
     .trim()
-    .replace(/^(?:the\s+)?name\s+is\s+/i, "")
+    .replace(/^(?:(?:his|her|their|the)\s+)?name\s+is[.\s]+/i, "")
     .replace(/[.?!]+$/, "")
+    .replace(/[,]+/g, " ")
     .replace(/[.?!]+\s+/g, " ")
     .replace(/\s+/g, " ");
   const words = trimmed.split(" ").filter(Boolean);
   if (words.length < 1 || words.length > 4) return undefined;
   if (!words.every((word) => /^[A-Za-z]+$/.test(word))) return undefined;
   if (words.some((word) => COMMON_NON_NAME_ANSWERS.has(word.toLowerCase()))) return undefined;
-  return words.map(normalizeNameWord).join(" ");
+  return normalizeCommonNameFalseFriends(words.map(normalizeNameWord).join(" "));
 }
 
 function normalizeNameWord(word: string): string {
@@ -1205,6 +1206,13 @@ function normalizeNameWord(word: string): string {
     return `Mc${word[2]?.toUpperCase() ?? ""}${word.slice(3).toLowerCase()}`;
   }
   return `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`;
+}
+
+function normalizeCommonNameFalseFriends(value: string): string {
+  return value
+    .replace(/\bSt Claire\b/g, "St Clair")
+    .replace(/\bVan Burren\b/g, "Van Buren")
+    .replace(/\bEvangelene\b/g, "Evangeline");
 }
 
 const callerNameSpellingStatusKey = "caller_name_spelling_status";
@@ -1358,6 +1366,10 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     .replace(/^(\d)\s+(\d)\s+(\d)\b/, "$1$2$3")
     .replace(/^(\d{1,3})\s+(\d)\b/, "$1$2")
     .replace(/\b(\d{2,6}\s+(?:(?!\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)[A-Za-z0-9][A-Za-z0-9.-]*\s+){0,4}[A-Za-z0-9][A-Za-z0-9.-]*)\s+(?:a|as|salve)\s+([A-Za-z])/gi, "$1 Ave $2")
+    .replace(/\b(apartment|apt|unit|suite)\s+(\d+)\s+([A-Za-z])\b/gi, "$1 $2$3")
+    .replace(/\b(apartment|apt|unit|suite)\s+(\w+)\s+and\s+/gi, "$1 $2 ")
+    .replace(/\bBlue\s+Bonnet\b/gi, "Bluebonnet")
+    .replace(/\bChisum\s+Trail\b/gi, "Chisholm Trail")
     .replace(/\bFelix\s+(?:glows|goes|groves|w\s*s)\s+place\b/gi, "Feliks Gwozdz Place")
     .replace(
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
@@ -1365,7 +1377,7 @@ function addressOnlyAnswer(transcript: string): string | undefined {
     )
     .replace(/\s+/g, " ");
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?)\b/i,
+    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?(?:\s+(?!and\b)[A-Za-z][A-Za-z]*){0,4})\b/i,
   )?.[1];
   return address?.trim();
 }
@@ -1432,6 +1444,8 @@ const COMMON_NON_NAME_ANSWERS = new Set([
   "rn",
   "she",
   "social",
+  "telephone",
+  "television",
   "there",
   "we",
   "worker",

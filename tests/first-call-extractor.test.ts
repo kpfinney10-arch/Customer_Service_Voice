@@ -563,6 +563,33 @@ test("first-call extractor captures family caller presence without dispatching r
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
 });
 
+test("first-call extractor handles creative family names and stream-of-thought residence reports", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, my name is Mateo St. Claire, my phone number is 603-731-5845. My grandmother Cordelia van Burren passed away at home tonight. Uh, we are currently at 18906 Chisum Trail Court in North Richland Hills. Texas. I'm here with her now and our family would like Smith Family Funeral Home to help us.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Mateo St Clair");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "grandmother");
+  assert.equal(extraction.facts.decedent_name, "Cordelia Van Buren");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.pickup_address, "18906 Chisholm Trail Court North Richland Hills Texas");
+  assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.equal(extraction.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
+});
+
+test("first-call extractor handles pronoun decedent answers with sentence breaks", () => {
+  const extraction = extractFirstCallFactsDeterministic("Her name is. Evangelene De La Cruz.");
+
+  assert.equal(extraction.facts.decedent_name, "Evangeline De La Cruz");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+});
+
 test("first-call extractor handles capitalized address is phrasing", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "My name is Amanda. My mother Patricia passed away. Address is 44 Cedar Road.",

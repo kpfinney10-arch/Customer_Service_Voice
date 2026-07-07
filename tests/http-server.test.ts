@@ -1149,6 +1149,181 @@ test("Twilio webhook route handles hospice article before titled decedent", asyn
   ]);
 });
 
+test("Twilio webhook route handles creative hospice decedent and apartment answers", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-creative-live-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-creative-live-1",
+      SpeechResult:
+        "Hi, this is Nurse Shaban Oor with Gentle Harbor Hospice. I'm calling to report the death. A death at a family home.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /best phone number|callback number/i);
+
+  const phone = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-creative-live-1",
+      SpeechResult: "214-639-5723.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(phone.status, 200);
+  assert.match(phone.body, /May I have the name of the person who passed away/i);
+
+  const decedent = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-creative-live-1",
+      SpeechResult: "Her name is. Evangelene De La Cruz.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(decedent.status, 200);
+  assert.match(decedent.body, /Where is your loved one located right now/i);
+
+  const location = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-creative-live-1",
+      SpeechResult: "She's at 7421 Blue Bonnet Crossing Parkway Apartment 4 B. And Waxahachie Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.match(location.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(location.body, /<Dial /);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospice-creative-live-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Shaban Oor");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(replay.body.session.facts.facility_name, "Gentle Harbor Hospice");
+  assert.equal(replay.body.session.facts.decedent_name, "Evangeline De La Cruz");
+  assert.equal(
+    replay.body.session.facts.pickup_address,
+    "7421 Bluebonnet Crossing Parkway Apartment 4B Waxahachie Texas",
+  );
+  assert.equal(replay.body.session.facts.place_of_death_type, "hospice");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
+test("Twilio webhook route handles stream-of-thought family residence reports without dispatch", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-family-stream-creative-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-family-stream-creative-1",
+      SpeechResult:
+        "Hi, my name is Mateo St. Claire, my phone number is 603-731-5845. My grandmother Cordelia van Burren passed away at home tonight. Uh, we are currently at 18906 Chisum Trail Court in North Richland Hills. Texas. I'm here with her now and our family would like Smith Family Funeral Home to help us.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-family-stream-creative-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Mateo St Clair");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "grandmother");
+  assert.equal(replay.body.session.facts.decedent_name, "Cordelia Van Buren");
+  assert.equal(replay.body.session.facts.pickup_address, "18906 Chisholm Trail Court North Richland Hills Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "residence");
+  assert.equal(replay.body.session.facts.currently_with_decedent, true);
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+  assert.match(
+    replay.body.snapshot.handoff.recommendedActions.join(" "),
+    /Verify the death with hospice, law enforcement, or the medical examiner/i,
+  );
+});
+
 test("Twilio webhook route handles live officer residence report across slot prompts", async () => {
   await fetchText(
     "POST",
