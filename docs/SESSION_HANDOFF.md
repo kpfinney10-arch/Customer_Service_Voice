@@ -532,6 +532,8 @@ Latest OpenAI-backed Twilio live status:
 - Follow-up medical-examiner case-number commit `f25c7fd` now requires a medical examiner/coroner case number before location and handoff whenever the call context identifies an ME/coroner release. It also accepts bare case-number answers such as `2611232`, captures `case number is...`, normalizes the latest Tarrant County and Feliks Gwozdz STT variants, infers `currently_with_decedent: true` for official release calls, and preserves `medical_examiner`/`emergency` context across later address-only turns. Validation after this change: `npm run build && npm test` passed `235/235`.
 - Post-restart public Twilio smoke on 2026-07-07 used tunnel `https://vessel-enrollment-garcia-floors.trycloudflare.com` and server commit `f25c7fd`. Synthetic session `twilio-public-me-missing-case-smoke-1783462175` asked `May I have the medical examiner case number?` after the release transcript omitted the case number, accepted bare answer `2611232`, then collected location and returned the handoff `<Dial>`. Replay stored investigator `Sarah Miller`, callback `214-639-5723`, facility `Tarrant County Medical Examiner's Office`, decedent `Robert Jones`, case reference `2611232`, pickup address `200 Feliks Gwozdz Place Fort Worth Texas`, place type `medical_examiner`, urgency `emergency`, requested funeral home `Smith Family Funeral Home`, `currently_with_decedent: true`, no missing handoff facts, and completed both CRM and dispatch tools.
 - Current live local Twilio tunnel after this fix: `https://vessel-enrollment-garcia-floors.trycloudflare.com`; webhook `https://vessel-enrollment-garcia-floors.trycloudflare.com/v1/tenants/fh-demo/telephony/twilio/webhook`; local server commit `f25c7fd`; runtime `fh-demo` urgent on-call handoff is configured to `+16037315845`.
+- Follow-up scenario-matrix tooling adds `npm run smoke:twilio-scenarios` and runbook `docs/runbooks/live-scenario-matrix.md`. It covers hospice residence, medical examiner missing-case-number, hospital release, police residence, family residence authority-check, pricing, and existing-family office-hours lanes through the Twilio webhook with replay fact/tool assertions.
+- Scenario-matrix validation on 2026-07-07 passed locally against `http://127.0.0.1:3000` with run id `twilio-scenario-1783462910137`, then passed through the public tunnel `https://vessel-enrollment-garcia-floors.trycloudflare.com` with run id `twilio-scenario-1783462919029`; both runs reported `7/7` scenarios passing.
 
 Ignored `.env.local` example:
 
@@ -581,7 +583,7 @@ Recent failed Call UUIDs from screenshots:
 ## Next Recommended Steps
 
 1. Repeat the medical examiner missing-case-number script against server commit `f25c7fd` for real-audio confirmation; the public Twilio smoke already passed the exact transcript shape with no missing handoff facts.
-2. Start a small scenario matrix so each lane has at least one clean real-audio pass and one deliberate STT-noise/filler pass.
+2. Use `npm run smoke:twilio-scenarios` as the recurring regression smoke after each call-lane patch and before live phone tests.
 3. Continue expanding confirmation flows for suspicious fields found in live calls, especially unusual street names, city names, facility names, and repeated name/contact prompts.
 4. Start shaping production deployment: stable HTTPS endpoint or named tunnel, Twilio signature verification, secret management, and durable persistence.
 5. Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or named tunnel.

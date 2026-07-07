@@ -68,6 +68,14 @@ npm run smoke:twilio
 
 This posts an initial call webhook, a speech/escalation webhook, the called-party handoff-screen webhook, the handoff-accept webhook, and then verifies replay escalation. If `TWILIO_AUTH_TOKEN` is set, the script signs webhook posts with `X-Twilio-Signature`.
 
+Run the broader funeral-home scenario matrix:
+
+```sh
+npm run smoke:twilio-scenarios
+```
+
+This runs hospice, medical examiner, hospital, police, family-at-home, pricing, and office-hours scenarios through the Twilio webhook and verifies replay facts plus CRM/dispatch outcomes.
+
 To require signed-webhook mode:
 
 ```sh

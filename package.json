@@ -14,6 +14,7 @@
     "smoke:human-test": "node scripts/human-testing-smoke.mjs",
     "smoke:telnyx": "node scripts/telnyx-webhook-smoke.mjs",
     "smoke:twilio": "node scripts/twilio-webhook-smoke.mjs",
+    "smoke:twilio-scenarios": "node scripts/twilio-scenario-matrix-smoke.mjs",
     "smoke:twilio-readiness": "node scripts/twilio-readiness-smoke.mjs"
   },
   "dependencies": {},
