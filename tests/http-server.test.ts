@@ -333,7 +333,7 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(turn.body.handoff.caller.name, "Sarah Miller");
   assert.equal(turn.body.handoff.caller.phone, "555-111-2222");
   assert.equal(turn.body.handoff.decedent.name, "Robert Miller");
-  assert.equal(turn.body.handoff.location.pickupAddress, "123 Maple Street, Springfield");
+  assert.equal(turn.body.handoff.location.pickupAddress, "123 Maple Street Springfield");
   assert.equal(turn.body.handoffRouting.destinationType, "on_call_phone");
   assert.equal(turn.body.handoffRouting.destination, "+15555550100");
   assert.equal(turn.body.handoffRouting.queue, "first-call-after-hours");
@@ -1009,6 +1009,65 @@ test("Twilio webhook route handles latest live hospice nurse punctuation in one 
   assert.equal(replay.body.session.facts.pickup_address, "636 Commerce Ave Keller Texas");
   assert.equal(replay.body.session.facts.currently_with_decedent, true);
   assert.equal(replay.body.session.facts.requested_funeral_home, "Your Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
+test("Twilio webhook route handles hospice name and funeral home sentence breaks", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-3",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-at-home-live-3",
+      SpeechResult:
+        "Hi, this is Nurse Emily. Johnson with Gentle Care Hospice. I'm at the family's home with Mr. Robert Jones. He has passed away and the family has requested Smith Family. Funeral Home. My call back number is 214-639-5723. They're at 636 Commerce Avenue in Keller, Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospice-at-home-live-3/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Emily Johnson");
+  assert.equal(replay.body.session.facts.caller_phone, "214-639-5723");
+  assert.equal(replay.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(replay.body.session.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(replay.body.session.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+  assert.equal(replay.body.session.facts.currently_with_decedent, true);
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
   assert.deepEqual(replay.body.snapshot.completedToolNames, [
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
