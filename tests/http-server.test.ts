@@ -2299,6 +2299,7 @@ test("Twilio webhook route closes existing-family office-hours inquiries", async
   assert.equal(replay.body.session.facts.caller_name, "Kyle Finny");
   assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
   assert.equal(replay.body.session.facts.decedent_name, "Robert Finny");
+  assert.equal(replay.body.session.facts.requested_funeral_home, undefined);
   assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
 });
 

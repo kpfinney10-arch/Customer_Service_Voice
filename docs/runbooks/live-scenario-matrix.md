@@ -38,8 +38,8 @@ The script validates:
 | Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review |
 | Police residence death report | Covered by `police-residence` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review, no authority warning |
 | Family at-home death report | Covered by `family-residence-authority-check` | Passed in prior live tests | Escalate, create CRM only, include authority-verification warning |
-| Pricing inquiry, no death reported | Covered by `pricing-routine` | Passed in prior live tests | Wrap up for office-hours follow-up, create CRM only |
-| Existing-family office-hours question | Covered by `family-office-hours` | Passed in prior live tests | Wrap up for office-hours follow-up, create CRM only |
+| Pricing inquiry, no death reported | Covered by `pricing-routine` | Passed in latest 2026-07-08 live test | Wrap up for office-hours follow-up, create CRM only |
+| Existing-family office-hours question | Covered by `family-office-hours` | Passed in latest 2026-07-08 live test; routine request cleanup pinned | Wrap up for office-hours follow-up, create CRM only |
 
 ## Manual Live-Test Targets
 

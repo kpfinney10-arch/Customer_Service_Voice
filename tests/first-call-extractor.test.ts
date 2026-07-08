@@ -183,6 +183,7 @@ test("first-call extractor treats existing-family office-hours calls as routine 
   assert.equal(extraction.facts.decedent_name, "Robert Finny");
   assert.equal(extraction.facts.death_reported, false);
   assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.requested_funeral_home, undefined);
   assert.equal(extraction.facts.urgency, "routine");
   assert.equal(extraction.facts.dropoff_preference, "Caller asked about dropping off clothing.");
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
@@ -201,6 +202,7 @@ test("first-call extractor treats live visitation schedule phrasing as routine",
   assert.equal(extraction.facts.decedent_name, "Robert Finny");
   assert.equal(extraction.facts.death_reported, false);
   assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.requested_funeral_home, undefined);
   assert.equal(extraction.facts.urgency, "routine");
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
@@ -253,6 +255,7 @@ test("first-call extractor captures obituary and flower routine notes", () => {
   assert.equal(extraction.facts.decedent_name, "Robert Finny");
   assert.equal(extraction.facts.death_reported, false);
   assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.requested_funeral_home, undefined);
   assert.equal(extraction.facts.urgency, "routine");
   assert.equal(
     extraction.facts.special_handling_notes,

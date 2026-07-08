@@ -218,6 +218,7 @@ const scenarios = [
       death_reported: false,
       urgency: "routine",
     },
+    expectedFactAbsent: ["requested_funeral_home"],
     expectedCompletedToolNames: ["crm.create_intake_lead"],
     expectedCompletedToolNamesExclude: ["dispatch.create_removal_request"],
   },

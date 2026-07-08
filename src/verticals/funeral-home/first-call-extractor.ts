@@ -215,7 +215,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+([A-Z][A-Za-z']+(?:[.,\s]+[A-Z][A-Za-z']+){0,4}[.,\s]+Funeral[.,\s]+Home)\b/i,
     /\b([A-Z][A-Za-z']+(?:[.,\s]+[A-Z][A-Za-z']+){0,4}[.,\s]+Funeral[.,\s]+Home)\b/i,
   ]);
-  if (requestedFuneralHome) {
+  if (requestedFuneralHome && !isRoutineInquiryIntent(intent)) {
     facts.requested_funeral_home = normalizeRequestedFuneralHome(requestedFuneralHome);
     factConfidence.requested_funeral_home = 0.84;
   }
