@@ -197,7 +197,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     facts.currently_with_decedent = true;
     factConfidence.currently_with_decedent = 0.78;
   } else if (
-    facilityContactRole &&
+    (facilityContactRole || facts.caller_relationship_to_decedent === "facility_staff") &&
     facts.death_reported &&
     (/\b(?:ready\s+)?(?:for\s+)?release\b|\bready\s+to\s+be\s+picked\s+up\b|\brelease to\b/i.test(text) ||
       Boolean(facts.pickup_address))
@@ -267,6 +267,7 @@ function normalizeSpokenStreetNumber(value: string): string {
 function normalizeSpokenAddress(value: string): string {
   const normalizedStreetNumber = normalizeSpokenStreetNumber(value).replace(/\.+/g, " ").replace(/\s+/g, " ").trim();
   const normalizedAddress = normalizedStreetNumber
+    .replace(/^(?:pickup[,\s]+)*(?:address|location)\s+is\s+(?:at\s+)?/i, "")
     .replace(/,\s*(?=(?:a|salve)\b)/gi, " ")
     .replace(
       /,\s*(?=(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b)/gi,
@@ -283,6 +284,8 @@ function normalizeSpokenAddress(value: string): string {
     .replace(/\b(apartment|apt|unit|suite)\s+(\d+)\s+([A-Za-z])\b/gi, "$1 $2$3")
     .replace(/\bBlue\s+Bonnet\b/gi, "Bluebonnet")
     .replace(/\bChisum\s+Trail\b/gi, "Chisholm Trail")
+    .replace(/\s+\band\s+i(?:'m| am)?\s+(?:here|with)\b.*$/i, "")
+    .replace(/\s+\band\s+i$/i, "")
     .replace(/\s+\b(?:And|In)\s+(?:(?:My|Your)\b.*|Call\b.*|Callback\b.*|Phone\b.*|Number\b.*)$/i, "")
     .replace(/\s+\b(?:And|In)\b$/i, "")
     .replace(/\bFelix\s+(?:glows|goes|groves|w\s*s)\s+place\b/i, "Feliks Gwozdz Place")
@@ -294,6 +297,7 @@ function normalizeSpokenAddress(value: string): string {
 function normalizeRequestedFuneralHome(value: string): string {
   if (/^your\s+funeral home$/i.test(value.trim())) return "Your Funeral Home";
   return value
+    .replace(/^(?:we|i)\s+(?:would\s+like|want|need)\s+/i, "")
     .replace(/^(?:our\s+)?family\s+would\s+like\s+/i, "")
     .replace(/^(?:the\s+)?family\s+(?:has\s+)?(?:requested|requesting|wants?|would\s+like)\s+/i, "")
     .replace(/\s+to\s+help\s+us$/i, "")
@@ -328,7 +332,7 @@ function normalizeCommonNameFalseFriends(value: string): string {
 }
 
 function isSpokenNameFiller(word: string): boolean {
-  return /^(?:uh|um|umm|er|ah|mr|mrs|ms|miss|dr)$/i.test(word);
+  return /^(?:uh|um|umm|er|ah|mr|mrs|ms|miss|dr|he|she|they)$/i.test(word);
 }
 
 function normalizeNameWord(word: string): string {

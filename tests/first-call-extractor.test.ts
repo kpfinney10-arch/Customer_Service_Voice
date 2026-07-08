@@ -131,6 +131,26 @@ test("first-call extractor handles dotted live hospital release decedent", () =>
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor handles latest live hospital pickup-address phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is David Carter from Sunrise Hospital. We have miss Helen Brooks ready for release. The family is requested, your funeral home for pickup pickup, address is 500 Medical Center, Drive in Fort Worth. Texas my call back number is 214-639-5723",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "David Carter");
+  assert.equal(extraction.facts.caller_phone, "214-639-5723");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.decedent_name, "Helen Brooks");
+  assert.equal(extraction.facts.facility_name, "Sunrise Hospital");
+  assert.equal(extraction.facts.pickup_address, "500 Medical Center Drive Fort Worth Texas");
+  assert.equal(extraction.facts.place_of_death_type, "hospital");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.requested_funeral_home, "Your Funeral Home");
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
 test("first-call extractor strips courtesy titles from decedent name answers", () => {
   const extraction = extractFirstCallFactsDeterministic("Her name is Miss. Helen Brooks.");
 
@@ -546,6 +566,24 @@ test("first-call extractor handles live officer self-introduction phrasing", () 
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor handles one-turn live officer residence report", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, my name is Officer Mendes with the Fort Worth Police Department. I need to report a death at a residence. My call back. Number is 817-632-4211 and her name is Elizabeth Carter. She's at 5213 Hidden Oaks Lane in Fort Worth Texas.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Officer Mendes");
+  assert.equal(extraction.facts.caller_phone, "817-632-4211");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "officer");
+  assert.equal(extraction.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(extraction.facts.decedent_name, "Elizabeth Carter");
+  assert.equal(extraction.facts.pickup_address, "5213 Hidden Oaks Lane Fort Worth Texas");
+  assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
 test("first-call extractor captures family caller presence without dispatching residence calls", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Um yes hi my name is Kyle finny my call back. Number is 603-731-5845 my Father Robert Jones just passed away at home, I'm with him now. The address is 636 Commerce Avenue. Keller Texas.",
@@ -560,6 +598,24 @@ test("first-call extractor captures family caller presence without dispatching r
   assert.equal(extraction.facts.currently_with_decedent, true);
   assert.equal(extraction.facts.pickup_address, "636 Commerce Avenue Keller Texas");
   assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
+});
+
+test("first-call extractor handles live family authority-check phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "My name is Kyle Finney and my phone number is 603-731-5845. My Father Robert Jones passed away at home and we would like Smith Family Funeral Home to help us. He is at 6:36 Commerce Avenue, Keller Texas and I'm here with him now.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Kyle Finney");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "father");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+  assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.equal(extraction.facts.requested_funeral_home, "Smith Family Funeral Home");
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead"]);
 });
 

@@ -34,9 +34,9 @@ The script validates:
 | Lane | Automated Smoke | Real Phone Audio | Expected Outcome |
 | --- | --- | --- | --- |
 | Hospice nurse at residence, named funeral home | Covered by `hospice-noisy-named` | Passed in prior live tests | Escalate, create CRM, create dispatch review |
-| Medical examiner release, missing case number | Covered by `me-missing-case` | Needs one more real-audio confirmation after `f25c7fd` | Ask case number before location/handoff, then create CRM and dispatch |
-| Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in prior live tests | Escalate, create CRM, create dispatch review |
-| Police residence death report | Covered by `police-residence` | Passed in prior live tests | Escalate, create CRM, create dispatch review, no authority warning |
+| Medical examiner release, missing case number | Covered by `me-missing-case` | Passed in guided and stream-of-thought live tests after `040bdaa` | Ask case number before location/handoff, then create CRM and dispatch |
+| Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review |
+| Police residence death report | Covered by `police-residence` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review, no authority warning |
 | Family at-home death report | Covered by `family-residence-authority-check` | Passed in prior live tests | Escalate, create CRM only, include authority-verification warning |
 | Pricing inquiry, no death reported | Covered by `pricing-routine` | Passed in prior live tests | Wrap up for office-hours follow-up, create CRM only |
 | Existing-family office-hours question | Covered by `family-office-hours` | Passed in prior live tests | Wrap up for office-hours follow-up, create CRM only |
