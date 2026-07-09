@@ -1015,6 +1015,83 @@ test("Twilio webhook route handles latest live hospice nurse punctuation in one 
   ]);
 });
 
+test("Twilio webhook route infers called funeral home from live hospice ready-for-pickup phrasing", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-ready-pickup-live",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-ready-pickup-live",
+      SpeechResult:
+        "Hi, my name is Nurse Jackie Johnson, with Gentle Care Hospice. I'm calling to report a death. I'm out with Mr. Robert Johnson at 1575 South Main Street in Fort Worth Texas and he is ready for pickup.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(opening.status, 200);
+  assert.doesNotMatch(opening.body, /which funeral home|what funeral home|requested funeral home/i);
+
+  const callback = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-hospice-ready-pickup-live",
+      SpeechResult: "I can be reached at 817-432-5629.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(callback.status, 200);
+  assert.match(callback.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(callback.body, /<Dial /);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-hospice-ready-pickup-live/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Jackie Johnson");
+  assert.equal(replay.body.session.facts.caller_phone, "817-432-5629");
+  assert.equal(replay.body.session.facts.facility_contact_role, "nurse");
+  assert.equal(replay.body.session.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Johnson");
+  assert.equal(replay.body.session.facts.pickup_address, "1575 South Main Street Fort Worth Texas");
+  assert.equal(replay.body.session.facts.currently_with_decedent, true);
+  assert.equal(replay.body.session.facts.requested_funeral_home, "Your Funeral Home");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route handles hospice name and funeral home sentence breaks", async () => {
   await fetchText(
     "POST",

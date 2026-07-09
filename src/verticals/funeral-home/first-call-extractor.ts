@@ -215,9 +215,17 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     /\b(?:requested|requesting|wants?|asked\s+for)[,.]?\s+([A-Z][A-Za-z']+(?:[.,\s]+[A-Z][A-Za-z']+){0,4}[.,\s]+Funeral[.,\s]+Home)\b/i,
     /\b([A-Z][A-Za-z']+(?:[.,\s]+[A-Z][A-Za-z']+){0,4}[.,\s]+Funeral[.,\s]+Home)\b/i,
   ]);
-  if (requestedFuneralHome && !isRoutineInquiryIntent(intent)) {
-    facts.requested_funeral_home = normalizeRequestedFuneralHome(requestedFuneralHome);
-    factConfidence.requested_funeral_home = 0.84;
+  const implicitlyRequestedCurrentFuneralHome =
+    !requestedFuneralHome &&
+    !isRoutineInquiryIntent(intent) &&
+    facts.death_reported === true &&
+    (facilityContactRole || facts.caller_relationship_to_decedent === "facility_staff") &&
+    /\bready\s+for\s+(?:pick\s*up|pickup)\b|\bready\s+to\s+be\s+picked\s+up\b/i.test(text);
+  if ((requestedFuneralHome || implicitlyRequestedCurrentFuneralHome) && !isRoutineInquiryIntent(intent)) {
+    facts.requested_funeral_home = requestedFuneralHome
+      ? normalizeRequestedFuneralHome(requestedFuneralHome)
+      : "Your Funeral Home";
+    factConfidence.requested_funeral_home = requestedFuneralHome ? 0.84 : 0.78;
   }
 
   facts.urgency = inferUrgency(lower, intent);

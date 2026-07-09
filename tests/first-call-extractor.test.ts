@@ -328,6 +328,25 @@ test("first-call extractor handles latest live hospice nurse punctuation", () =>
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor infers called funeral home from live hospice ready-for-pickup phrasing", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, my name is Nurse Jackie Johnson, with Gentle Care Hospice. I'm calling to report a death. I'm out with Mr. Robert Johnson at 1575 South Main Street in Fort Worth Texas and he is ready for pickup.",
+  );
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Jackie Johnson");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "nurse");
+  assert.equal(extraction.facts.facility_name, "Gentle Care Hospice");
+  assert.equal(extraction.facts.decedent_name, "Robert Johnson");
+  assert.equal(extraction.facts.pickup_address, "1575 South Main Street Fort Worth Texas");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+  assert.equal(extraction.facts.requested_funeral_home, "Your Funeral Home");
+  assert.equal(extraction.facts.place_of_death_type, "hospice");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 test("first-call extractor handles hospice name and requested funeral home sentence breaks", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi, this is Nurse Emily. Johnson with Gentle Care Hospice. I'm at the family's home with Mr. Robert Jones. He has passed away in the family. Has requested Smith Family. Funeral Home my call back. Number is 214-639-5723.",
