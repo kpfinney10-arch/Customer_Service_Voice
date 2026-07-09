@@ -24,6 +24,12 @@ async function main() {
   assertEqual(readiness.twilioReadiness?.readyForLocalTesting, true, "Twilio local readiness");
   if (signedExpected) {
     assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
+    await expectUnsignedTwilioRejection("/webhook", {
+      CallSid: `${callSid}-unsigned-rejection`,
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
   }
 
   const initialTwiMl = await postTwilioForm("/webhook", {
@@ -98,6 +104,22 @@ async function postTwilioForm(pathSuffix, fields) {
     throw new Error(`POST ${path} expected 200, got ${response.status}: ${text}`);
   }
   return text;
+}
+
+async function expectUnsignedTwilioRejection(pathSuffix, fields) {
+  const path = `/v1/tenants/${tenantId}/telephony/twilio${pathSuffix}`;
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(fields),
+  });
+  const text = await response.text();
+  if (response.status !== 401) {
+    throw new Error(`unsigned POST ${path} expected 401, got ${response.status}: ${text}`);
+  }
+  assertIncludes(text, "WEBHOOK_SIGNATURE_INVALID", "unsigned rejection error");
 }
 
 async function expectTenantJson(method, path, body, statusCode, headers = {}) {

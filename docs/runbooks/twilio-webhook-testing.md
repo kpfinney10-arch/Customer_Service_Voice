@@ -82,6 +82,8 @@ To require signed-webhook mode:
 TWILIO_AUTH_TOKEN=<TWILIO_AUTH_TOKEN> TWILIO_EXPECT_SIGNED_WEBHOOK=true npm run smoke:twilio
 ```
 
+In signed mode, the smoke also posts one unsigned webhook request and expects a `401 WEBHOOK_SIGNATURE_INVALID` response before it verifies the signed happy path.
+
 Optional OpenAI-backed first-call extraction can be enabled when testing natural answer formats:
 
 ```sh
