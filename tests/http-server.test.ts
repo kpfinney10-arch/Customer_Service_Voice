@@ -2262,6 +2262,102 @@ test("Twilio webhook route handles guided medical examiner call with T County an
   ]);
 });
 
+test("Twilio webhook route handles live bare tent county medical examiner phrase", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-bare-tent-county",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-bare-tent-county",
+      SpeechResult:
+        "Hi. This is investigator. Maria Lopez from the tent County Medical Examiner. We have Mr. Robert Jones ready for release to The Smith. Family Funeral, Home my call back number is 603-731-5845.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /case number/i);
+  assert.doesNotMatch(opening.body, /May I have the name of the person who passed away|Where is your loved one located right now/i);
+
+  const caseNumber = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-bare-tent-county",
+      SpeechResult: "2611232.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(caseNumber.status, 200);
+  assert.match(caseNumber.body, /Where is your loved one located right now/i);
+
+  const location = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-medical-examiner-live-bare-tent-county",
+      SpeechResult: "He's at 200, Felix goes place in Fort Worth, Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.match(location.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(location.body, /<Dial /);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-medical-examiner-live-bare-tent-county/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Maria Lopez");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(replay.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(replay.body.session.facts.crm_existing_case_reference, "2611232");
+  assert.equal(replay.body.session.facts.pickup_address, "200 Feliks Gwozdz Place Fort Worth Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "medical_examiner");
+  assert.equal(replay.body.session.facts.requested_funeral_home, "The Smith Family Funeral Home");
+  assert.deepEqual(replay.body.snapshot.handoff.missingFacts, []);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route harvests stream-of-thought medical examiner facts before case prompt", async () => {
   await fetchText(
     "POST",

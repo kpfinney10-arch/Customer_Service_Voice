@@ -373,7 +373,7 @@ function normalizeFacilityContactRole(value: string): string {
 
 function extractFacilityName(input: string): string | undefined {
   const patterns = [
-    /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(medical examiner'?s office|medical examiner office|coroner'?s office|county morgue)\b/i,
+    /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(medical examiner'?s office|medical examiner office|medical examiner|coroner'?s office|county morgue)\b/i,
     /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,6})[,.]?\s+(police department|police dept\.?|police|sheriff'?s office|sheriff office|law enforcement agency)\b/i,
     /\b(?:at|from|with)\s+(?:(?:the|a)\s+)?([A-Z][A-Za-z']*(?:\s+[A-Z][A-Za-z']*){0,5})[,.]?\s+(hospital|hospice|care center|medical center|nursing home)\b/i,
   ];
@@ -396,7 +396,7 @@ function normalizeFacilityName(value: string): string {
     .filter(Boolean)
     .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1).toLowerCase()}`)
     .join(" ");
-  if (/^(?:T|Terry|Tent|Tenant|Tirant) County Medical Examiner'?s Office$/i.test(normalized)) {
+  if (/^(?:T|Terry|Tent|Tenant|Tirant) County Medical Examiner(?:'?s Office)?$/i.test(normalized)) {
     return "Tarrant County Medical Examiner's Office";
   }
   return normalized;

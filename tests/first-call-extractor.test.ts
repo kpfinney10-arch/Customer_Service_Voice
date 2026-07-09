@@ -520,6 +520,23 @@ test("first-call extractor asks medical examiner calls for missing case referenc
   assert.deepEqual(decision.toolNames, []);
 });
 
+test("first-call extractor normalizes bare tent county medical examiner phrase", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. This is investigator. Maria Lopez from the tent County Medical Examiner. We have Mr. Robert Jones ready for release to The Smith. Family Funeral, Home my call back number is 603-731-5845.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.facility_name, "Tarrant County Medical Examiner's Office");
+  assert.equal(extraction.facts.facility_contact_role, "investigator");
+  assert.equal(extraction.facts.caller_name, "Maria Lopez");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.decedent_name, "Robert Jones");
+  assert.equal(extraction.facts.place_of_death_type, "medical_examiner");
+  assert.equal(extraction.facts.requested_funeral_home, "The Smith Family Funeral Home");
+  assert.equal(decision.step, "collect_case_reference");
+});
+
 test("first-call extractor handles stream-of-thought medical examiner pickup phrasing", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi. This is investigator, Kyle finny with a tirant County. Medical examiner's office. I have a Mr. Robert Jones. He is ready to be picked up at his home to be transported to Smith Family, Funeral Home. We are currently at the address 636 South Main Street in Keller Texas and my phone is 603-731-5845.",
