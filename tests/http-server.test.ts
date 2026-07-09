@@ -1781,6 +1781,65 @@ test("Twilio webhook route handles one-turn live officer residence report", asyn
   );
 });
 
+test("Twilio webhook route handles live officer decedent-name STT miss in one turn", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-missed-her-name",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-residence-live-missed-her-name",
+      SpeechResult:
+        "Hi, my name is Officer Mendes with the Fort Worth Police Department. I need to report a death at a residence. My call back. Number is 817-632-4211, mid seed's name is Elizabeth Carter. She's at 5213 Hidden Oaks Lane in Fort Worth Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(response.body, /<Dial /);
+  assert.doesNotMatch(response.body, /May I have the name of the person who passed away/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-police-residence-live-missed-her-name/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Officer Mendes");
+  assert.equal(replay.body.session.facts.caller_phone, "817-632-4211");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_contact_role, "officer");
+  assert.equal(replay.body.session.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(replay.body.session.facts.decedent_name, "Elizabeth Carter");
+  assert.equal(replay.body.session.facts.pickup_address, "5213 Hidden Oaks Lane Fort Worth Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "residence");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route handles latest live hospital release punctuation in one turn", async () => {
   await fetchText(
     "POST",

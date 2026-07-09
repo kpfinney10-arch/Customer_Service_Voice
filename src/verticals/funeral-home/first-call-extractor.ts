@@ -131,6 +131,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     /\b(?:we\s+have|we'?ve\s+got)\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+(?:deceased|dead|ready\s+for\s+release|ready\s+to\s+release|for\s+release)\b)/i,
     /\b(?:[Mm]y|[Oo]ur)\s+(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter|[Aa]unt|[Uu]ncle|[Gg]randfather|[Gg]randmother)[,.]?\s+([A-Z][a-z]+(?:\s+(?!(?:just|passed|died)\b)(?:[A-Z][a-z]+|van|von|de|del|la)){0,4})\s+(?:just\s+)?(?:passed away|died)\b/,
     /\b(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter),?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}),?\s+(?:just\s+)?(?:passed away|died)\b/,
+    /\bmid\s+seed'?s\s+name\s+is[.\s]+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,4})(?=[,.]|\b)/i,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:,\s*[A-Z][a-z]+)+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\b)/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is[.\s]+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,4})(?=[,.]|\b)/,
     /\b(?:[Hh]is|[Hh]er|[Tt]heir)\s+name\s+is\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,3})(?=[,.]|\b)/,

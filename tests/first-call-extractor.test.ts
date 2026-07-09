@@ -648,6 +648,25 @@ test("first-call extractor handles one-turn live officer residence report", () =
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor handles live officer decedent-name STT miss", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi, my name is Officer Mendes with the Fort Worth Police Department. I need to report a death at a residence. My call back. Number is 817-632-4211, mid seed's name is Elizabeth Carter. She's at 5213 Hidden Oaks Lane in Fort Worth Texas.",
+  );
+  const decision = decideFirstCallNextStep(extraction.facts);
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.caller_name, "Officer Mendes");
+  assert.equal(extraction.facts.caller_phone, "817-632-4211");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.facility_contact_role, "officer");
+  assert.equal(extraction.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(extraction.facts.decedent_name, "Elizabeth Carter");
+  assert.equal(extraction.facts.pickup_address, "5213 Hidden Oaks Lane Fort Worth Texas");
+  assert.equal(extraction.facts.place_of_death_type, "residence");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
+});
+
 test("first-call extractor captures family caller presence without dispatching residence calls", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Um yes hi my name is Kyle finny my call back. Number is 603-731-5845 my Father Robert Jones just passed away at home, I'm with him now. The address is 636 Commerce Avenue. Keller Texas.",
