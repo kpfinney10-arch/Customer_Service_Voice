@@ -171,6 +171,18 @@ test("first-call extractor treats negated death pricing calls as routine inquiri
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
 });
 
+test("first-call extractor captures pricing caller name before calling phrase", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. My name is Kyle Smith calling to ask about direct. Cremation pricing. No 1 has passed away right now. I'm just trying to understand your basic costs and what is included?",
+  );
+
+  assert.equal(extraction.intent, "pricing_or_billing");
+  assert.equal(extraction.facts.caller_name, "Kyle Smith");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(extraction.warnings.includes("caller_name_not_found"), false);
+});
+
 test("first-call extractor treats existing-family office-hours calls as routine inquiries", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Uh, hi. My name's Kyle finny. I'm calling about my father. Robert, finny funeral home is already helping our family. This is not a new death call, not an emergency. Just want to know what time the office opens up tomorrow, whether I can drop off clothing for him in the morning, my call back number is 603-731-5845.",

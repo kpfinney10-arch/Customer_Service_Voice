@@ -2430,6 +2430,81 @@ test("Twilio webhook route closes routine pricing inquiries after contact captur
   assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
 });
 
+test("Twilio webhook route keeps pricing caller name before callback-only prompt", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-live-name-calling",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-live-name-calling",
+      SpeechResult:
+        "Hi. My name is Kyle Smith calling to ask about direct. Cremation pricing. No 1 has passed away right now. I'm just trying to understand your basic costs and what is included?",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /What is the best phone number/);
+  assert.doesNotMatch(opening.body, /May I have your name/);
+  assert.doesNotMatch(opening.body, /person who passed away|located right now/i);
+
+  const contact = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-live-name-calling",
+      SpeechResult: "My callback number is 603-731-5845.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(contact.status, 200);
+  assert.match(contact.body, /follow up during office hours/);
+  assert.match(contact.body, /<Hangup\/>/);
+  assert.doesNotMatch(contact.body, /<Gather /);
+  assert.doesNotMatch(contact.body, /<Dial/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-pricing-live-name-calling/replay",
+  );
+  assert.equal(replay.body.session.currentState, "WRAPUP");
+  assert.equal(replay.body.session.intent, "pricing_or_billing");
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Smith");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.death_reported, false);
+  assert.equal(replay.body.session.facts.decedent_name, undefined);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+});
+
 test("Twilio webhook route closes existing-family office-hours inquiries", async () => {
   await fetchText(
     "POST",

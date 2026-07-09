@@ -86,14 +86,14 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   }
 
   const callerName = matchFirst(text, [
-    /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+((?:Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
-    /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner|Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/i,
-    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+\s+St\.?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|callback|phone|number)\b|\s*$)/i,
-    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+(?:[,\s]+(?!and\b|my\b|call\b|callback\b|phone\b|number\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|callback|phone|number)\b|\s*$)/i,
-    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with)\b|\s*$)/,
+    /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+((?:Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:at|from|with|calling)\b|\s*$)/i,
+    /\b(?:this is|my name(?:\s+is|'s)|i am|i'm)\s+(?:Nurse|RN|Registered Nurse|Doctor|Dr\.?|Social Worker|Chaplain|Case Manager|Investigator|Medical Examiner|Coroner|Deputy Coroner|Police Officer|Officer|Detective|Deputy|Sheriff)[,.]?\s+([A-Z][a-z]+(?:[.\s]+(?!calling\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with|calling)\b|\s*$)/i,
+    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|calling\b|callback\b|phone\b|number\b)[A-Z][a-z]+\s+St\.?\s+[A-Z][a-z]+)(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|calling|callback|phone|number)\b|\s*$)/i,
+    /\bmy name(?:\s+is|'s)\s+((?!and\b|my\b|call\b|calling\b|callback\b|phone\b|number\b)[A-Z][a-z]+(?:[,\s]+(?!and\b|my\b|call\b|calling\b|callback\b|phone\b|number\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:and\s+)?(?:at|from|with|my|call|calling|callback|phone|number)\b|\s*$)/i,
+    /\b[Mm]y name is\s+([A-Z][a-z]+(?:\s+(?!calling\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|from|with|calling)\b|\s*$)/,
     /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+from\b/,
-    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s+at\b|\s*$)/,
-    /\b[Ii] am\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=[,.]|\s*$)/,
+    /\b[Tt]his is\s+([A-Z][a-z]+(?:\s+(?!calling\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+(?:at|calling)\b|\s*$)/,
+    /\b[Ii] am\s+([A-Z][a-z]+(?:\s+(?!calling\b)[A-Z][a-z]+){0,2})(?=[,.]|\s+calling\b|\s*$)/,
   ]);
   if (callerName) {
     facts.caller_name = normalizeSpokenName(callerName);

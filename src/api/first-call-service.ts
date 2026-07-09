@@ -1038,10 +1038,10 @@ function extractContextualCallerName(transcript: string): string | undefined {
   const rawName =
     beforePhoneCue.match(/\b([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})\s+is\s+my\s+name\b/i)?.[1] ??
     beforePhoneCue.match(
-      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+(?:nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager|investigator|medical examiner|coroner|deputy coroner),?\s+([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})(?=[,.?!]|\s+(?:with|at|from)\b|\s*$)/i,
+      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+(?:nurse|rn|registered nurse|doctor|dr\.?|social worker|chaplain|case manager|investigator|medical examiner|coroner|deputy coroner),?\s+([A-Za-z]+(?:[.\s]+(?!calling\b)[A-Za-z]+){0,3})(?=[,.?!]|\s+(?:with|at|from|calling)\b|\s*$)/i,
     )?.[1] ??
     beforePhoneCue.match(
-      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+([A-Za-z]+(?:[.\s]+[A-Za-z]+){0,3})(?=[,.?!]|\s*$)/i,
+      /\b(?:my\s+name\s+is|this\s+is|it\s+is|it'?s|i\s+am|i'm)\s+([A-Za-z]+(?:[.\s]+(?!calling\b)[A-Za-z]+){0,3})(?=[,.?!]|\s+calling\b|\s*$)/i,
     )?.[1];
   return rawName ? nameOnlyAnswer(rawName) : undefined;
 }
