@@ -1534,6 +1534,114 @@ test("Twilio webhook route handles live officer residence report across slot pro
   );
 });
 
+test("Twilio webhook route preserves caller name from real signed officer opening phrase", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-real-signed-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const opening = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-real-signed-1",
+      SpeechResult:
+        "Hi. This is Officer Mendes with a Fort Worth Police Department. I am reporting a death at 6:36, Commerce. A in Keller, Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+  assert.equal(opening.status, 200);
+  assert.match(opening.body, /best phone number|callback number/i);
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-real-signed-1",
+      SpeechResult: "603-731-5845.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-real-signed-1",
+      SpeechResult: "John Smith.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const location = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-police-real-signed-1",
+      SpeechResult: "636 Commerce Avenue. Keller Texas.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(location.status, 200);
+  assert.match(location.body, /I am going to connect you with a funeral home team member now\./);
+  assert.match(location.body, /<Dial /);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-police-real-signed-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.facts.caller_name, "Officer Mendes");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(replay.body.session.facts.facility_contact_role, "officer");
+  assert.equal(replay.body.session.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(replay.body.session.facts.decedent_name, "John Smith");
+  assert.equal(replay.body.session.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+  assert.equal(replay.body.session.facts.place_of_death_type, "residence");
+  assert.deepEqual(replay.body.snapshot.completedToolNames, [
+    "crm.create_intake_lead",
+    "dispatch.create_removal_request",
+  ]);
+});
+
 test("Twilio webhook route handles one-turn live officer residence report", async () => {
   await fetchText(
     "POST",

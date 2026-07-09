@@ -540,6 +540,19 @@ test("first-call extractor handles police officer residence death reports", () =
 });
 
 test("first-call extractor handles live officer self-introduction phrasing", () => {
+  const signedOpening = extractFirstCallFactsDeterministic(
+    "Hi. This is Officer finny with a Fort Worth Police Department. I am reporting a death at 6:36, Commerce. A in Keller, Texas.",
+  );
+
+  assert.equal(signedOpening.intent, "first_call_intake");
+  assert.equal(signedOpening.facts.death_reported, true);
+  assert.equal(signedOpening.facts.caller_name, "Officer Finny");
+  assert.equal(signedOpening.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(signedOpening.facts.facility_contact_role, "officer");
+  assert.equal(signedOpening.facts.facility_name, "Fort Worth Police Department");
+  assert.equal(signedOpening.facts.urgency, "emergency");
+  assert.equal(signedOpening.warnings.includes("caller_name_not_found"), false);
+
   const opening = extractFirstCallFactsDeterministic(
     "My name is Officer Mendes with the Fort Worth Police Department needing to report a death.",
   );

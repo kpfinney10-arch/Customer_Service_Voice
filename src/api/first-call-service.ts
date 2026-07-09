@@ -1193,6 +1193,7 @@ function nameOnlyAnswer(transcript: string): string | undefined {
     .replace(/[,]+/g, " ")
     .replace(/[.?!]+\s+/g, " ")
     .replace(/\s+/g, " ");
+  if (/^(?:report|reporting)\s+(?:a\s+)?death$/i.test(trimmed)) return undefined;
   const words = trimmed.split(" ").filter(Boolean);
   if (words.length < 1 || words.length > 4) return undefined;
   if (!words.every((word) => /^[A-Za-z]+$/.test(word))) return undefined;
