@@ -122,6 +122,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   const decedentName = matchFirst(text, [
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})(?=(?:\s+(?:uh|um|umm|er|ah)[,.]?)?\s+(?:in|at|from|room|case)\b|[,.]|\s*$)/,
     /\b(?:[Cc]alling|[Cc]alled)\s+about\s+(?:my|our)\s+(?:father|mother|dad|mom|husband|wife|brother|sister|son|daughter|aunt|uncle|grandfather|grandmother)[,.]?\s+((?!the\b|funeral\b|home\b)[A-Z][a-z]+(?:[,\s]+(?!the\b|funeral\b|home\b|is\b|was\b|and\b)[A-Z][a-z]+){0,3})(?=[,.]|\s+(?:the\s+)?funeral home\b|\s+(?:is|was|and)\b|\s*$)/i,
+    /\b(?:[Mm]y|[Oo]ur)\s+(?:[Ff]ather|[Mm]other|[Dd]ad|[Mm]om|[Hh]usband|[Ww]ife|[Bb]rother|[Ss]ister|[Ss]on|[Dd]aughter|[Aa]unt|[Uu]ncle|[Gg]randfather|[Gg]randmother)[,.]?\s+([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){0,4}?)(?=\s+(?:is\s+)?already\s+in\s+your\s+care\b)/i,
     /\b(?:i|we)\s+have\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.!?\s]+(?:he|she|they|the patient|the resident)\s+(?:is\s+)?ready\s+to\s+be\s+picked\s+up\b)/i,
     /\b(?:i|we)\s+have\s+(?:(?:a|the)\s+)?(?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*([A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.!?\s]+(?:he|she|they|the patient|the resident)\s+(?:is\s+)?ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,
     /\b(?:we\s+have|we'?ve\s+got)\s+((?:Mr\.?|Mrs\.?|Ms\.?|Miss|Dr\.?)?\s*[A-Z][a-z]+(?:[.\s]+[A-Z][a-z]+){1,3}?)(?=[.\s]+ready\b[\s\S]{0,80}?\b(?:for\s+)?release\b)/i,

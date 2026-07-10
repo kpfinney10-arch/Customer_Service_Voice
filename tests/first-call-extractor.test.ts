@@ -202,6 +202,25 @@ test("first-call extractor treats existing-family office-hours calls as routine 
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
 });
 
+test("first-call extractor treats death-caller office-hours STT as routine", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. My name is Kyle finny my call back. Number is 603-731-5845, my Father Robert finny is already in your care. This is not a new death caller, an emergency. I just wanted to ask whether I can drop off clothing tomorrow morning in what time the office opens.",
+  );
+
+  assert.equal(extraction.intent, "service_schedule_question");
+  assert.equal(extraction.facts.caller_name, "Kyle Finny");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "father");
+  assert.equal(extraction.facts.decedent_name, "Robert Finny");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.place_of_death_type, "unknown");
+  assert.equal(extraction.facts.requested_funeral_home, undefined);
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(extraction.facts.dropoff_preference, "Caller asked about dropping off clothing.");
+  assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
+  assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
 test("first-call extractor treats live visitation schedule phrasing as routine", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi, my name is Kyle penny. I'm calling about my father Robert Finny, the funeral home is already helping our family. This is not a new death, call an emergency. I just wanted to confirm what time the visitation is tomorrow, whether the service is still scheduled for Friday. Morning my call back number is 603-731-5845.",

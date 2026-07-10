@@ -68,6 +68,6 @@ export function hasNegatedDeathReport(transcript: string): boolean {
     .replace(/\s+/g, " ");
   return /\b(?:no one|nobody|no-one)\s+(?:has\s+)?(?:passed away|died)\b/.test(text) ||
     /\b(?:no|not)\s+(?:death|deaths)\b/.test(text) ||
-    /\bnot\s+(?:a\s+)?(?:new\s+)?death\s+call\b/.test(text) ||
+    /\bnot\s+(?:a\s+)?(?:new\s+)?death\s+call(?:er)?\b/.test(text) ||
     /\b(?:hasn'?t|has not|didn'?t|did not)\s+(?:passed away|pass away|died|die)\b/.test(text);
 }
