@@ -1306,6 +1306,7 @@ function spelledNameAnswer(transcript: string): string | undefined {
       /^(?:(?:it'?s|its|that'?s|thats)\s+spelled|it'?s|its|that'?s|thats|(?:the\s+)?last\s+name\s+is\s+spelled|(?:the\s+)?last\s+name\s+is)\s+/i,
       "",
     )
+    .replace(/\b([A-Za-z])\s+as\s+in\s+[A-Za-z]+\b/gi, "$1")
     .replace(/[.?!]+$/g, "")
     .replace(/[,.-]/g, " ")
     .replace(/\s+/g, " ")

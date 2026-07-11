@@ -4557,6 +4557,39 @@ test("first-call API asks for spelling when Twilio separates suspicious surname 
   assert.equal(spellingTurn.body.decision.step, "collect_decedent");
 });
 
+test("first-call API preserves a leading letter from live as-in spelling", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-contextual-caller-spelling-as-in-1",
+  });
+
+  const callerTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-as-in-1/transcript",
+    {
+      transcript: "My name's Kyle, finny my call back number is 603-731-5845.",
+    },
+  );
+
+  assert.equal(callerTurn.status, 200);
+  assert.equal(callerTurn.body.session.facts.caller_name, "Kyle Finny");
+  assert.equal(callerTurn.body.session.facts.caller_name_spelling_status, "needs_confirmation");
+
+  const spellingTurn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-as-in-1/transcript",
+    {
+      transcript: "Last name is spelled f as in Frank, i n n e y.",
+    },
+  );
+
+  assert.equal(spellingTurn.status, 200);
+  assert.equal(spellingTurn.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.pickup_contact_name, "Kyle Finney");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_status, "confirmed");
+  assert.equal(spellingTurn.body.session.facts.caller_name_spelling_corrected, "Kyle Finney");
+  assert.equal(spellingTurn.body.decision.step, "collect_decedent");
+});
+
 test("first-call API accepts trailing spelled letters after false-friend lead-in", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-spelling-false-friend-1",
