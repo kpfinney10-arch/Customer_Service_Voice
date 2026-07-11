@@ -4578,7 +4578,8 @@ test("first-call API preserves a leading letter from live as-in spelling", async
     "POST",
     "/v1/tenants/fh-demo/first-call/sessions/session-contextual-caller-spelling-as-in-1/transcript",
     {
-      transcript: "Last name is spelled f as in Frank, i n n e y.",
+      transcript:
+        "Last name is spelled f as in Frank, i n n e y My Father Robert Jones passed away at home. I'm here with him now. We want Smith Family Funeral Home to help us.",
     },
   );
 
@@ -4587,7 +4588,11 @@ test("first-call API preserves a leading letter from live as-in spelling", async
   assert.equal(spellingTurn.body.session.facts.pickup_contact_name, "Kyle Finney");
   assert.equal(spellingTurn.body.session.facts.caller_name_spelling_status, "confirmed");
   assert.equal(spellingTurn.body.session.facts.caller_name_spelling_corrected, "Kyle Finney");
-  assert.equal(spellingTurn.body.decision.step, "collect_decedent");
+  assert.equal(spellingTurn.body.session.facts.caller_relationship_to_decedent, "father");
+  assert.equal(spellingTurn.body.session.facts.decedent_name, "Robert Jones");
+  assert.equal(spellingTurn.body.session.facts.currently_with_decedent, true);
+  assert.equal(spellingTurn.body.session.facts.requested_funeral_home, "Smith Family Funeral Home");
+  assert.equal(spellingTurn.body.decision.step, "collect_location");
 });
 
 test("first-call API accepts trailing spelled letters after false-friend lead-in", async () => {

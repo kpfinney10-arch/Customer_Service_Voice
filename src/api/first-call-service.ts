@@ -1317,11 +1317,24 @@ function spelledNameAnswer(transcript: string): string | undefined {
   if (words.length >= 2 && words.length <= 20 && words.every((word) => /^[A-Za-z]$/.test(word))) {
     return normalizeNameWord(words.join(""));
   }
+  const leadingLetters = leadingSingleLetterWords(words);
+  if (leadingLetters.length >= 2 && leadingLetters.length <= 20) {
+    return normalizeNameWord(leadingLetters.join(""));
+  }
   const trailingLetters = trailingSingleLetterWords(words);
   if (trailingLetters.length >= 2 && trailingLetters.length <= 20) {
     return normalizeNameWord(trailingLetters.join(""));
   }
   return undefined;
+}
+
+function leadingSingleLetterWords(words: string[]): string[] {
+  const letters: string[] = [];
+  for (const word of words) {
+    if (!/^[A-Za-z]$/.test(word)) break;
+    letters.push(word);
+  }
+  return letters;
 }
 
 function trailingSingleLetterWords(words: string[]): string[] {
