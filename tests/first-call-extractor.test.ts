@@ -686,6 +686,16 @@ test("first-call extractor handles live officer decedent-name STT miss", () => {
   assert.deepEqual(decision.toolNames, ["crm.create_intake_lead", "dispatch.create_removal_request"]);
 });
 
+test("first-call extractor treats an officer at a death scene as present", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "Hi. My name is Ronaldo. Vinnie. My phone number is 603-731-5845. I'm a police officer with the Fort Worth Police Department here at a death scene that I need Smith Family Funeral Home to pick up.",
+  );
+
+  assert.equal(extraction.facts.death_reported, true);
+  assert.equal(extraction.facts.caller_relationship_to_decedent, "facility_staff");
+  assert.equal(extraction.facts.currently_with_decedent, true);
+});
+
 test("first-call extractor captures family caller presence without dispatching residence calls", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Um yes hi my name is Kyle finny my call back. Number is 603-731-5845 my Father Robert Jones just passed away at home, I'm with him now. The address is 636 Commerce Avenue. Keller Texas.",

@@ -662,6 +662,23 @@ Recent failed Call UUIDs from screenshots:
 6. Wait for Telnyx support response about `D61`, SIP `486`, and blank connection fields in fresh inbound CDR rows.
 7. Decide whether to fold the separate funeral-home onboarding materials workspace into this GitHub repo or keep it as a companion artifact set.
 
+## LanternBell Named Cloudflare Tunnel
+
+- On 2026-07-13, Cloudflare authorization completed for the newly registered `lanternbell.com` zone.
+- Created named tunnel `lanternbell-voice` with tunnel ID `83936dcc-8360-459d-b2f9-f955bd477db1`.
+- Added the Cloudflare DNS route `voice.lanternbell.com` to the named tunnel.
+- Local ingress configuration is stored outside the repository at `~/.cloudflared/config.yml` and routes the hostname to `http://127.0.0.1:3000` with a terminal `http_status:404` fallback.
+- The tunnel credential JSON and origin certificate remain outside the repository in `~/.cloudflared/`; never commit them.
+- Signed readiness passed through `https://voice.lanternbell.com` in `signed_webhook` mode with public traffic ready.
+- Signed Twilio webhook smoke passed with session `lanternbell-named-tunnel-smoke-1783989187`.
+- The full signed public scenario matrix passed `7/7` with run ID `lanternbell-named-tunnel-1783989193`.
+- Stable Twilio Voice webhook URL ready for configuration:
+  `https://voice.lanternbell.com/v1/tenants/fh-demo/telephony/twilio/webhook`
+- The named tunnel is currently running interactively. Install persistent process supervision for both the TypeScript server and `cloudflared` before relying on unattended traffic.
+- First real phone validation through the permanent hostname on 2026-07-13 used session `CA6f2dddd3b962e4da82c1a9fdf950cff8`. The police-residence call reached `ESCALATE`, captured caller/facility/decedent/funeral-home/address facts, and completed CRM plus dispatch without tool failures. It exposed two deterministic cleanup targets: `Person's name is Elizabeth Jones` required a redundant bare-name answer, and `here at a death scene` did not set `currently_with_decedent`.
+- Follow-up cleanup accepts `person's name is...` and `decedent's name is...` during the active decedent slot and treats an official facility caller who says they are at a death scene as present with the decedent. The exact live shape is pinned in extractor and HTTP regressions. Validation passed `npm run build`, focused tests (`166/166`), and the full suite (`263/263`).
+- Signed public replay of the exact live shape passed through `voice.lanternbell.com` with session `lanternbell-live-officer-fix-1783989860035`: no missing handoff facts, CRM plus dispatch completed, and no tool failures. The post-fix signed public scenario matrix passed `7/7` with run ID `lanternbell-post-live-fix-1783989865`.
+
 ## Production Hardening Notes
 
 Before real production traffic:

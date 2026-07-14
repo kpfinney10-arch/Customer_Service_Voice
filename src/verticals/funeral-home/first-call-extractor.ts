@@ -201,7 +201,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
   } else if (
     (facilityContactRole || facts.caller_relationship_to_decedent === "facility_staff") &&
     facts.death_reported &&
-    (/\b(?:ready\s+)?(?:for\s+)?release\b|\bready\s+to\s+be\s+picked\s+up\b|\brelease to\b/i.test(text) ||
+    (/\b(?:ready\s+)?(?:for\s+)?release\b|\bready\s+to\s+be\s+picked\s+up\b|\brelease to\b|\b(?:at|on)\s+(?:a|the)\s+death\s+scene\b/i.test(text) ||
       Boolean(facts.pickup_address))
   ) {
     facts.currently_with_decedent = true;

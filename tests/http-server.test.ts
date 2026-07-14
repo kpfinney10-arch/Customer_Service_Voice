@@ -4595,6 +4595,35 @@ test("first-call API preserves a leading letter from live as-in spelling", async
   assert.equal(spellingTurn.body.decision.step, "collect_location");
 });
 
+test("first-call API accepts the live person's-name decedent answer", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-live-persons-name-officer-1",
+  });
+
+  const opening = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-live-persons-name-officer-1/transcript",
+    {
+      transcript:
+        "Hi. My name is Ronaldo. Vinnie. My phone number is 603-731-5845. I'm a police officer with the Fort Worth Police Department here at a death scene that I need Smith Family Funeral Home to pick up.",
+    },
+  );
+
+  assert.equal(opening.status, 200);
+  assert.equal(opening.body.session.facts.currently_with_decedent, true);
+  assert.equal(opening.body.decision.step, "collect_decedent");
+
+  const decedent = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-live-persons-name-officer-1/transcript",
+    { transcript: "Person's name is Elizabeth Jones." },
+  );
+
+  assert.equal(decedent.status, 200);
+  assert.equal(decedent.body.session.facts.decedent_name, "Elizabeth Jones");
+  assert.equal(decedent.body.decision.step, "collect_location");
+});
+
 test("first-call API accepts trailing spelled letters after false-friend lead-in", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-caller-spelling-false-friend-1",

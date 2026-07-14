@@ -1188,7 +1188,7 @@ function suspiciousStreetTokensInAddress(address: string): string[] {
 function nameOnlyAnswer(transcript: string): string | undefined {
   const trimmed = transcript
     .trim()
-    .replace(/^(?:(?:his|her|their|the)\s+)?name\s+is[.\s]+/i, "")
+    .replace(/^(?:(?:his|her|their|the|person'?s|decedent'?s)\s+)?name\s+is[.\s]+/i, "")
     .replace(/[.?!]+$/, "")
     .replace(/[,]+/g, " ")
     .replace(/[.?!]+\s+/g, " ")
