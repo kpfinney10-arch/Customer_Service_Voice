@@ -39,21 +39,23 @@ console.log("");
 console.log("After startup, useful checks:");
 console.log("  npm run smoke:twilio-readiness");
 console.log("  npm run smoke:twilio");
-console.log("  npx -y cloudflared tunnel --url http://127.0.0.1:3000");
+console.log("  npm run start:cloudflare-named");
 console.log("");
 
-const child = spawn("npm", ["start"], {
+const child = spawn(process.execPath, ["dist/src/api/main.js"], {
   env: process.env,
   stdio: "inherit",
 });
 
 child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
-  }
-  process.exitCode = code ?? 0;
+  process.exitCode = code ?? (signal ? 1 : 0);
 });
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => {
+    if (!child.killed) child.kill(signal);
+  });
+}
 
 function loadLocalEnvFile(filename) {
   const path = resolve(process.cwd(), filename);

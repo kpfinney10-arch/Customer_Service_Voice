@@ -6,8 +6,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
+    "deploy:macos-local": "npm run build && node scripts/deploy-macos-runtime.mjs",
     "test": "node --test dist/tests/*.test.js",
     "start": "node dist/src/api/main.js",
+    "start:cloudflare-named": "cloudflared tunnel run lanternbell-voice",
     "start:twilio-local": "node scripts/start-twilio-local.mjs",
     "start:twilio-tunnel": "node scripts/start-twilio-tunnel.mjs",
     "smoke:extraction": "node scripts/first-call-extraction-smoke.mjs",
@@ -17,9 +19,9 @@
     "smoke:twilio-scenarios": "node scripts/twilio-scenario-matrix-smoke.mjs",
     "smoke:twilio-readiness": "node scripts/twilio-readiness-smoke.mjs"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.16.5",
+    "cloudflared": "^0.7.1",
     "typescript": "^5.8.3"
   }
 }
