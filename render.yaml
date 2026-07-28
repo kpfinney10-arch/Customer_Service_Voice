@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     region: ohio
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     preDeployCommand: npm run migrate:postgres
     startCommand: npm start
     healthCheckPath: /health
