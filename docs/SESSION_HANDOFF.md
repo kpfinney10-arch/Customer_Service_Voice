@@ -710,10 +710,29 @@ Before real production traffic:
 - Added PostgreSQL integration coverage using an in-memory PostgreSQL-compatible test database, including migrations, updates, tenant isolation, duplicate event delivery, and idempotency records.
 - `render.yaml` passes Render's official JSON Schema validation.
 
+## 2026-07-28 Render cloud deployment
+
+- Deployed Blueprint `LanternBellVoice` to Render from GitHub repository `kpfinney10-arch/Customer_Service_Voice`.
+- Created Starter web service `lanternbell-voice` and Basic-256mb PostgreSQL database `lanternbell-voice-db` in the Ohio region. The accepted Render estimate is `$17.50/month`.
+- Temporary cloud endpoint: `https://lanternbell-voice.onrender.com`.
+- Render resource IDs:
+  - Blueprint: `exs-d9kjsudaeets739k00v0`
+  - Web service: `srv-d9kk0itaeets739k727g`
+  - PostgreSQL: `dpg-d9kk09laeets739k6c4g-a`
+- The first build failed because Render's production `NODE_ENV` caused plain `npm ci` to omit TypeScript build dependencies. Commit `5c602fb` changed the Blueprint build command to `npm ci --include=dev && npm run build`.
+- The corrected deployment reached Live status on commit `5c602fb`, and the PostgreSQL database reached Available status.
+- Cloud health returned HTTP 200. Authenticated Twilio readiness returned HTTP 200 with tenant readiness, `signed_webhook` mode, and `publicReady: true`.
+- A fully signed Twilio webhook smoke test passed against the Render hostname with session `render-cloud-smoke-1785282920137`. The call reached `ESCALATE`, produced six persisted events, completed escalation behavior, and replayed successfully from PostgreSQL.
+- The generated `fh-demo` tenant API key is stored in macOS Keychain under service `LanternBell Render Tenant API Key`; no secret values are committed.
+- Render currently contains test-only routing numbers (`+15555550100` and `+15555550101`). Replace them with real on-call and dispatch destinations before sending any customer traffic to Render.
+- The repository was connected to Render by public Git URL rather than the installed GitHub integration. Blueprint changes therefore require a manual Blueprint sync and approval in Render.
+- Cloudflare DNS and the Twilio phone-number webhook have not been changed. The existing Mac-hosted service behind the named Cloudflare tunnel remains the live phone path.
+
 Next action:
 
-1. Push the tested cloud-foundation commit to GitHub.
-2. Create a Render Blueprint from `kpfinney10-arch/Customer_Service_Voice`.
-3. Enter `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and `TELEPHONY_WEBHOOK_SECRETS` in Render.
-4. Validate the temporary Render hostname.
-5. Attach `voice.lanternbell.com`, cut Cloudflare DNS over only after the temporary service is healthy, then run signed readiness, webhook smoke, scenario matrix, and one controlled live call.
+1. Replace the two test-only routing numbers in Render with the intended real on-call and dispatch destinations.
+2. Optionally expose Render build metadata through `/version` using Render's commit environment variable.
+3. Attach `voice.lanternbell.com` to the Render web service and complete Render's custom-domain verification.
+4. Cut Cloudflare DNS over only after the custom domain is ready.
+5. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.
+6. Complete one controlled live inbound call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.
