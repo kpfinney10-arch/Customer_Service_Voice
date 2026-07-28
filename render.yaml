@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: lanternbell-voice
+    runtime: node
+    plan: starter
+    region: ohio
+    buildCommand: npm ci && npm run build
+    preDeployCommand: npm run migrate:postgres
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: STORAGE_DRIVER
+        value: postgres
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lanternbell-voice-db
+          property: connectionString
+      - key: POSTGRES_POOL_MAX
+        value: "10"
+      - key: RATE_LIMIT_PER_WINDOW
+        value: "120"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: SERVICE_NAME
+        value: lanternbell-voice
+      - key: SERVICE_VERSION
+        value: 0.1.0
+      - key: FIRST_CALL_EXTRACTOR
+        value: deterministic
+      - key: TENANT_API_KEYS
+        sync: false
+      - key: TENANT_CONFIGS_JSON
+        sync: false
+      - key: TELEPHONY_WEBHOOK_SECRETS
+        sync: false
+
+databases:
+  - name: lanternbell-voice-db
+    plan: basic-256mb
+    region: ohio
+    postgresMajorVersion: "18"
+    databaseName: lanternbell_voice
+    user: lanternbell_voice
+    ipAllowList: []

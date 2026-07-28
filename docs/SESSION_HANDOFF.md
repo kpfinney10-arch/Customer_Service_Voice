@@ -694,4 +694,26 @@ Before real production traffic:
 - Replace temporary Cloudflare quick tunnels with a stable HTTPS deployment endpoint or a named Cloudflare tunnel.
 - Move secrets to a proper secret manager or deployment environment variables.
 - Add observability for provider command failure summaries and call lifecycle alerts.
-- Add durable database persistence before scaling beyond local file-backed testing.
+- Complete a managed PostgreSQL backup-and-restore drill before accepting customer data.
+
+## 2026-07-28 Render cloud foundation
+
+- Selected Render as the first always-on hosting target for the TypeScript service because its Blueprint can define the Node web service, managed PostgreSQL, private database connection, health check, and secret placeholders together.
+- Added a production `postgres` persistence driver behind the existing `SessionStore`, `EventStore`, and `IdempotencyStore` interfaces. Call orchestration and telephony behavior remain unchanged.
+- Added tenant-scoped PostgreSQL tables and indexes for latest session state, append-only events, and idempotency replay records.
+- Added a versioned startup migration protected by a PostgreSQL advisory transaction lock so concurrent deploy instances cannot race schema setup.
+- Event writes are transactional and duplicate `(tenant_id, event_id)` deliveries are ignored.
+- Added `HOST` configuration. Local startup still defaults to `127.0.0.1`; Render uses `0.0.0.0`.
+- Graceful shutdown now drains HTTP and closes the PostgreSQL pool.
+- Added `render.yaml` for a Starter Node service and Basic managed PostgreSQL in the Ohio region. The database blocks public IP access and is injected through Render's internal connection string.
+- Added `docs/runbooks/render-cloud-deployment.md` with secret setup, temporary-host validation, custom-domain cutover, signed Twilio validation, rollback, and database restore-drill requirements.
+- Added PostgreSQL integration coverage using an in-memory PostgreSQL-compatible test database, including migrations, updates, tenant isolation, duplicate event delivery, and idempotency records.
+- `render.yaml` passes Render's official JSON Schema validation.
+
+Next action:
+
+1. Push the tested cloud-foundation commit to GitHub.
+2. Create a Render Blueprint from `kpfinney10-arch/Customer_Service_Voice`.
+3. Enter `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and `TELEPHONY_WEBHOOK_SECRETS` in Render.
+4. Validate the temporary Render hostname.
+5. Attach `voice.lanternbell.com`, cut Cloudflare DNS over only after the temporary service is healthy, then run signed readiness, webhook smoke, scenario matrix, and one controlled live call.

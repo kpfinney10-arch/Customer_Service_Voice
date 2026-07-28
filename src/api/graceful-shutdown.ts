@@ -20,6 +20,7 @@ export type GracefulShutdownOptions = {
   signals?: NodeJS.Signals[];
   processTarget?: ProcessSignalTarget;
   exit?: (code: number) => void;
+  closeResources?: () => Promise<void>;
 };
 
 export async function closeHttpServer(
@@ -82,6 +83,7 @@ export function installGracefulShutdown(options: GracefulShutdownOptions): () =>
         signal: receivedSignal,
         timeoutMs,
         exit,
+        closeResources: options.closeResources,
       });
     };
     handlers.set(signal, handler);
@@ -101,13 +103,20 @@ async function shutdown(input: {
   signal: NodeJS.Signals;
   timeoutMs: number;
   exit: (code: number) => void;
+  closeResources: (() => Promise<void>) | undefined;
 }): Promise<void> {
   input.logger.lifecycle({
     type: "shutdown_started",
     signal: input.signal,
   });
   const result = await closeHttpServer(input.server, input.timeoutMs);
-  if (result.ok) {
+  let resourceError: Error | undefined;
+  try {
+    await input.closeResources?.();
+  } catch (error) {
+    resourceError = error instanceof Error ? error : new Error("Unknown resource shutdown error.");
+  }
+  if (result.ok && !resourceError) {
     input.logger.lifecycle({
       type: "shutdown_completed",
       signal: input.signal,
@@ -124,9 +133,10 @@ async function shutdown(input: {
     durationMs: result.durationMs,
     timedOut: result.timedOut,
   });
-  input.logger.error("HTTP server did not shut down cleanly.", {
+  input.logger.error("Server did not shut down cleanly.", {
     signal: input.signal,
     errorMessage: result.errorMessage,
+    resourceErrorMessage: resourceError?.message,
   });
   input.exit(1);
 }

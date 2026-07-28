@@ -214,3 +214,38 @@ test("persistence factory rejects unknown storage drivers", () => {
     PersistenceConfigError,
   );
 });
+
+test("persistence factory requires a database URL for PostgreSQL", () => {
+  assert.throws(
+    () =>
+      createPersistenceStoresFromEnv({
+        STORAGE_DRIVER: "postgres",
+      }),
+    PersistenceConfigError,
+  );
+});
+
+test("persistence factory creates PostgreSQL stores without connecting eagerly", async () => {
+  const stores = createPersistenceStoresFromEnv({
+    STORAGE_DRIVER: "postgres",
+    DATABASE_URL: "postgresql://user:password@127.0.0.1:5432/voice",
+    POSTGRES_POOL_MAX: "3",
+  });
+
+  assert.equal(stores.driver, "postgres");
+  assert.equal(typeof stores.initialize, "function");
+  assert.equal(typeof stores.sessionStore.get, "function");
+  await stores.close();
+});
+
+test("persistence factory validates PostgreSQL pool size", () => {
+  assert.throws(
+    () =>
+      createPersistenceStoresFromEnv({
+        STORAGE_DRIVER: "postgres",
+        DATABASE_URL: "postgresql://user:password@127.0.0.1:5432/voice",
+        POSTGRES_POOL_MAX: "0",
+      }),
+    PersistenceConfigError,
+  );
+});

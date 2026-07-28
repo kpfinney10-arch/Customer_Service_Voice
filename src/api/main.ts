@@ -5,9 +5,12 @@ import { loadServerEnvironment } from "../config/server-environment.js";
 import { createConsoleLogger } from "../observability/logger.js";
 
 const logger = createConsoleLogger();
+let closePersistence: (() => Promise<void>) | undefined;
 
 try {
   const environment = loadServerEnvironment();
+  closePersistence = environment.storage.close;
+  await environment.storage.initialize();
   const service = createFirstCallService({
     store: environment.sessionStore,
     eventStore: environment.eventStore,
@@ -27,10 +30,11 @@ try {
     twilioReadiness: environment.twilioReadiness,
     logger,
   });
-  const url = await listen(server, environment.port, "127.0.0.1");
+  const url = await listen(server, environment.port, environment.host);
   installGracefulShutdown({
     server,
     logger,
+    closeResources: environment.storage.close,
   });
 
   logger.lifecycle({
@@ -38,6 +42,9 @@ try {
   });
   console.log(`voice-ai-platform listening on ${url}`);
 } catch (error) {
+  if (closePersistence) {
+    await closePersistence().catch(() => {});
+  }
   logger.error("Server startup failed.", {
     type: "startup_error",
     errorName: error instanceof Error ? error.name : "UnknownError",

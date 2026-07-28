@@ -23,18 +23,30 @@ The voice platform keeps storage behind narrow interfaces so call orchestration 
 
 The file driver is useful for early human testing because sessions, replay data, and idempotency records survive server restarts. It is not intended as the final production storage layer for multiple app instances.
 
-## Production Direction
+`STORAGE_DRIVER=postgres` enables production database storage:
 
-The next production-grade adapter should target a transactional database such as Postgres or Supabase Postgres.
+- `DATABASE_URL` is required.
+- `POSTGRES_POOL_MAX` controls the connection pool and defaults to `10`.
+- Startup runs versioned schema migrations under a PostgreSQL advisory transaction lock.
+- Sessions use `(tenant_id, session_id)` as their key.
+- Events use `(tenant_id, event_id)` as their key and ignore duplicate event deliveries.
+- Idempotency records use `(tenant_id, idempotency_key)` as their key.
+- Every read query includes tenant scope.
+- Shutdown closes the database pool after the HTTP listener drains.
 
-Minimum production requirements:
+The initial production schema includes:
 
 - Append-only call events with tenant id, session id, event type, correlation id, schema version, redaction status, and timestamp indexes.
 - Latest session state keyed by tenant id and session id.
 - Tenant isolation in every query.
 - Idempotency support for webhook retries and tool execution.
 - Migration-managed schema changes.
-- Backup and restore process before real customer data.
+
+Render deployment is defined in `render.yaml`; operational steps are in `docs/runbooks/render-cloud-deployment.md`.
+
+## Remaining Production Requirement
+
+Confirm and rehearse the managed database backup and restore process before accepting real customer data. A database being managed does not replace an application-specific restore drill.
 
 ## Operating Rule
 

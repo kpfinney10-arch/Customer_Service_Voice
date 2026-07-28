@@ -77,6 +77,7 @@ export TENANT_API_KEYS=fh-demo:replace-with-local-dev-key
 export TENANT_CONFIGS_JSON='{"fh-demo":{"tenantId":"fh-demo","displayName":"Demo Funeral Home","timezone":"America/Chicago","handoff":{"defaultQueue":"first-call-dispatch","onCallPhone":"+15555550100","dispatchDeskPhone":"+15555550101","afterHoursQueue":"first-call-after-hours"},"features":{"crmHandoff":true,"dispatchHandoff":true,"voiceIntake":true}}}'
 export RATE_LIMIT_PER_WINDOW=120
 export RATE_LIMIT_WINDOW_MS=60000
+export HOST=127.0.0.1
 export STORAGE_DRIVER=memory
 export STORAGE_DATA_DIR=.voice-ai-data
 export TELEPHONY_WEBHOOK_SECRETS=
@@ -124,11 +125,13 @@ All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `
 
 The version endpoint returns deployment metadata from `SERVICE_NAME`, `SERVICE_VERSION`, `SERVICE_COMMIT`, and `SERVICE_BUILD_TIME`. These values make it easier to confirm which build is running during debugging, support, and staging-to-production comparisons.
 
-Server startup validates `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process.
+Server startup validates `HOST`, `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, storage, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process. `HOST` defaults to `127.0.0.1`; cloud services should set it to `0.0.0.0`.
 
-Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions, event timelines, and idempotency replay records under `STORAGE_DATA_DIR` so early human-testing data survives server restarts.
+Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions, event timelines, and idempotency replay records under `STORAGE_DATA_DIR` so early human-testing data survives server restarts. The production `postgres` driver requires `DATABASE_URL`, runs migration-managed schema setup before accepting traffic, and persists tenant-scoped sessions, append-only events, and idempotency records in PostgreSQL.
 
-The server installs graceful shutdown handlers for `SIGINT` and `SIGTERM`. On shutdown, it stops accepting new HTTP requests, attempts to close active connections, logs lifecycle events, and exits with a non-zero code if the close times out or fails.
+The server installs graceful shutdown handlers for `SIGINT` and `SIGTERM`. On shutdown, it stops accepting new HTTP requests, attempts to close active connections and the persistence pool, logs lifecycle events, and exits with a non-zero code if shutdown fails.
+
+The repository includes `render.yaml` for an always-on Render web service and managed PostgreSQL database. Follow `docs/runbooks/render-cloud-deployment.md` to deploy, validate the temporary Render hostname, attach `voice.lanternbell.com`, and cut over from the local Cloudflare tunnel without interrupting the current working endpoint.
 
 API responses include an `x-request-id` header. If the caller sends `x-request-id`, the server echoes it; otherwise it generates one. The HTTP boundary writes structured request logs with method, path, tenant id, status code, duration, request id, and error code when applicable. Request bodies, transcripts, and API keys are not logged.
 

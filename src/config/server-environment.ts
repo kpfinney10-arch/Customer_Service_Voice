@@ -26,6 +26,7 @@ import { createFirstCallExtractorFromEnv } from "./first-call-extractor-environm
 import type { FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
 
 export type ServerEnvironment = {
+  host: string;
   port: number;
   tenantConfigStore: TenantConfigStore;
   apiKeyVerifier: TenantApiKeyVerifier;
@@ -34,6 +35,8 @@ export type ServerEnvironment = {
   storage: {
     driver: StorageDriver;
     dataDir?: string;
+    initialize: () => Promise<void>;
+    close: () => Promise<void>;
   };
   sessionStore: SessionStore;
   eventStore: EventStore;
@@ -60,10 +63,13 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
   const persistence = createPersistenceStoresFromEnv(env);
   const storage: ServerEnvironment["storage"] = {
     driver: persistence.driver,
+    initialize: persistence.initialize,
+    close: persistence.close,
   };
   if (persistence.dataDir) storage.dataDir = persistence.dataDir;
 
   return {
+    host: parseHost(env.HOST),
     port: parsePort(env.PORT),
     tenantConfigStore: createTenantConfigStoreFromEnv(env.TENANT_CONFIGS_JSON),
     apiKeyVerifier: createTenantApiKeyVerifierFromEnv(env.TENANT_API_KEYS),
@@ -82,6 +88,17 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     twilioReadiness: evaluateTwilioReadinessFromEnv(env),
     firstCallExtractor: createFirstCallExtractorFromEnv(env),
   };
+}
+
+function parseHost(value: string | undefined): string {
+  const host = value?.trim() || "127.0.0.1";
+  if (host.includes("/") || host.includes("://") || /\s/.test(host)) {
+    throw new ServerEnvironmentError(
+      "INVALID_HOST",
+      "HOST must be a hostname or IP address without a scheme, path, or whitespace.",
+    );
+  }
+  return host;
 }
 
 function parsePort(value: string | undefined): number {

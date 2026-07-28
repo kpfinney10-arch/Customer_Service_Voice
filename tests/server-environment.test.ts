@@ -7,6 +7,7 @@ import { TenantConfigParseError } from "../src/tenants/tenant-config.js";
 test("server environment loads validated startup dependencies", async () => {
   const environment = loadServerEnvironment({
     PORT: "4000",
+    HOST: "0.0.0.0",
     TENANT_API_KEYS: "fh-demo:demo-api-key",
     TENANT_CONFIGS_JSON: JSON.stringify({
       "fh-demo": {
@@ -36,6 +37,7 @@ test("server environment loads validated startup dependencies", async () => {
   });
 
   assert.equal(environment.port, 4000);
+  assert.equal(environment.host, "0.0.0.0");
   assert.equal(environment.buildInfo.version, "1.0.0");
   assert.equal(environment.buildInfo.commit, "abc123");
   assert.equal(environment.storage.driver, "file");
@@ -66,6 +68,23 @@ test("server environment rejects invalid port", () => {
     () =>
       loadServerEnvironment({
         PORT: "99999",
+        TENANT_API_KEYS: "fh-demo:demo-api-key",
+      }),
+    ServerEnvironmentError,
+  );
+});
+
+test("server environment defaults to loopback and rejects URL-shaped hosts", () => {
+  assert.equal(
+    loadServerEnvironment({
+      TENANT_API_KEYS: "fh-demo:demo-api-key",
+    }).host,
+    "127.0.0.1",
+  );
+  assert.throws(
+    () =>
+      loadServerEnvironment({
+        HOST: "https://voice.lanternbell.com",
         TENANT_API_KEYS: "fh-demo:demo-api-key",
       }),
     ServerEnvironmentError,

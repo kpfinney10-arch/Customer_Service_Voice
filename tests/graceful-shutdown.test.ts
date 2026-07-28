@@ -41,6 +41,29 @@ test("installGracefulShutdown logs lifecycle and exits after signal", async () =
   assert.equal(logger.errors.length, 0);
 });
 
+test("installGracefulShutdown closes persistence resources after HTTP", async () => {
+  const server = new FakeHttpServer();
+  const logger = new TestLogger();
+  const target = new FakeSignalTarget();
+  let resourcesClosed = false;
+  const exitCode = new Promise<number>((resolve) => {
+    installGracefulShutdown({
+      server: server as unknown as http.Server,
+      logger,
+      processTarget: target,
+      closeResources: async () => {
+        resourcesClosed = true;
+      },
+      exit: resolve,
+    });
+  });
+
+  target.emit("SIGTERM");
+
+  assert.equal(await exitCode, 0);
+  assert.equal(resourcesClosed, true);
+});
+
 class FakeHttpServer {
   closeCalled = false;
 
