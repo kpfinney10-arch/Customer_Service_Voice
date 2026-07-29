@@ -759,9 +759,15 @@ Before real production traffic:
 - Signed permanent-host scenario run `lanternbell-render-cutover-scenarios-1785284296` passed all `7/7` scenarios.
 - The Twilio phone-number webhook URL did not need to change because it already uses the permanent hostname and path.
 - The local TypeScript service and named Cloudflare tunnel remain available for rollback, but Cloudflare DNS no longer routes `voice.lanternbell.com` to the Mac.
+- Controlled inbound Twilio call `CAe1670388173831ec8474505578338c29` reached the Render service and persisted 21 ordered events in PostgreSQL.
+- The call reached `ESCALATE`, captured the officer/callback/facility/decedent/residence details, corrected the caller surname after the spelling prompt, completed `crm.create_intake_lead` and `dispatch.create_removal_request`, and recorded no tool failures.
+- The handoff retained `currently_with_decedent` and `requested_funeral_home` as missing details for staff confirmation. The workflow still created a dispatch request for review because the authorized caller and minimum pickup context were present.
+- Minor diagnostics cleanup candidate: the session-level `intent` ended as `unknown` after later slot-only turns even though `reasonForCall` remained `first_call_death_report` and the workflow correctly followed the urgent first-call path.
+- After the controlled call passed, stopped and disabled `com.lanternbell.cloudflared`. The permanent Render hostname remained healthy.
+- Kept `com.lanternbell.voice-ai` running locally on `127.0.0.1:3000` for development and rollback data access; it is no longer a public dependency.
 
 Next action:
 
-1. Complete one controlled inbound demo call to the Twilio number.
-2. Inspect that call's persisted Render/PostgreSQL replay and confirm the caller heard the simulated-handoff message with no live transfer.
-3. Only after that call passes, stop and disable the Mac-hosted Cloudflare tunnel public path.
+1. Fix the session-level intent so later slot-only turns do not overwrite a previously established `first_call_intake` intent with `unknown`.
+2. Decide whether officer/facility death calls should explicitly ask `currently_with_decedent` and `requested_funeral_home` before escalation, or continue leaving them for staff confirmation.
+3. Before accepting customer data, complete the managed PostgreSQL backup/restore drill and add uptime plus failed-call alerting.

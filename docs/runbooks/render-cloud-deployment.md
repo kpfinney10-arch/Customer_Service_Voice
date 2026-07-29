@@ -116,6 +116,8 @@ The 2026-07-28 cutover validation passed:
 
 - Webhook smoke: `lanternbell-render-cutover-smoke-1785284296`
 - Scenario matrix: `lanternbell-render-cutover-scenarios-1785284296` (`7/7`)
+- Controlled inbound call: `CAe1670388173831ec8474505578338c29`
+- Real-call replay: `ESCALATE`, 21 events, CRM and dispatch-review tools completed, no tool failures
 
 ## 6. Retire The Mac Public Path
 
@@ -124,6 +126,12 @@ Only after all signed cloud checks and the real call pass:
 1. Stop and disable `com.lanternbell.cloudflared`.
 2. Keep the local TypeScript service available temporarily for development if desired.
 3. Record the Render deployment ID, database identity, validation run IDs, and DNS cutover time in `docs/SESSION_HANDOFF.md`.
+
+Completed on 2026-07-28 after the controlled inbound call passed:
+
+- `com.lanternbell.cloudflared` is stopped and disabled.
+- `com.lanternbell.voice-ai` remains available on `127.0.0.1:3000`.
+- `voice.lanternbell.com` remained healthy through Render after the tunnel stopped.
 
 ## Rollback
 
