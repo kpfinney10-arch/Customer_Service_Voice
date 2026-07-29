@@ -747,9 +747,21 @@ Before real production traffic:
 - Signed simulated-handoff smoke session `render-demo-post-sequence-smoke-1785283854` passed with persisted escalation and no dial command.
 - Signed temporary-host scenario run `render-demo-post-sequence-scenarios-1785283855` passed `7/7`, including stable CRM-before-dispatch replay for the previously affected hospital scenario.
 
+## 2026-07-28 Render permanent-hostname cutover
+
+- Added and verified the Render custom domain `voice.lanternbell.com`.
+- At approximately `2026-07-28 19:16 CDT`, changed the Cloudflare `voice` CNAME from the named-tunnel target to `lanternbell-voice.onrender.com`.
+- The Cloudflare record is DNS-only during Render certificate validation. DNS now resolves to the Render target.
+- Render verified the hostname, and HTTPS serves a valid Google Trust Services certificate whose subject is `voice.lanternbell.com`.
+- `https://voice.lanternbell.com/health` returns HTTP 200 with `{"ok":true}`.
+- Signed readiness passed through the permanent hostname with `signed_webhook`, `handoffMode: simulate`, and public readiness.
+- Signed permanent-host webhook smoke session `lanternbell-render-cutover-smoke-1785284296` passed with persisted escalation and no dial command.
+- Signed permanent-host scenario run `lanternbell-render-cutover-scenarios-1785284296` passed all `7/7` scenarios.
+- The Twilio phone-number webhook URL did not need to change because it already uses the permanent hostname and path.
+- The local TypeScript service and named Cloudflare tunnel remain available for rollback, but Cloudflare DNS no longer routes `voice.lanternbell.com` to the Mac.
+
 Next action:
 
-1. Attach `voice.lanternbell.com` to the Render web service and obtain Render's DNS target.
-2. Replace the existing Cloudflare tunnel DNS route only after Render is ready to verify the hostname.
-3. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.
-4. Complete one controlled inbound demo call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.
+1. Complete one controlled inbound demo call to the Twilio number.
+2. Inspect that call's persisted Render/PostgreSQL replay and confirm the caller heard the simulated-handoff message with no live transfer.
+3. Only after that call passes, stop and disable the Mac-hosted Cloudflare tunnel public path.

@@ -6,7 +6,7 @@ Run the LanternBell TypeScript voice service continuously on Render with managed
 
 `https://voice.lanternbell.com/v1/tenants/fh-demo/telephony/twilio/webhook`
 
-The existing supervised Mac service and Cloudflare tunnel stay active until the cloud deployment passes validation.
+The supervised Mac service and Cloudflare tunnel stay available until the cloud deployment and one controlled inbound call pass validation.
 
 ## What The Blueprint Creates
 
@@ -86,6 +86,13 @@ curl --fail --show-error https://voice.lanternbell.com/health
 
 The Twilio number can keep its current webhook URL because the hostname and path do not change.
 
+Current demo deployment:
+
+- Cloudflare CNAME: `voice` -> `lanternbell-voice.onrender.com`
+- Proxy status: DNS-only while using Render-managed TLS
+- Render domain: verified
+- Permanent-host health: HTTP 200
+
 ## 5. Validate Signed Traffic After Cutover
 
 From a local shell with secrets exported:
@@ -104,6 +111,11 @@ npm run smoke:twilio-scenarios
 ```
 
 Then complete one controlled real inbound phone call and inspect the tenant replay endpoint.
+
+The 2026-07-28 cutover validation passed:
+
+- Webhook smoke: `lanternbell-render-cutover-smoke-1785284296`
+- Scenario matrix: `lanternbell-render-cutover-scenarios-1785284296` (`7/7`)
 
 ## 6. Retire The Mac Public Path
 
