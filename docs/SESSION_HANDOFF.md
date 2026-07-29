@@ -742,12 +742,14 @@ Before real production traffic:
 - Added PostgreSQL migration `002_stable_event_sequence` and now order equal-time events by database insertion sequence. This preserves actual append order for replay and diagnostics.
 - Updated all Twilio smoke scripts to accept `TWILIO_EXPECT_HANDOFF_MODE=live|simulate`; simulated scenarios expect the demo message and hangup instead of a dial command.
 - Added explicit TypeScript `node` and `pg` type selection so macOS-generated duplicate dependency folders cannot break local builds. Full validation remains `273/273`.
+- Render deployed commit `c4643eb`; the build passed, migration `002_stable_event_sequence` completed in pre-deploy, the service reached Live status, and `/health` returned HTTP 200.
+- Post-migration signed readiness passed with `signed_webhook`, `handoffMode: simulate`, and public readiness.
+- Signed simulated-handoff smoke session `render-demo-post-sequence-smoke-1785283854` passed with persisted escalation and no dial command.
+- Signed temporary-host scenario run `render-demo-post-sequence-scenarios-1785283855` passed `7/7`, including stable CRM-before-dispatch replay for the previously affected hospital scenario.
 
 Next action:
 
-1. Deploy the stable event-sequence migration to Render.
-2. Re-run the signed simulated-handoff smoke and full `7/7` scenario matrix on the temporary Render hostname.
-3. Attach `voice.lanternbell.com` to the Render web service and complete Render's custom-domain verification.
-4. Cut Cloudflare DNS over only after the custom domain is ready.
-5. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.
-6. Complete one controlled inbound demo call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.
+1. Attach `voice.lanternbell.com` to the Render web service and obtain Render's DNS target.
+2. Replace the existing Cloudflare tunnel DNS route only after Render is ready to verify the hostname.
+3. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.
+4. Complete one controlled inbound demo call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.
