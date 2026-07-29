@@ -5,6 +5,7 @@ const tenantId = env("TENANT_ID", "fh-demo");
 const apiKey = env("TENANT_API_KEY", "replace-with-local-dev-key");
 const authToken = env("TWILIO_AUTH_TOKEN", "");
 const signedExpected = env("TWILIO_EXPECT_SIGNED_WEBHOOK", "false").toLowerCase() === "true";
+const handoffModeExpected = env("TWILIO_EXPECT_HANDOFF_MODE", "live").toLowerCase();
 const runId = env("TWILIO_SCENARIO_RUN_ID", `twilio-scenario-${Date.now()}`);
 const fromNumber = env("TWILIO_SCENARIO_FROM", "+16037315845");
 const toNumber = env("TWILIO_SCENARIO_TO", "+15559870000");
@@ -232,9 +233,13 @@ async function main() {
   if (signedExpected && !authToken) {
     throw new Error("TWILIO_EXPECT_SIGNED_WEBHOOK=true requires TWILIO_AUTH_TOKEN.");
   }
+  if (!["live", "simulate"].includes(handoffModeExpected)) {
+    throw new Error("TWILIO_EXPECT_HANDOFF_MODE must be either live or simulate.");
+  }
 
   const readiness = await expectTenantJson("GET", `/v1/tenants/${tenantId}/telephony/twilio/readiness`, undefined, 200);
   assertEqual(readiness.twilioReadiness?.readyForLocalTesting, true, "Twilio local readiness");
+  assertEqual(readiness.twilioReadiness?.handoffMode, handoffModeExpected, "Twilio handoff mode");
   if (signedExpected) {
     assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
   }
@@ -266,7 +271,17 @@ async function runScenario(scenario) {
       Confidence: turn.confidence ?? "0.92",
     });
     for (const expected of turn.includes ?? []) {
-      assertIncludes(twiml, expected, `${scenario.id} turn ${index + 1}`);
+      if (expected === "<Dial " && handoffModeExpected === "simulate") {
+        assertIncludes(
+          twiml,
+          "This demo has recorded that a funeral home team member should follow up.",
+          `${scenario.id} turn ${index + 1} simulated handoff`,
+        );
+        assertIncludes(twiml, "<Hangup/>", `${scenario.id} turn ${index + 1} simulated hangup`);
+        assertExcludes(twiml, "<Dial", `${scenario.id} turn ${index + 1} simulated dial`);
+      } else {
+        assertIncludes(twiml, expected, `${scenario.id} turn ${index + 1}`);
+      }
     }
     for (const unexpected of turn.excludes ?? []) {
       assertExcludes(twiml, unexpected, `${scenario.id} turn ${index + 1}`);

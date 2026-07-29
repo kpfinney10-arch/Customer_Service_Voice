@@ -1,6 +1,5 @@
 import type { PostgresDatabase } from "./postgres-client.js";
 
-const MIGRATION_VERSION = "001_initial_voice_persistence";
 const MIGRATION_LOCK_ID = 1_902_024_001;
 
 export async function migratePostgres(database: PostgresDatabase): Promise<void> {
@@ -14,15 +13,16 @@ export async function migratePostgres(database: PostgresDatabase): Promise<void>
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-    const existing = await connection.query<{ version: string }>(
-      "SELECT version FROM schema_migrations WHERE version = $1",
-      [MIGRATION_VERSION],
-    );
-    if (existing.rowCount === 0) {
-      await connection.query(INITIAL_SCHEMA_SQL);
+    for (const migration of MIGRATIONS) {
+      const existing = await connection.query<{ version: string }>(
+        "SELECT version FROM schema_migrations WHERE version = $1",
+        [migration.version],
+      );
+      if (existing.rowCount !== 0) continue;
+      await connection.query(migration.sql);
       await connection.query(
         "INSERT INTO schema_migrations (version) VALUES ($1)",
-        [MIGRATION_VERSION],
+        [migration.version],
       );
     }
     await connection.query("COMMIT");
@@ -80,3 +80,20 @@ const INITIAL_SCHEMA_SQL = `
   CREATE INDEX idempotency_records_tenant_created_at_idx
     ON idempotency_records (tenant_id, created_at DESC);
 `;
+
+const MIGRATIONS = [
+  {
+    version: "001_initial_voice_persistence",
+    sql: INITIAL_SCHEMA_SQL,
+  },
+  {
+    version: "002_stable_event_sequence",
+    sql: `
+      ALTER TABLE call_events
+        ADD COLUMN event_sequence bigserial;
+
+      CREATE UNIQUE INDEX call_events_event_sequence_idx
+        ON call_events (event_sequence);
+    `,
+  },
+] as const;

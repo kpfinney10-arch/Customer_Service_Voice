@@ -737,11 +737,16 @@ Before real production traffic:
 - Live mode remains available for a later controlled bridge test using a separate consenting cell phone. The inbound Twilio number must not be used as its own transfer destination because that can loop back into the AI.
 - Invalid handoff modes fail startup validation instead of silently enabling live dialing.
 - Validation passed the TypeScript build and the full `273/273` test suite, including end-to-end webhook coverage proving that the session remains escalated while no dial command is emitted.
+- Render deployed demo-handoff commit `79501cd`. Signed readiness reported `signed_webhook`, `handoffMode: simulate`, and public readiness; signed smoke session `render-demo-simulated-smoke-1785283647` reached escalation, persisted successfully, and returned no dial command.
+- The first signed cloud scenario-matrix run exposed deterministic replay ordering rather than a workflow failure: the hospital scenario completed CRM and dispatch, but two events with identical millisecond timestamps replayed in event-ID order.
+- Added PostgreSQL migration `002_stable_event_sequence` and now order equal-time events by database insertion sequence. This preserves actual append order for replay and diagnostics.
+- Updated all Twilio smoke scripts to accept `TWILIO_EXPECT_HANDOFF_MODE=live|simulate`; simulated scenarios expect the demo message and hangup instead of a dial command.
+- Added explicit TypeScript `node` and `pg` type selection so macOS-generated duplicate dependency folders cannot break local builds. Full validation remains `273/273`.
 
 Next action:
 
-1. Sync and deploy the demo-handoff Blueprint update on Render.
-2. Verify Render readiness reports `handoffMode: simulate` and run a signed escalation smoke proving no `<Dial>` is returned.
+1. Deploy the stable event-sequence migration to Render.
+2. Re-run the signed simulated-handoff smoke and full `7/7` scenario matrix on the temporary Render hostname.
 3. Attach `voice.lanternbell.com` to the Render web service and complete Render's custom-domain verification.
 4. Cut Cloudflare DNS over only after the custom domain is ready.
 5. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.

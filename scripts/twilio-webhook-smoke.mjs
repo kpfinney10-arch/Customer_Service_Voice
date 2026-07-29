@@ -5,6 +5,7 @@ const tenantId = env("TENANT_ID", "fh-demo");
 const apiKey = env("TENANT_API_KEY", "replace-with-local-dev-key");
 const authToken = env("TWILIO_AUTH_TOKEN", "");
 const signedExpected = env("TWILIO_EXPECT_SIGNED_WEBHOOK", "false").toLowerCase() === "true";
+const handoffModeExpected = env("TWILIO_EXPECT_HANDOFF_MODE", "live").toLowerCase();
 const callSid = env("TWILIO_SMOKE_CALL_SID", "twilio-smoke-call-1");
 const outboundCallSid = env("TWILIO_SMOKE_OUTBOUND_CALL_SID", "twilio-smoke-outbound-1");
 const speechTranscript = env(
@@ -19,9 +20,13 @@ async function main() {
   if (signedExpected && !authToken) {
     throw new Error("TWILIO_EXPECT_SIGNED_WEBHOOK=true requires TWILIO_AUTH_TOKEN.");
   }
+  if (!["live", "simulate"].includes(handoffModeExpected)) {
+    throw new Error("TWILIO_EXPECT_HANDOFF_MODE must be either live or simulate.");
+  }
 
   const readiness = await expectTenantJson("GET", `/v1/tenants/${tenantId}/telephony/twilio/readiness`, undefined, 200);
   assertEqual(readiness.twilioReadiness?.readyForLocalTesting, true, "Twilio local readiness");
+  assertEqual(readiness.twilioReadiness?.handoffMode, handoffModeExpected, "Twilio handoff mode");
   if (signedExpected) {
     assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
     await expectUnsignedTwilioRejection("/webhook", {
@@ -47,23 +52,30 @@ async function main() {
     SpeechResult: speechTranscript,
     Confidence: "0.92",
   });
-  assertIncludes(escalationTwiMl, "<Dial ", "handoff dial");
-  assertIncludes(escalationTwiMl, "/telephony/twilio/handoff-screen", "handoff screen url");
+  if (handoffModeExpected === "simulate") {
+    assertIncludes(escalationTwiMl, "This demo has recorded that a funeral home team member should follow up.", "simulated handoff");
+    assertIncludes(escalationTwiMl, "<Hangup/>", "simulated handoff hangup");
+    assertExcludes(escalationTwiMl, "<Dial", "simulated handoff dial");
+    assertExcludes(escalationTwiMl, "+15555550100", "simulated placeholder destination");
+  } else {
+    assertIncludes(escalationTwiMl, "<Dial ", "handoff dial");
+    assertIncludes(escalationTwiMl, "/telephony/twilio/handoff-screen", "handoff screen url");
 
-  const screeningTwiMl = await postTwilioForm("/handoff-screen", {
-    CallSid: outboundCallSid,
-    ParentCallSid: callSid,
-  });
-  assertIncludes(screeningTwiMl, '<Gather input="dtmf" numDigits="1"', "handoff screening gather");
-  assertIncludes(screeningTwiMl, "Caller Sarah Miller", "handoff caller summary");
-  assertIncludes(screeningTwiMl, "Deceased Robert Miller", "handoff decedent summary");
+    const screeningTwiMl = await postTwilioForm("/handoff-screen", {
+      CallSid: outboundCallSid,
+      ParentCallSid: callSid,
+    });
+    assertIncludes(screeningTwiMl, '<Gather input="dtmf" numDigits="1"', "handoff screening gather");
+    assertIncludes(screeningTwiMl, "Caller Sarah Miller", "handoff caller summary");
+    assertIncludes(screeningTwiMl, "Deceased Robert Miller", "handoff decedent summary");
 
-  const acceptTwiMl = await postTwilioForm("/handoff-accept", {
-    CallSid: outboundCallSid,
-    ParentCallSid: callSid,
-    Digits: "1",
-  });
-  assertIncludes(acceptTwiMl, "Connecting now.", "handoff accept response");
+    const acceptTwiMl = await postTwilioForm("/handoff-accept", {
+      CallSid: outboundCallSid,
+      ParentCallSid: callSid,
+      Digits: "1",
+    });
+    assertIncludes(acceptTwiMl, "Connecting now.", "handoff accept response");
+  }
 
   const replay = await expectTenantJson(
     "GET",
@@ -78,6 +90,7 @@ async function main() {
   console.log(`Call SID: ${callSid}`);
   console.log(`Replay: ${baseUrl}/v1/tenants/${tenantId}/first-call/sessions/${callSid}/replay`);
   console.log(`Mode: ${authToken ? "signed webhook" : "unsigned local"}`);
+  console.log(`Handoff mode: ${handoffModeExpected}`);
 }
 
 async function postTwilioForm(pathSuffix, fields) {
@@ -167,6 +180,12 @@ function assertEqual(actual, expected, label) {
 function assertIncludes(actual, expected, label) {
   if (!actual.includes(expected)) {
     throw new Error(`${label} expected ${JSON.stringify(expected)} in ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertExcludes(actual, unexpected, label) {
+  if (actual.includes(unexpected)) {
+    throw new Error(`${label} did not expect ${JSON.stringify(unexpected)} in ${JSON.stringify(actual)}`);
   }
 }
 

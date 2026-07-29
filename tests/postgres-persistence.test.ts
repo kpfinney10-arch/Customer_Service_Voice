@@ -92,6 +92,35 @@ test("PostgreSQL migration and stores preserve tenant isolation and durable reco
     "call-2",
   );
 
+  const sameTimeFirst = createCallEvent({
+    eventId: "event-z",
+    eventType: "TOOL_EXECUTED",
+    callId: "call-1",
+    sessionId: "same-time-session",
+    tenantId: "tenant-a",
+    correlationId: "correlation-same-time",
+    occurredAt: "2026-07-28T12:03:30.000Z",
+    payload: { toolName: "crm.create_intake_lead" },
+  });
+  const sameTimeSecond = createCallEvent({
+    eventId: "event-a",
+    eventType: "TOOL_EXECUTED",
+    callId: "call-1",
+    sessionId: "same-time-session",
+    tenantId: "tenant-a",
+    correlationId: "correlation-same-time",
+    occurredAt: "2026-07-28T12:03:30.000Z",
+    payload: { toolName: "dispatch.create_removal_request" },
+  });
+  await events.append([sameTimeFirst, sameTimeSecond]);
+
+  assert.deepEqual(
+    (await events.listBySession("tenant-a", "same-time-session")).map(
+      (event) => event.eventId,
+    ),
+    ["event-z", "event-a"],
+  );
+
   await idempotency.save({
     tenantId: "tenant-a",
     key: "retry-1",

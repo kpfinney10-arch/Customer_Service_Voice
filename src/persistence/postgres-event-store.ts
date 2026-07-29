@@ -31,7 +31,7 @@ export class PostgresEventStore implements EventStore {
       `SELECT payload
        FROM call_events
        WHERE tenant_id = $1 AND session_id = $2
-       ORDER BY occurred_at ASC, event_id ASC`,
+       ORDER BY occurred_at ASC, event_sequence ASC`,
       [tenantId, sessionId],
     );
     return result.rows.map((row) => row.payload);
@@ -42,7 +42,7 @@ export class PostgresEventStore implements EventStore {
       `SELECT payload
        FROM call_events
        WHERE tenant_id = $1
-       ORDER BY occurred_at DESC, event_id DESC
+       ORDER BY occurred_at DESC, event_sequence DESC
        LIMIT $2`,
       [tenantId, limit],
     );

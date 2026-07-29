@@ -2,6 +2,7 @@ const baseUrl = env("API_BASE_URL", "http://127.0.0.1:3000");
 const tenantId = env("TENANT_ID", "fh-demo");
 const apiKey = env("TENANT_API_KEY", "replace-with-local-dev-key");
 const publicExpected = env("TWILIO_EXPECT_PUBLIC_READY", "false").toLowerCase() === "true";
+const handoffModeExpected = env("TWILIO_EXPECT_HANDOFF_MODE", "");
 
 await main();
 
@@ -15,6 +16,9 @@ async function main() {
   assertEqual(readiness.tenantReadiness?.ready, true, "tenant readiness");
   assertEqual(readiness.twilioReadiness?.provider, "twilio", "provider");
   assertEqual(readiness.twilioReadiness?.readyForLocalTesting, true, "Twilio local readiness");
+  if (handoffModeExpected) {
+    assertEqual(readiness.twilioReadiness?.handoffMode, handoffModeExpected, "Twilio handoff mode");
+  }
 
   if (publicExpected) {
     assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
@@ -22,6 +26,7 @@ async function main() {
 
   console.log("Twilio readiness smoke check passed.");
   console.log(`Mode: ${readiness.twilioReadiness?.mode ?? "unknown"}`);
+  console.log(`Handoff mode: ${readiness.twilioReadiness?.handoffMode ?? "unknown"}`);
   console.log(`Public traffic ready: ${readiness.twilioReadiness?.readyForPublicTraffic === true ? "yes" : "no"}`);
 }
 

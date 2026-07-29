@@ -58,6 +58,7 @@ export API_BASE_URL=https://<render-service-hostname>
 export TENANT_ID=fh-demo
 export TENANT_API_KEY=<the-cloud-tenant-api-key>
 export TWILIO_EXPECT_PUBLIC_READY=true
+export TWILIO_EXPECT_HANDOFF_MODE=simulate
 npm run smoke:twilio-readiness
 ```
 
@@ -96,6 +97,7 @@ export TENANT_API_KEY=<the-cloud-tenant-api-key>
 export TWILIO_AUTH_TOKEN=<the-current-Twilio-Auth-Token>
 export TWILIO_EXPECT_PUBLIC_READY=true
 export TWILIO_EXPECT_SIGNED_WEBHOOK=true
+export TWILIO_EXPECT_HANDOFF_MODE=simulate
 npm run smoke:twilio-readiness
 npm run smoke:twilio
 npm run smoke:twilio-scenarios
