@@ -48,6 +48,7 @@ import {
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../providers/telephony/twilio-adapter.js";
+import type { TwilioHandoffMode } from "../providers/telephony/twilio-adapter.js";
 import { createListenVoiceResponse } from "../providers/telephony/voice-response.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
@@ -375,7 +376,9 @@ export async function handleApiRequest(
         rawBody,
         headers: request.headers,
       });
-      response = twimlResponse(await handleTwilioWebhook(service, tenantId, body, url.pathname));
+      response = twimlResponse(
+        await handleTwilioWebhook(service, tenantId, body, url.pathname, twilioReadiness.handoffMode),
+      );
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -876,7 +879,11 @@ async function routeRequest(
       rawBody,
       headers: headersFromIncomingMessage(request),
     });
-    sendTwiml(response, 200, await handleTwilioWebhook(service, tenantId, body, url.pathname));
+    sendTwiml(
+      response,
+      200,
+      await handleTwilioWebhook(service, tenantId, body, url.pathname, twilioReadiness.handoffMode),
+    );
     return;
   }
 
@@ -1256,6 +1263,7 @@ async function handleTwilioWebhook(
   tenantId: string,
   body: Record<string, string>,
   path: string,
+  handoffMode: TwilioHandoffMode = "live",
 ): Promise<string> {
   const translated = translateTwilioWebhook({
     tenantId,
@@ -1268,7 +1276,7 @@ async function handleTwilioWebhook(
     const output = await handleInboundTelephonyCall(service, translated.input);
     return createTwilioTwiMl({
       voiceResponse: output.voiceResponse,
-      options: { actionUrl },
+      options: { actionUrl, handoffMode },
     });
   }
 
@@ -1276,21 +1284,21 @@ async function handleTwilioWebhook(
     const output = await handleTelephonySpeechTurn(service, translated.input);
     return createTwilioTwiMl({
       voiceResponse: output.voiceResponse,
-      options: { actionUrl, handoffScreeningUrl },
+      options: { actionUrl, handoffScreeningUrl, handoffMode },
     });
   }
 
   if (translated.kind === "empty_speech") {
     return createTwilioTwiMl({
       voiceResponse: createListenVoiceResponse("I am sorry, I did not catch that. Please say that again."),
-      options: { actionUrl },
+      options: { actionUrl, handoffMode },
     });
   }
 
   const output = await handleTelephonyCallEnd(service, translated.input);
   return createTwilioTwiMl({
     voiceResponse: output.voiceResponse,
-    options: { actionUrl },
+    options: { actionUrl, handoffMode },
   });
 }
 

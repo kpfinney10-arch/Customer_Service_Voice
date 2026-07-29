@@ -4,6 +4,7 @@ import {
   createTwilioHandoffAcceptedTwiMl,
   createTwilioHandoffScreeningTwiMl,
   createTwilioTwiMl,
+  DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE,
   DEFAULT_TWILIO_SPEECH_HINTS,
   DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS,
   translateTwilioWebhook,
@@ -167,6 +168,27 @@ test("Twilio TwiML dials phone destinations for human handoff", () => {
     twiml,
     '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="18" answerOnBridge="true"><Number>+15555550100</Number></Dial></Response>',
   );
+});
+
+test("Twilio TwiML records demo handoffs without dialing a phone destination", () => {
+  const twiml = createTwilioTwiMl({
+    voiceResponse: createHandoffVoiceResponse("I am connecting you now.", "urgent_death_report", {
+      destinationType: "on_call_phone",
+      destination: "+15555550100",
+      queue: "first-call-after-hours",
+    }),
+    options: {
+      actionUrl: "/twilio",
+      handoffMode: "simulate",
+    },
+  });
+
+  assert.equal(
+    twiml,
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE}</Say><Hangup/></Response>`,
+  );
+  assert.doesNotMatch(twiml, /<Dial/);
+  assert.doesNotMatch(twiml, /\+15555550100/);
 });
 
 test("Twilio TwiML adds called-party screening URL for warm handoff", () => {

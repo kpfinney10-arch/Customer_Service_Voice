@@ -724,15 +724,25 @@ Before real production traffic:
 - Cloud health returned HTTP 200. Authenticated Twilio readiness returned HTTP 200 with tenant readiness, `signed_webhook` mode, and `publicReady: true`.
 - A fully signed Twilio webhook smoke test passed against the Render hostname with session `render-cloud-smoke-1785282920137`. The call reached `ESCALATE`, produced six persisted events, completed escalation behavior, and replayed successfully from PostgreSQL.
 - The generated `fh-demo` tenant API key is stored in macOS Keychain under service `LanternBell Render Tenant API Key`; no secret values are committed.
-- Render currently contains test-only routing numbers (`+15555550100` and `+15555550101`). Replace them with real on-call and dispatch destinations before sending any customer traffic to Render.
+- Render currently contains test-only routing numbers (`+15555550100` and `+15555550101`).
 - The repository was connected to Render by public Git URL rather than the installed GitHub integration. Blueprint changes therefore require a manual Blueprint sync and approval in Render.
 - Cloudflare DNS and the Twilio phone-number webhook have not been changed. The existing Mac-hosted service behind the named Cloudflare tunnel remains the live phone path.
 
+## 2026-07-28 Render demo handoff mode
+
+- Confirmed the current phase is demo/testing. The existing Twilio number is the inbound number callers use to reach the AI; no separate human transfer destination is required yet.
+- Added explicit `TWILIO_HANDOFF_MODE=simulate` to the Render Blueprint.
+- In simulation mode, the TypeScript workflow still reaches `ESCALATE` and records its handoff, CRM, dispatch, event, and PostgreSQL state normally.
+- Twilio receives a caller-safe demo message and `<Hangup/>`; it receives no `<Dial>` verb and no placeholder destination.
+- Live mode remains available for a later controlled bridge test using a separate consenting cell phone. The inbound Twilio number must not be used as its own transfer destination because that can loop back into the AI.
+- Invalid handoff modes fail startup validation instead of silently enabling live dialing.
+- Validation passed the TypeScript build and the full `273/273` test suite, including end-to-end webhook coverage proving that the session remains escalated while no dial command is emitted.
+
 Next action:
 
-1. Replace the two test-only routing numbers in Render with the intended real on-call and dispatch destinations.
-2. Optionally expose Render build metadata through `/version` using Render's commit environment variable.
+1. Sync and deploy the demo-handoff Blueprint update on Render.
+2. Verify Render readiness reports `handoffMode: simulate` and run a signed escalation smoke proving no `<Dial>` is returned.
 3. Attach `voice.lanternbell.com` to the Render web service and complete Render's custom-domain verification.
 4. Cut Cloudflare DNS over only after the custom domain is ready.
 5. Re-run signed readiness, webhook smoke, and the `7/7` scenario matrix through `voice.lanternbell.com`.
-6. Complete one controlled live inbound call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.
+6. Complete one controlled inbound demo call, verify its persisted replay, and only then retire the Mac-hosted tunnel path.

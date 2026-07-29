@@ -27,7 +27,9 @@ Prepare these locally. Do not commit them or paste them into support messages:
 - `TELEPHONY_WEBHOOK_SECRETS`: `twilio:<the-current-Twilio-Auth-Token>`
 - `TENANT_CONFIGS_JSON`: the tenant's routing configuration as one-line JSON
 
-The tenant configuration must use real handoff phone numbers before live customer traffic. Shape:
+The Blueprint sets `TWILIO_HANDOFF_MODE=simulate` for demo testing. In that mode the workflow still records escalation, CRM, dispatch, and audit events, but the Twilio response announces the simulated handoff and hangs up without dialing either configured destination.
+
+The tenant configuration can retain reserved `+1555...` placeholders while simulation mode is active. Before enabling `TWILIO_HANDOFF_MODE=live` or accepting customer traffic, replace them with real handoff phone numbers. Shape:
 
 ```json
 {"fh-demo":{"tenantId":"fh-demo","displayName":"LanternBell Demo","timezone":"America/Chicago","handoff":{"defaultQueue":"first-call-dispatch","onCallPhone":"+1XXXXXXXXXX","dispatchDeskPhone":"+1XXXXXXXXXX","afterHoursQueue":"first-call-after-hours"},"features":{"crmHandoff":true,"dispatchHandoff":true,"voiceIntake":true}}}
@@ -64,6 +66,7 @@ Expected result:
 - `/health` and `/version` return `200`.
 - Tenant readiness is ready.
 - Twilio mode is `signed_webhook`.
+- Twilio handoff mode is `simulate`.
 - Public traffic readiness is `yes`.
 
 Do not run the signed webhook scenario against the temporary Render hostname unless Twilio is also configured to use that exact hostname. Twilio signatures include the request URL.

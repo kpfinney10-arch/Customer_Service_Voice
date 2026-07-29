@@ -118,6 +118,7 @@ test("Twilio readiness endpoint returns tenant and provider preflight status", a
     twilioReadiness: {
       provider: "twilio",
       mode: "signed_webhook",
+      handoffMode: "simulate",
       readyForLocalTesting: true,
       readyForPublicTraffic: true,
       checks: [
@@ -136,6 +137,7 @@ test("Twilio readiness endpoint returns tenant and provider preflight status", a
   assert.equal(response.body.tenantReadiness.ready, true);
   assert.equal(response.body.twilioReadiness.provider, "twilio");
   assert.equal(response.body.twilioReadiness.mode, "signed_webhook");
+  assert.equal(response.body.twilioReadiness.handoffMode, "simulate");
   assert.equal(response.body.twilioReadiness.readyForPublicTraffic, true);
   assert.equal(response.body.twilioReadiness.checks[0].name, "webhook_signature_configured");
 });
@@ -895,6 +897,66 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
 
   assert.equal(accepted.status, 200);
   assert.equal(accepted.body, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
+});
+
+test("Twilio webhook route simulates configured demo handoffs without dialing", async () => {
+  const twilioReadiness: TwilioReadiness = {
+    provider: "twilio",
+    mode: "signed_webhook",
+    handoffMode: "simulate",
+    readyForLocalTesting: true,
+    readyForPublicTraffic: true,
+    checks: [],
+  };
+
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-simulated-handoff-1",
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      twilioReadiness,
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-simulated-handoff-1",
+      SpeechResult:
+        "My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street, Springfield. My phone is 555-212-3434.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      twilioReadiness,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /This demo has recorded that a funeral home team member should follow up/);
+  assert.match(response.body, /<Hangup\/>/);
+  assert.doesNotMatch(response.body, /<Dial/);
+  assert.doesNotMatch(response.body, /\+15555550100/);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-simulated-handoff-1/replay",
+  );
+  assert.equal(replay.body.snapshot.currentState, "ESCALATE");
+  assert.equal(replay.body.snapshot.escalated, true);
 });
 
 test("Twilio webhook route handles live hospice at-home transcript in one turn", async () => {

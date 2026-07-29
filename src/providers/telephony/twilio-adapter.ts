@@ -31,6 +31,7 @@ export type TwilioTwiMlOptions = {
   method?: "POST";
   voice?: string;
   language?: string;
+  handoffMode?: TwilioHandoffMode;
   speechTimeout?: "auto" | number;
   timeoutSeconds?: number;
   dialTimeoutSeconds?: number;
@@ -39,7 +40,11 @@ export type TwilioTwiMlOptions = {
   handoffScreeningUrl?: string;
 };
 
+export type TwilioHandoffMode = "live" | "simulate";
+
 export const DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS = 2;
+export const DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE =
+  "This demo has recorded that a funeral home team member should follow up. No live transfer will be placed.";
 
 export const DEFAULT_TWILIO_SPEECH_HINTS = [
   "caller name",
@@ -137,6 +142,15 @@ export function createTwilioTwiMl(input: {
   voiceResponse: VoiceResponse;
   options: TwilioTwiMlOptions;
 }): string {
+  if (
+    input.options.handoffMode === "simulate" &&
+    input.voiceResponse.actions.some((action) => action.type === "handoff")
+  ) {
+    return xmlResponse(
+      sayElement(DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE, input.options) + hangupElement(),
+    );
+  }
+
   const body: string[] = [];
   let pendingSay: string | undefined;
 

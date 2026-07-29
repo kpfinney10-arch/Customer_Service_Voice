@@ -32,6 +32,8 @@ services:
         value: 0.1.0
       - key: FIRST_CALL_EXTRACTOR
         value: deterministic
+      - key: TWILIO_HANDOFF_MODE
+        value: simulate
       - key: TENANT_API_KEYS
         sync: false
       - key: TENANT_CONFIGS_JSON
