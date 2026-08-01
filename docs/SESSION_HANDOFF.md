@@ -813,5 +813,11 @@ Next action:
 
 Next action:
 
-1. Activate a free UptimeRobot five-minute monitor for `https://voice.lanternbell.com/health/calls` using the owner's chosen alert email.
-2. Confirm one test down/recovery notification after activation.
+1. Confirm one controlled test down/recovery notification after activation.
+
+### UptimeRobot activation
+
+- Submitted the independent five-minute monitor for `https://voice.lanternbell.com/health/calls` and delivered alerts to the owner-provided address.
+- The owner completed the email confirmation and final activation step.
+- Render application logs recorded the first external `GET /health/calls` at `2026-08-01 12:10:45 CDT`; LanternBell returned HTTP 200 in 16 ms.
+- The remaining alert drill must be explicitly approved because it intentionally makes the monitor report a temporary incident and sends real down/recovery email.
