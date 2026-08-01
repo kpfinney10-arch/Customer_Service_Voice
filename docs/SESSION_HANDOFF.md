@@ -834,6 +834,14 @@ Next action:
 
 Next action:
 
-1. Push and manually deploy the operator-console commit to Render because automatic deploys are disabled.
-2. Validate `https://voice.lanternbell.com/operator/calls`, then use it during the next controlled live call.
+1. Open `https://voice.lanternbell.com/operator/calls` and use the console during the next controlled live call.
+2. Compare the console summary with the expected lane outcome and capture any missing operator-facing signal as the next UI increment.
 3. Before funeral-home staff access the console, replace demo API-key entry with named users, short-lived sessions, role-based authorization, and access auditing.
+
+Deployment update:
+
+- Pushed commit `337b3a9` (`Add operator call review console`) to `main`.
+- Manually deployed it to Render as `dep-d9n2skbncjis739bldj0`; the build, PostgreSQL pre-deploy migration, startup, internal health check, and zero-downtime cutover passed.
+- Production `GET /operator/calls` returned HTTP 200 with the restrictive security headers and expected LanternBell shell.
+- An authenticated production diagnostics check returned five session summaries and five event summaries with no event payloads.
+- Production `GET /health/calls` remained HTTP 200 with zero recent failures.
