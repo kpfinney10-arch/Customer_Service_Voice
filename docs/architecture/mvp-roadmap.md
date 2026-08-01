@@ -90,3 +90,15 @@
 - Billing/reporting hooks.
 - Shared tenant and user model.
 - Cross-module event taxonomy.
+
+## Post-Voice Product Direction
+
+This is planned future scope, not authorization to interrupt or expand the current voice-platform build.
+
+- Rebuild or rehabilitate the existing Lovable-built CRM as an engineered LanternBell module after the voice application is complete.
+- Rebuild or rehabilitate the existing Lovable-built dispatch application on the same platform and engineering standards.
+- Audit the existing CRM and dispatch repositories before deciding between incremental modernization and clean replacement.
+- Replace the current fake CRM and dispatch adapters through the existing typed tool boundaries rather than coupling voice orchestration to another module's database.
+- Establish shared tenant identity, named users, roles, permissions, audit conventions, API versioning, and cross-module event contracts.
+- Build a final web presence that separates a public customer-acquisition site from an authenticated customer gateway for launching LanternBell products.
+- Preserve independent service boundaries so voice, CRM, dispatch, and the customer portal can deploy and evolve without a coordinated rewrite.

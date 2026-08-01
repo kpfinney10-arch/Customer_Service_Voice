@@ -884,3 +884,21 @@ Deployment update:
 - Production detail validation on the latest real call returned 18 timeline events, both expected completed tools, no failed tools, and the two expected missing fact names.
 - The production response contained zero raw event payloads, no session facts object, and no raw handoff object.
 - The updated operator JavaScript was live, and production `/health/calls` remained HTTP 200 with zero failures.
+
+## Planned LanternBell master product roadmap
+
+- The owner plans to use Codex as the engineer for rebuilding two existing Lovable-built applications: the CRM and dispatch programs.
+- Their code already exists in the GitHub repository, but no decision has been made between modernizing the existing implementations and rebuilding them from scratch.
+- That evaluation and implementation will begin only after the current voice application is complete.
+- The CRM and dispatch modules should follow the same explicit engineering, security, testing, tenancy, observability, and deployment standards as the voice platform.
+- The voice platform's fake CRM and dispatch adapters should remain behind typed contracts so future real modules can replace them without rewriting call orchestration.
+- The long-term plan also includes a full web presence: a public launch/customer-acquisition site plus an authenticated gateway for existing customers to access LanternBell products.
+- Detailed portal planning is intentionally deferred until after the voice, CRM, and dispatch program decisions.
+
+Architectural implications for current work:
+
+1. Preserve versioned module APIs and event contracts; do not share databases across voice, CRM, and dispatch.
+2. Keep tenant identifiers and future organization/user boundaries consistent across modules.
+3. Evolve demo API-key access toward named users, short-lived sessions, roles, permissions, and access auditing.
+4. Keep public marketing concerns separate from the authenticated customer product gateway.
+5. Do not expand the current voice scope prematurely; make present decisions compatible with the roadmap while finishing the voice product first.
