@@ -845,3 +845,18 @@ Deployment update:
 - Production `GET /operator/calls` returned HTTP 200 with the restrictive security headers and expected LanternBell shell.
 - An authenticated production diagnostics check returned five session summaries and five event summaries with no event payloads.
 - Production `GET /health/calls` remained HTTP 200 with zero recent failures.
+
+### First operator-console live-call validation
+
+- The owner completed a new controlled call and confirmed it appeared in the production operator console.
+- The call ran for approximately one minute, retained `first_call_intake`, used no retries, and finished in `ESCALATE` as intended.
+- The replay contained 18 ordered events and one redacted transcript event.
+- `crm.create_intake_lead` and `dispatch.create_removal_request` both completed; there were no failed tools.
+- The one `TOOL_SKIPPED` event was expected duplicate prevention for CRM with reason `already_completed`, not a failure.
+- Staff confirmation still had two missing field names: `currently_with_decedent` and `requested_funeral_home`.
+- Production call health remained HTTP 200 with zero failures in the active 30-minute window.
+
+Recommended next product increment:
+
+1. Add a redacted call-detail drawer/page to the operator console showing the complete event timeline, completed/failed tools, and missing fact names.
+2. Continue excluding transcript text and captured fact values from the operator display.
