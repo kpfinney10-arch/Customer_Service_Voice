@@ -902,3 +902,10 @@ Architectural implications for current work:
 3. Evolve demo API-key access toward named users, short-lived sessions, roles, permissions, and access auditing.
 4. Keep public marketing concerns separate from the authenticated customer product gateway.
 5. Do not expand the current voice scope prematurely; make present decisions compatible with the roadmap while finishing the voice product first.
+
+Roadmap and scope decision:
+
+- The owner agreed to the recommended sequence: complete Voice to a controlled-pilot production-readiness threshold; audit CRM and Dispatch; establish shared platform foundations; build or modernize CRM; connect Voice to CRM; build or modernize Dispatch; create the public website and authenticated customer gateway; then consolidate onboarding, administration, reporting, support, and billing.
+- "Complete Voice" means reliable, secure, observable, recoverable, and ready for a controlled pilot, not theoretically perfect or permanently feature-complete.
+- Existing Lovable code will be treated as working product prototypes. Modernization versus replacement will be decided independently for each application only after a structured technical and product audit.
+- The authoritative scope boundary is now `docs/PROJECT_SCOPE.md`; the ordered program plan and phase gates are in `docs/architecture/mvp-roadmap.md`.

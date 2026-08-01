@@ -61,6 +61,7 @@ The first implementation target is inbound funeral home customer service intake:
 - `tests/fixtures/first-call`: realistic transcript fixtures and expected extraction/flow outcomes.
 - `docs/architecture/integration-contracts.md`: CRM and dispatch handoff boundaries.
 - `docs/architecture/mvp-roadmap.md`: staged build plan.
+- `docs/PROJECT_SCOPE.md`: active Voice scope and agreed future LanternBell product boundaries.
 - `schemas`: JSON schema placeholders for shared contracts.
 - `docs`: architecture notes and ADRs.
 

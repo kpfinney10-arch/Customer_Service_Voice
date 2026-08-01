@@ -91,14 +91,64 @@
 - Shared tenant and user model.
 - Cross-module event taxonomy.
 
-## Post-Voice Product Direction
+## LanternBell Master Product Roadmap
 
-This is planned future scope, not authorization to interrupt or expand the current voice-platform build.
+This is the agreed product sequence. Future phases document direction and architectural constraints; they do not authorize work that would interrupt the active voice-platform scope.
 
-- Rebuild or rehabilitate the existing Lovable-built CRM as an engineered LanternBell module after the voice application is complete.
-- Rebuild or rehabilitate the existing Lovable-built dispatch application on the same platform and engineering standards.
-- Audit the existing CRM and dispatch repositories before deciding between incremental modernization and clean replacement.
-- Replace the current fake CRM and dispatch adapters through the existing typed tool boundaries rather than coupling voice orchestration to another module's database.
-- Establish shared tenant identity, named users, roles, permissions, audit conventions, API versioning, and cross-module event contracts.
-- Build a final web presence that separates a public customer-acquisition site from an authenticated customer gateway for launching LanternBell products.
-- Preserve independent service boundaries so voice, CRM, dispatch, and the customer portal can deploy and evolve without a coordinated rewrite.
+### Phase A: Complete and Pilot Voice
+
+- Bring the voice application to a production-ready controlled-pilot milestone rather than waiting for theoretical perfection.
+- Require reliable core call paths, safe failure and escalation behavior, tenant isolation, access control, redaction, durable data, monitoring, recovery procedures, and tested operating runbooks.
+- Use pilot results to prioritize remaining voice work by customer and operational value.
+
+### Phase B: Audit the Existing CRM and Dispatch Applications
+
+- Treat the Lovable-built applications as working product prototypes and sources of validated workflows, terminology, and user-interface requirements.
+- Review each application for architecture, security, tenant isolation, data model quality, tests, integrations, deployment, maintainability, and reusable behavior.
+- Make a separate evidence-based decision for each module: retain and harden, incrementally modernize, selectively reuse, or replace.
+- Do not assume that both applications require the same remediation strategy.
+
+### Phase C: Establish the Shared Platform Foundation
+
+- Define shared organization and tenant identifiers, named users, roles, permissions, session behavior, and access auditing.
+- Define versioned APIs, cross-module event conventions, integration authentication, idempotency, and error contracts.
+- Use TypeScript as the default application and integration language unless a documented audit finding justifies an exception.
+- Establish common product navigation and design conventions without creating a tightly coupled monolith.
+
+### Phase D: Build or Modernize CRM
+
+- Make CRM the likely system of record for customer, family, case, and interaction data, subject to findings from the audit.
+- Apply the same explicit engineering, security, testing, observability, tenancy, and deployment standards used for Voice.
+- Migrate existing data and workflows only through an explicit, tested migration plan.
+
+### Phase E: Connect Voice to CRM
+
+- Replace fake CRM behavior through the existing typed tool boundary.
+- Keep voice orchestration isolated from CRM storage and implementation details.
+- Make cross-module actions authorized, idempotent, auditable, observable, and safe to retry.
+
+### Phase F: Build or Modernize Dispatch
+
+- Implement Dispatch using the audit decision and shared platform standards.
+- Connect Dispatch to CRM and Voice through versioned APIs and events rather than shared database access.
+- Preserve explicit ownership of dispatch assignments, statuses, notifications, and operational history.
+
+### Phase G: Build the LanternBell Web Presence and Customer Gateway
+
+- Build a public marketing and customer-acquisition experience for prospective customers.
+- Build a separate authenticated gateway where existing customers can launch and navigate LanternBell products.
+- Allow both experiences to share the LanternBell brand and domain strategy while maintaining separate security and deployment concerns.
+
+### Phase H: Consolidate Platform Operations
+
+- Add unified customer onboarding, administration, reporting, support tooling, and billing capabilities when product usage justifies them.
+- Provide cross-product operational visibility without weakening module ownership or tenant isolation.
+
+## Roadmap Guardrails
+
+- A shared platform means shared identity, contracts, standards, and user experience; it does not require one codebase, one deployment, or one database.
+- Voice, CRM, Dispatch, and the customer gateway must remain independently deployable and evolvable.
+- No module may read or write another module's database directly.
+- Current fake CRM and Dispatch adapters remain replaceable typed boundaries until real integrations are authorized.
+- Future compatibility should guide present architecture without delaying completion of the active Voice milestone.
+- Each phase has a deliberate go/no-go decision before material implementation begins.
