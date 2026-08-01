@@ -799,3 +799,19 @@ Next action:
 
 1. Add independent uptime monitoring for `https://voice.lanternbell.com/health`.
 2. Add call-level alerts for failed provider commands, failed tools, and abnormal call termination.
+
+## 2026-08-01 persisted call-health monitoring
+
+- Added public `GET /health/calls` for one independent external monitor to cover both service availability and persisted call-processing failures.
+- The TypeScript probe reads recent PostgreSQL events across tenants and returns only aggregate status. It does not expose tenant, call, session, correlation, provider, tool, payload, or caller identifiers.
+- HTTP `503` is returned for a recent `TOOL_FAILED` event, an unsuccessful provider-command result, or an abnormal call end. Normal completions and caller-canceled/disconnected calls remain healthy.
+- The default alert window is 1,800 seconds, configurable through validated `CALL_ALERT_WINDOW_SECONDS` values from 300 through 86,400 seconds.
+- Added memory, file, and PostgreSQL query coverage plus endpoint, privacy, classification, expiration, and environment-validation tests. TypeScript build and the full `282/282` suite passed.
+- Pushed runtime commit `4ae92a2` (`Add persisted call health monitoring`).
+- Manually deployed it to Render as `dep-d9n2c261egvs73f8f7i0`; build, PostgreSQL pre-deploy migration, startup, and Render health checks passed, and the deployment reached Live.
+- Permanent-host validation returned HTTP 200 from `/health` and `/health/calls`. The call-health snapshot reported a 1,800-second window, zero failures, and no failure categories.
+
+Next action:
+
+1. Activate a free UptimeRobot five-minute monitor for `https://voice.lanternbell.com/health/calls` using the owner's chosen alert email.
+2. Confirm one test down/recovery notification after activation.
