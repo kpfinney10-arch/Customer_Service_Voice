@@ -811,13 +811,14 @@ Next action:
 - Manually deployed it to Render as `dep-d9n2c261egvs73f8f7i0`; build, PostgreSQL pre-deploy migration, startup, and Render health checks passed, and the deployment reached Live.
 - Permanent-host validation returned HTTP 200 from `/health` and `/health/calls`. The call-health snapshot reported a 1,800-second window, zero failures, and no failure categories.
 
-Next action:
-
-1. Confirm one controlled test down/recovery notification after activation.
-
 ### UptimeRobot activation
 
 - Submitted the independent five-minute monitor for `https://voice.lanternbell.com/health/calls` and delivered alerts to the owner-provided address.
 - The owner completed the email confirmation and final activation step.
 - Render application logs recorded the first external `GET /health/calls` at `2026-08-01 12:10:45 CDT`; LanternBell returned HTTP 200 in 16 ms.
-- The remaining alert drill must be explicitly approved because it intentionally makes the monitor report a temporary incident and sends real down/recovery email.
+- After explicit owner approval, temporarily changed monitor `803641498` to `https://voice.lanternbell.com/health/uptimerobot-alert-drill`; the target returned the intended HTTP 404 while the real voice service remained online.
+- UptimeRobot detected the controlled failure at `2026-08-01 12:19:44 CDT` and opened incident `341993418261670831` with root cause `404 Not Found`.
+- Immediately restored the exact production target `https://voice.lanternbell.com/health/calls`. UptimeRobot detected recovery after 1 minute 16 seconds and returned the monitor to Up.
+- The owner confirmed receipt of both the down email and recovery email.
+- Final direct validation returned HTTP 200 with a 1,800-second window, zero failures, and no failure categories. Twilio and the voice application were not interrupted during the drill.
+- Independent uptime and persisted call-failure monitoring are now activated and end-to-end validated.
