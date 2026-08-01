@@ -87,6 +87,14 @@ test("PostgreSQL migration and stores preserve tenant isolation and durable reco
     (await events.listRecentByTenant("tenant-a", 1)).map((event) => event.eventId),
     ["event-2"],
   );
+  assert.deepEqual(
+    (await events.listRecentByTypesSince(
+      ["CALL_ENDED"],
+      "2026-07-28T12:02:00.000Z",
+      10,
+    )).map((event) => event.eventId),
+    ["event-2"],
+  );
   assert.equal(
     (await events.listBySession("tenant-b", "shared-session"))[0]?.callId,
     "call-2",

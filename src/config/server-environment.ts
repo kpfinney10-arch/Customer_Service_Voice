@@ -10,6 +10,11 @@ import {
 } from "../security/tenant-auth.js";
 import type { TenantApiKeyVerifier } from "../security/tenant-auth.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
+import {
+  callAlertWindowSecondsFromEnv,
+  EventStoreCallHealthProbe,
+} from "../observability/call-health.js";
+import type { CallHealthProbe } from "../observability/call-health.js";
 import type { IdempotencyStore } from "../security/idempotency.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
 import { createWebhookSignatureVerifierFromEnv } from "../security/webhook-signature.js";
@@ -40,6 +45,7 @@ export type ServerEnvironment = {
   };
   sessionStore: SessionStore;
   eventStore: EventStore;
+  callHealthProbe: CallHealthProbe;
   idempotencyStore: IdempotencyStore;
   webhookSignatureVerifier: WebhookSignatureVerifier;
   telnyxClient: TelnyxCallControlClient;
@@ -81,6 +87,9 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     storage,
     sessionStore: persistence.sessionStore,
     eventStore: persistence.eventStore,
+    callHealthProbe: new EventStoreCallHealthProbe(persistence.eventStore, {
+      windowSeconds: callAlertWindowSecondsFromEnv(env.CALL_ALERT_WINDOW_SECONDS),
+    }),
     idempotencyStore: persistence.idempotencyStore,
     webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
     telnyxClient: createTelnyxCallControlClientFromEnv(env),

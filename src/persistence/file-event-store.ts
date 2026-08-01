@@ -1,6 +1,7 @@
 import { mkdir, readFile, appendFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { CallEvent } from "../events/call-event.js";
+import type { CallEventType } from "../domain/call-types.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
 
 export class FileEventStore implements EventStore {
@@ -22,6 +23,21 @@ export class FileEventStore implements EventStore {
     const events = await this.readEvents();
     return events
       .filter((event) => event.tenantId === tenantId)
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, limit);
+  }
+
+  async listRecentByTypesSince(
+    eventTypes: CallEventType[],
+    since: string,
+    limit: number,
+  ): Promise<CallEvent[]> {
+    const includedTypes = new Set(eventTypes);
+    const events = await this.readEvents();
+    return events
+      .filter(
+        (event) => includedTypes.has(event.eventType) && event.occurredAt >= since,
+      )
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
       .slice(0, limit);
   }

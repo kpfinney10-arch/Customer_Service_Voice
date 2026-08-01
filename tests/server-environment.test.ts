@@ -34,6 +34,7 @@ test("server environment loads validated startup dependencies", async () => {
     STORAGE_DATA_DIR: "/tmp/voice-ai-platform-test",
     TELEPHONY_WEBHOOK_SECRETS: "generic:secret-1",
     TELNYX_EXECUTE_COMMANDS: "false",
+    CALL_ALERT_WINDOW_SECONDS: "900",
   });
 
   assert.equal(environment.port, 4000);
@@ -48,6 +49,7 @@ test("server environment loads validated startup dependencies", async () => {
   assert.equal(environment.telnyxReadiness.mode, "dry_run");
   assert.equal(environment.telnyxReadiness.readyForLiveTraffic, false);
   assert.equal(typeof environment.firstCallExtractor.extract, "function");
+  assert.equal((await environment.callHealthProbe.snapshot()).windowSeconds, 900);
   assert.equal(await environment.apiKeyVerifier.verify("fh-demo", "demo-api-key"), true);
   assert.equal((await environment.tenantConfigStore.get("fh-demo"))?.displayName, "Demo Funeral Home");
   assert.equal(environment.rateLimiter.check({ key: "fh-demo", method: "GET", path: "/config" }).allowed, true);
@@ -110,5 +112,16 @@ test("server environment surfaces rate-limit config errors", () => {
         RATE_LIMIT_PER_WINDOW: "nope",
       }),
     RateLimitConfigError,
+  );
+});
+
+test("server environment rejects an invalid call alert window", () => {
+  assert.throws(
+    () =>
+      loadServerEnvironment({
+        TENANT_API_KEYS: "fh-demo:demo-api-key",
+        CALL_ALERT_WINDOW_SECONDS: "299",
+      }),
+    /CALL_ALERT_WINDOW_SECONDS/,
   );
 });

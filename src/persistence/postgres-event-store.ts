@@ -1,4 +1,5 @@
 import type { CallEvent } from "../events/call-event.js";
+import type { CallEventType } from "../domain/call-types.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client.js";
 
@@ -45,6 +46,27 @@ export class PostgresEventStore implements EventStore {
        ORDER BY occurred_at DESC, event_sequence DESC
        LIMIT $2`,
       [tenantId, limit],
+    );
+    return result.rows.map((row) => row.payload);
+  }
+
+  async listRecentByTypesSince(
+    eventTypes: CallEventType[],
+    since: string,
+    limit: number,
+  ): Promise<CallEvent[]> {
+    if (eventTypes.length === 0) return [];
+    const typePlaceholders = eventTypes.map((_, index) => `$${index + 1}`).join(", ");
+    const sinceParameter = eventTypes.length + 1;
+    const limitParameter = eventTypes.length + 2;
+    const result = await this.database.query<EventRow>(
+      `SELECT payload
+       FROM call_events
+       WHERE event_type IN (${typePlaceholders})
+         AND occurred_at >= $${sinceParameter}
+       ORDER BY occurred_at DESC, event_sequence DESC
+       LIMIT $${limitParameter}`,
+      [...eventTypes, since, limit],
     );
     return result.rows.map((row) => row.payload);
   }

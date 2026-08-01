@@ -151,6 +151,51 @@ test("file event store lists recent events by tenant", async () => {
   );
 });
 
+test("file event store lists recent monitored event types across tenants", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "voice-ai-events-health-"));
+  const store = new FileEventStore(join(directory, "events.jsonl"));
+  const recentFailure = createCallEvent({
+    eventId: "event-health-recent",
+    eventType: "TOOL_FAILED",
+    callId: "call-health-recent",
+    sessionId: "session-health-recent",
+    tenantId: "fh-demo",
+    correlationId: "corr-health-recent",
+    payload: {},
+    occurredAt: "2026-08-01T14:55:00.000Z",
+  });
+  const ignoredType = createCallEvent({
+    eventId: "event-health-ignored",
+    eventType: "CALL_STARTED",
+    callId: "call-health-ignored",
+    sessionId: "session-health-ignored",
+    tenantId: "fh-demo",
+    correlationId: "corr-health-ignored",
+    payload: {},
+    occurredAt: "2026-08-01T14:56:00.000Z",
+  });
+  const expiredFailure = createCallEvent({
+    eventId: "event-health-expired",
+    eventType: "TOOL_FAILED",
+    callId: "call-health-expired",
+    sessionId: "session-health-expired",
+    tenantId: "fh-other",
+    correlationId: "corr-health-expired",
+    payload: {},
+    occurredAt: "2026-08-01T14:20:00.000Z",
+  });
+  await store.append([recentFailure, ignoredType, expiredFailure]);
+
+  assert.deepEqual(
+    (await store.listRecentByTypesSince(
+      ["TOOL_FAILED", "CALL_ENDED"],
+      "2026-08-01T14:30:00.000Z",
+      10,
+    )).map((event) => event.eventId),
+    ["event-health-recent"],
+  );
+});
+
 test("file idempotency store persists replay records across store instances", async () => {
   const directory = await mkdtemp(join(tmpdir(), "voice-ai-idempotency-"));
   const firstStore = new FileIdempotencyStore(directory);

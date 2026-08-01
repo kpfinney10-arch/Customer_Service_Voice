@@ -28,6 +28,7 @@ try {
     telnyxClient: environment.telnyxClient,
     telnyxReadiness: environment.telnyxReadiness,
     twilioReadiness: environment.twilioReadiness,
+    callHealthProbe: environment.callHealthProbe,
     logger,
   });
   const url = await listen(server, environment.port, environment.host);

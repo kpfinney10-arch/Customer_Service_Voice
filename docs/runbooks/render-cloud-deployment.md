@@ -146,7 +146,7 @@ If cloud validation fails after DNS cutover:
 
 - Confirm the managed PostgreSQL backup retention that applies to the selected plan. Completed 2026-08-01: three-day point-in-time recovery and logical exports retained for at least seven days.
 - Perform and document a restore drill. Completed 2026-08-01: isolated restore reached Available in approximately six minutes, aggregate validation passed, the temporary IP rule was removed, and the temporary database was deleted.
-- Add uptime and failed-call alerts.
+- Activate an independent monitor for the aggregate call-health endpoint described below.
 - Rotate any secret that was exposed during setup.
 
 ## PostgreSQL recovery validation
@@ -161,3 +161,21 @@ npm run validate:postgres-recovery
 The validator emits only migration versions, aggregate counts, and integrity totals. It does not emit session payloads, events, transcripts, caller names, phone numbers, or addresses. A passing result requires both current migrations, no missing or duplicate event sequence values, and no events without a matching session.
 
 The 2026-08-01 drill restored point `2026-08-01 09:10:59 CDT` to temporary database `dpg-d9n0ijrncjis7397hhtg-a`. Validation passed with 29 sessions and 331 events. External access was limited to one temporary `/32` rule, removed after validation, and the recovered database was deleted at approximately `2026-08-01 11:46 CDT`.
+
+## Independent uptime and call-failure monitoring
+
+Use one independent HTTP monitor for:
+
+```text
+https://voice.lanternbell.com/health/calls
+```
+
+The endpoint checks persisted call events across all tenants and returns:
+
+- HTTP `200` when no qualifying failure occurred in the alert window.
+- HTTP `503` after a failed tool, failed provider command, or abnormal call termination.
+- Only aggregate fields: status, window length, failure count, failure categories, and the last failure time. It never returns tenant, call, session, correlation, provider, tool, or caller data.
+
+The default alert window is 1,800 seconds. Set `CALL_ALERT_WINDOW_SECONDS` only when a different window between 300 and 86,400 seconds is operationally justified. Normal completed calls and caller-canceled/disconnected calls do not make the endpoint unhealthy.
+
+The initial external monitor uses UptimeRobot's free five-minute checks. Configure down and recovery email notifications, and leave Render's own failure-only notifications enabled. This creates two independent paths: Render detects deployment and platform health failures, while UptimeRobot detects an unreachable service or a persisted call-processing failure.

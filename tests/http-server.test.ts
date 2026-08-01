@@ -3,6 +3,9 @@ import { test } from "node:test";
 import { createFirstCallService } from "../src/api/first-call-service.js";
 import { handleApiRequest } from "../src/api/http-server.js";
 import { InMemoryEventStore } from "../src/events/in-memory-event-store.js";
+import { createCallEvent } from "../src/events/call-event.js";
+import { EventStoreCallHealthProbe } from "../src/observability/call-health.js";
+import type { CallHealthProbe } from "../src/observability/call-health.js";
 import type { ApiRequestLog, Logger } from "../src/observability/logger.js";
 import { InMemoryIdempotencyStore } from "../src/security/idempotency.js";
 import type { IdempotencyStore } from "../src/security/idempotency.js";
@@ -27,6 +30,52 @@ test("health endpoint reports ready", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { ok: true });
+});
+
+test("call health endpoint reports aggregate status without identifiers", async () => {
+  const healthyStore = new InMemoryEventStore();
+  const healthy = await fetchJson("GET", "/health/calls", undefined, {
+    apiKey: null,
+    callHealthProbe: new EventStoreCallHealthProbe(healthyStore, {
+      windowSeconds: 1_800,
+      now: () => new Date("2026-08-01T15:00:00.000Z"),
+    }),
+  });
+
+  assert.equal(healthy.status, 200);
+  assert.deepEqual(healthy.body, {
+    ok: true,
+    windowSeconds: 1_800,
+    failureCount: 0,
+    failureKinds: [],
+  });
+  assert.equal(healthy.headers["cache-control"], "no-store");
+
+  const failedStore = new InMemoryEventStore();
+  failedStore.append([
+    createCallEvent({
+      eventId: "private-event-id",
+      eventType: "TOOL_FAILED",
+      callId: "private-call-id",
+      sessionId: "private-session-id",
+      tenantId: "private-tenant-id",
+      correlationId: "private-correlation-id",
+      occurredAt: "2026-08-01T14:55:00.000Z",
+      payload: { toolName: "private-tool-name" },
+    }),
+  ]);
+  const failed = await fetchJson("GET", "/health/calls", undefined, {
+    apiKey: null,
+    callHealthProbe: new EventStoreCallHealthProbe(failedStore, {
+      windowSeconds: 1_800,
+      now: () => new Date("2026-08-01T15:00:00.000Z"),
+    }),
+  });
+
+  assert.equal(failed.status, 503);
+  assert.deepEqual(failed.body.failureKinds, ["tool_failure"]);
+  assert.equal(failed.body.failureCount, 1);
+  assert.equal(JSON.stringify(failed.body).includes("private-"), false);
 });
 
 test("version endpoint reports build metadata without tenant auth", async () => {
@@ -5541,6 +5590,7 @@ async function fetchJson(
     telnyxReadiness?: TelnyxReadiness;
     twilioReadiness?: TwilioReadiness;
     extractor?: FirstCallExtractor;
+    callHealthProbe?: CallHealthProbe;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -5581,6 +5631,7 @@ async function fetchJson(
     options.telnyxClient,
     options.telnyxReadiness,
     options.twilioReadiness,
+    options.callHealthProbe,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
@@ -5608,6 +5659,7 @@ async function fetchText(
     telnyxClient?: TelnyxCallControlClient;
     telnyxReadiness?: TelnyxReadiness;
     twilioReadiness?: TwilioReadiness;
+    callHealthProbe?: CallHealthProbe;
   } = {},
 ): Promise<{ status: number; body: string; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -5642,6 +5694,7 @@ async function fetchText(
     options.telnyxClient,
     options.telnyxReadiness,
     options.twilioReadiness,
+    options.callHealthProbe,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

@@ -5,6 +5,8 @@ import type { BuildInfo } from "../config/build-info.js";
 import { InMemoryEventStore } from "../events/in-memory-event-store.js";
 import { createConsoleLogger, createNoopLogger } from "../observability/logger.js";
 import type { Logger } from "../observability/logger.js";
+import { createHealthyCallHealthProbe } from "../observability/call-health.js";
+import type { CallHealthProbe } from "../observability/call-health.js";
 import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
 import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
 import { createRateLimiterFromEnv } from "../security/rate-limit.js";
@@ -72,6 +74,7 @@ export type ApiServerOptions = {
   telnyxClient?: TelnyxCallControlClient;
   telnyxReadiness?: TelnyxReadiness;
   twilioReadiness?: TwilioReadiness;
+  callHealthProbe?: CallHealthProbe;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -93,6 +96,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const telnyxClient = options.telnyxClient ?? new NoopTelnyxCallControlClient();
   const telnyxReadiness = options.telnyxReadiness ?? evaluateTelnyxReadinessFromEnv();
   const twilioReadiness = options.twilioReadiness ?? evaluateTwilioReadinessFromEnv();
+  const callHealthProbe = options.callHealthProbe ?? createHealthyCallHealthProbe();
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -121,6 +125,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         telnyxClient,
         telnyxReadiness,
         twilioReadiness,
+        callHealthProbe,
         request,
         response,
       );
@@ -202,6 +207,7 @@ export async function handleApiRequest(
   telnyxClient: TelnyxCallControlClient = new NoopTelnyxCallControlClient(),
   telnyxReadiness: TelnyxReadiness = evaluateTelnyxReadinessFromEnv(),
   twilioReadiness: TwilioReadiness = evaluateTwilioReadinessFromEnv(),
+  callHealthProbe: CallHealthProbe = createHealthyCallHealthProbe(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -211,6 +217,14 @@ export async function handleApiRequest(
   try {
     if (request.method === "GET" && url.pathname === "/health") {
       response = jsonResponse(200, { ok: true });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    if (request.method === "GET" && url.pathname === "/health/calls") {
+      const snapshot = await callHealthProbe.snapshot();
+      response = jsonResponse(snapshot.ok ? 200 : 503, snapshot);
+      response.headers.set("cache-control", "no-store");
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -736,6 +750,7 @@ async function routeRequest(
   telnyxClient: TelnyxCallControlClient,
   telnyxReadiness: TelnyxReadiness,
   twilioReadiness: TwilioReadiness,
+  callHealthProbe: CallHealthProbe,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -744,6 +759,13 @@ async function routeRequest(
 
   if (method === "GET" && url.pathname === "/health") {
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/health/calls") {
+    const snapshot = await callHealthProbe.snapshot();
+    response.setHeader("cache-control", "no-store");
+    sendJson(response, snapshot.ok ? 200 : 503, snapshot);
     return;
   }
 
@@ -1711,7 +1733,10 @@ function tenantIdFromPath(path: string): string | undefined {
 }
 
 function isPublicOperationalPath(method: string, path: string): boolean {
-  return method === "GET" && (path === "/health" || path === "/version");
+  return (
+    method === "GET" &&
+    (path === "/health" || path === "/health/calls" || path === "/version")
+  );
 }
 
 function requestIdFromIncomingMessage(request: http.IncomingMessage): string {

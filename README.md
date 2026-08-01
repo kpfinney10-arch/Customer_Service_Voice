@@ -105,6 +105,7 @@ npm run smoke:telnyx
 Endpoints:
 
 - `GET /health`
+- `GET /health/calls`
 - `GET /version`
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
@@ -121,7 +122,7 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
-All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health` and `GET /version` remain public.
+All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health`, `GET /health/calls`, and `GET /version` remain public. The call-health route exposes only aggregate, PII-safe status for external monitoring.
 
 The version endpoint returns deployment metadata from `SERVICE_NAME`, `SERVICE_VERSION`, `SERVICE_COMMIT`, and `SERVICE_BUILD_TIME`. These values make it easier to confirm which build is running during debugging, support, and staging-to-production comparisons.
 
