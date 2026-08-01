@@ -22,6 +22,7 @@
 - Tenant config lookup endpoint for deployment verification.
 - Tenant readiness endpoint for first-call traffic go/no-go checks.
 - Tenant diagnostics activity endpoint for early human testing.
+- Redacted operator call-review page for recent session and audit-event summaries.
 - Tenant feature flags for voice intake access and CRM/dispatch tool execution.
 - Structured API request logging with request ids and tenant context.
 - Tenant-route rate limiting with `429` responses and retry headers.
@@ -77,7 +78,7 @@
 - Durable event persistence.
 - Tenant-aware auth and permissions.
 - Prompt and rule versioning.
-- Audit log UI.
+- Audit log UI (initial redacted call-review view complete; role-based production access remains).
 - Latency metrics.
 - Replayable call timeline.
 - Load and scenario testing.

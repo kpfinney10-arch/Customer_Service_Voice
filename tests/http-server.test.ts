@@ -94,6 +94,42 @@ test("version endpoint reports build metadata without tenant auth", async () => 
   });
 });
 
+test("operator call-review page serves a PII-safe shell without authentication", async () => {
+  const response = await fetchText("GET", "/operator/calls", undefined, {
+    apiKey: null,
+    requestId: "req-operator-page-1",
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers["content-type"] ?? "", /^text\/html/);
+  assert.equal(response.headers["cache-control"], "no-store");
+  assert.match(response.headers["content-security-policy"] ?? "", /default-src 'none'/);
+  assert.match(response.headers["content-security-policy"] ?? "", /connect-src 'self'/);
+  assert.equal(response.headers["x-frame-options"], "DENY");
+  assert.equal(response.headers["x-content-type-options"], "nosniff");
+  assert.equal(response.requestId, "req-operator-page-1");
+  assert.match(response.body, /Recent call activity/);
+  assert.match(response.body, /No raw transcripts/);
+  assert.doesNotMatch(response.body, /demo-api-key/);
+  assert.doesNotMatch(response.body, /callerPhone/);
+});
+
+test("operator call-review assets keep credentials out of URLs and render with safe DOM APIs", async () => {
+  const script = await fetchText("GET", "/operator/calls/app.js", undefined, { apiKey: null });
+  const styles = await fetchText("GET", "/operator/calls/styles.css", undefined, { apiKey: null });
+
+  assert.equal(script.status, 200);
+  assert.match(script.headers["content-type"] ?? "", /^text\/javascript/);
+  assert.match(script.body, /authorization: 'Bearer ' \+ apiKey/);
+  assert.match(script.body, /sessionStorage/);
+  assert.match(script.body, /encodeURIComponent\(tenantId\)/);
+  assert.doesNotMatch(script.body, /innerHTML/);
+  assert.doesNotMatch(script.body, /apiKey=/);
+  assert.equal(styles.status, 200);
+  assert.match(styles.headers["content-type"] ?? "", /^text\/css/);
+  assert.match(styles.body, /LanternBell|brand-mark|summary-grid/);
+});
+
 test("tenant config endpoint returns authenticated tenant configuration", async () => {
   const response = await fetchJson("GET", "/v1/tenants/fh-crm-only/config");
 

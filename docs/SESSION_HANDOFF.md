@@ -822,3 +822,18 @@ Next action:
 - The owner confirmed receipt of both the down email and recovery email.
 - Final direct validation returned HTTP 200 with a 1,800-second window, zero failures, and no failure categories. Twilio and the voice application were not interrupted during the drill.
 - Independent uptime and persisted call-failure monitoring are now activated and end-to-end validated.
+
+## 2026-08-01 operator call-review console
+
+- Added a TypeScript operator console at `/operator/calls` for reviewing recent call handling without using Render logs or raw database queries.
+- The console reuses the tenant-authenticated `/v1/tenants/:tenantId/diagnostics/activity` endpoint and shows only redacted session summaries and audit-event metadata.
+- The public HTML shell contains no call data. The tenant API key remains in tab-scoped `sessionStorage`, is sent only in an authorization header, and never appears in the URL.
+- Added restrictive CSP, no-store caching, clickjacking protection, MIME sniffing protection, no third-party assets, and text-only DOM rendering.
+- Local authenticated browser validation loaded a synthetic call and confirmed state, intent, escalation, retry, event, and redaction displays without transcripts or caller details.
+- TypeScript build and the full test suite passed `284/284`.
+
+Next action:
+
+1. Push and manually deploy the operator-console commit to Render because automatic deploys are disabled.
+2. Validate `https://voice.lanternbell.com/operator/calls`, then use it during the next controlled live call.
+3. Before funeral-home staff access the console, replace demo API-key entry with named users, short-lived sessions, role-based authorization, and access auditing.

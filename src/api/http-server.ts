@@ -7,6 +7,11 @@ import { createConsoleLogger, createNoopLogger } from "../observability/logger.j
 import type { Logger } from "../observability/logger.js";
 import { createHealthyCallHealthProbe } from "../observability/call-health.js";
 import type { CallHealthProbe } from "../observability/call-health.js";
+import {
+  isOperatorPagePath,
+  operatorPageAsset,
+  operatorPageSecurityHeaders,
+} from "../operator/call-review-page.js";
 import { createFakeSpeechAdapters } from "../providers/speech/fake-speech-adapters.js";
 import type { SpeechAdapters } from "../providers/speech/speech-adapters.js";
 import { createRateLimiterFromEnv } from "../security/rate-limit.js";
@@ -231,6 +236,13 @@ export async function handleApiRequest(
 
     if (request.method === "GET" && url.pathname === "/version") {
       response = jsonResponse(200, { build: buildInfo });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const operatorAsset = request.method === "GET" ? operatorPageAsset(url.pathname) : undefined;
+    if (operatorAsset) {
+      response = textResponse(200, operatorAsset.body, operatorAsset.contentType, operatorPageSecurityHeaders);
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -771,6 +783,12 @@ async function routeRequest(
 
   if (method === "GET" && url.pathname === "/version") {
     sendJson(response, 200, { build: buildInfo });
+    return;
+  }
+
+  const operatorAsset = method === "GET" ? operatorPageAsset(url.pathname) : undefined;
+  if (operatorAsset) {
+    sendText(response, 200, operatorAsset.body, operatorAsset.contentType, operatorPageSecurityHeaders);
     return;
   }
 
@@ -1670,6 +1688,21 @@ function sendTwiml(response: http.ServerResponse, statusCode: number, body: stri
   response.end(body);
 }
 
+function sendText(
+  response: http.ServerResponse,
+  statusCode: number,
+  body: string,
+  contentType: string,
+  headers: Readonly<Record<string, string>> = {},
+): void {
+  response.writeHead(statusCode, {
+    "content-type": contentType,
+    "cache-control": "no-store",
+    ...headers,
+  });
+  response.end(body);
+}
+
 function idempotentJsonResponse(output: {
   statusCode: number;
   body: object;
@@ -1685,6 +1718,22 @@ function jsonResponse(statusCode: number, body: object, headers: Record<string, 
     status: statusCode,
     headers: {
       "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      ...headers,
+    },
+  });
+}
+
+function textResponse(
+  statusCode: number,
+  body: string,
+  contentType: string,
+  headers: Readonly<Record<string, string>> = {},
+): Response {
+  return new Response(body, {
+    status: statusCode,
+    headers: {
+      "content-type": contentType,
       "cache-control": "no-store",
       ...headers,
     },
@@ -1735,7 +1784,7 @@ function tenantIdFromPath(path: string): string | undefined {
 function isPublicOperationalPath(method: string, path: string): boolean {
   return (
     method === "GET" &&
-    (path === "/health" || path === "/health/calls" || path === "/version")
+    (path === "/health" || path === "/health/calls" || path === "/version" || isOperatorPagePath(method, path))
   );
 }
 
