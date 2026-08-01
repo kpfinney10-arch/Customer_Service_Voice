@@ -78,9 +78,9 @@
 - Durable event persistence.
 - Tenant-aware auth and permissions.
 - Prompt and rule versioning.
-- Audit log UI (initial redacted call-review view complete; role-based production access remains).
+- Audit log UI (redacted activity and per-call timeline views complete; role-based production access remains).
 - Latency metrics.
-- Replayable call timeline.
+- Replayable call timeline (initial redacted operator timeline complete; engineering replay remains available).
 - Load and scenario testing.
 
 ## Phase 5: Platform Integration

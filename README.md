@@ -111,6 +111,7 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
 - `GET /v1/tenants/:tenantId/diagnostics/activity`
+- `GET /v1/tenants/:tenantId/diagnostics/sessions/:sessionId`
 - `GET /v1/tenants/:tenantId/telephony/telnyx/readiness`
 - `POST /v1/tenants/:tenantId/telephony/telnyx/webhook`
 - `POST /v1/tenants/:tenantId/telephony/:provider/inbound-call`
@@ -149,7 +150,7 @@ The tenant readiness endpoint evaluates whether a tenant is ready to receive fir
 
 The tenant diagnostics activity endpoint returns recent session summaries and recent event summaries for early human testing. It is tenant API-key protected, accepts an optional `limit` query parameter, and intentionally omits raw event payloads and transcripts.
 
-The operator call-review page at `/operator/calls` turns that redacted diagnostics feed into a browser view for controlled testing. The HTML shell contains no call data. An operator enters a tenant ID and API key, which remain in the current browser tab through `sessionStorage`; the key is sent only in the authenticated request header and never in the URL. The page uses a restrictive content security policy, does not load third-party assets, and displays no raw event payloads, transcripts, caller phone numbers, or structured intake facts. See `docs/runbooks/operator-call-review.md`.
+The operator call-review page at `/operator/calls` turns the redacted diagnostics feeds into a browser view for controlled testing. The activity feed lists recent sessions; selecting **Review** requests a dedicated redacted detail contract with summary counts, captured and missing fact names, completed and failed tool names, and the complete event-type timeline. The detail response excludes captured fact values, raw payloads, transcripts, caller phone numbers, names, and addresses. The HTML shell contains no call data. An operator enters a tenant ID and API key, which remain in the current browser tab through `sessionStorage`; the key is sent only in the authenticated request header and never in the URL. The page uses a restrictive content security policy and loads no third-party assets. See `docs/runbooks/operator-call-review.md`.
 
 Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new first-call sessions and telephony inbound calls return `TENANT_FEATURE_DISABLED`. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
 

@@ -19,15 +19,21 @@ Production URL:
    ```
 
 4. Paste the key into the API key field and select **Load activity**.
-5. Use **Refresh** after a test call. Use **Forget key** when the review is finished.
+5. Use **Refresh** after a test call.
+6. Select **Review** on a call row to open its redacted detail panel.
+7. Use **Forget key** when the review is finished.
 
 ## Data Shown
 
 - Recent session state, intent, escalation score, retry count, timestamps, and shortened session ID.
 - Recent event type, redaction status, timestamp, and shortened correlation ID.
 - Aggregate counts for sessions shown, calls still in progress, and escalated calls.
+- A selected call's duration, event count, retry count, and redacted-turn count.
+- Completed and failed tool names.
+- Captured and missing information category names without their values.
+- The complete event-type timeline, including safe tool outcomes and duplicate-prevention reasons.
 
-The console does not request or display raw event payloads, transcripts, caller phone numbers, names, addresses, or structured first-call facts.
+The console does not request or display raw event payloads, transcripts, caller phone numbers, names, addresses, or captured structured fact values. It never calls the raw replay endpoint.
 
 ## Credential Handling
 

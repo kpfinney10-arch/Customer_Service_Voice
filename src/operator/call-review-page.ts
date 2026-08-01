@@ -78,11 +78,66 @@ export const operatorCallReviewHtml = `<!doctype html>
           <button class="button button-quiet" id="refresh-button" type="button" disabled>Refresh</button>
         </div>
         <div class="table-scroll">
-          <table>
-            <thead><tr><th>Updated</th><th>State</th><th>Intent</th><th>Escalation</th><th>Retries</th><th>Session</th></tr></thead>
-            <tbody id="sessions-body"><tr><td class="empty" colspan="6">Connect to view recent sessions.</td></tr></tbody>
+          <table class="sessions-table">
+            <thead><tr><th>Updated</th><th>State</th><th>Intent</th><th>Escalation</th><th>Retries</th><th>Session</th><th><span class="visually-hidden">Review</span></th></tr></thead>
+            <tbody id="sessions-body"><tr><td class="empty" colspan="7">Connect to view recent sessions.</td></tr></tbody>
           </table>
         </div>
+      </section>
+
+      <section class="data-panel detail-panel" id="call-detail" aria-labelledby="detail-title" hidden>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Redacted call detail</p>
+            <h2 id="detail-title">Call details</h2>
+            <p class="detail-identifier identifier" id="detail-session-id"></p>
+          </div>
+          <button class="button button-quiet" id="close-detail-button" type="button">Close details</button>
+        </div>
+        <p class="detail-status" id="detail-status" role="status" aria-live="polite"></p>
+        <div id="detail-content" hidden>
+          <div class="detail-grid" aria-label="Selected call summary">
+            <article><span>Final state</span><strong id="detail-state">—</strong></article>
+            <article><span>Intent</span><strong id="detail-intent">—</strong></article>
+            <article><span>Duration</span><strong id="detail-duration">—</strong></article>
+            <article><span>Events</span><strong id="detail-event-count">—</strong></article>
+            <article><span>Retries</span><strong id="detail-retries">—</strong></article>
+            <article><span>Redacted turns</span><strong id="detail-redactions">—</strong></article>
+          </div>
+          <div class="detail-lists">
+            <article>
+              <h3>Completed tools</h3>
+              <ul class="tag-list" id="completed-tools"></ul>
+            </article>
+            <article>
+              <h3>Failed tools</h3>
+              <ul class="tag-list" id="failed-tools"></ul>
+            </article>
+            <article>
+              <h3>Missing information</h3>
+              <ul class="tag-list" id="missing-facts"></ul>
+            </article>
+            <article>
+              <h3>Captured categories</h3>
+              <ul class="tag-list" id="collected-facts"></ul>
+            </article>
+          </div>
+          <div class="detail-timeline">
+            <div class="panel-heading compact-heading">
+              <div>
+                <p class="eyebrow">Selected call</p>
+                <h3>Complete event timeline</h3>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Occurred</th><th>Event</th><th>Tool</th><th>Outcome</th><th>Redaction</th></tr></thead>
+                <tbody id="detail-events-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <p class="detail-privacy">Category names and operational outcomes only. Transcript text and captured values are not delivered to this page.</p>
       </section>
 
       <section class="data-panel" aria-labelledby="events-title">
@@ -112,6 +167,8 @@ export const operatorCallReviewCss = `:root {
   font-synthesis: none;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 82% -10%, #d7e5da 0, transparent 34rem), #f4f2eb; }
 button, input, select { font: inherit; }
 .site-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem clamp(1rem, 5vw, 4rem); border-bottom: 1px solid #d8d7ce; background: rgba(250, 249, 244, .82); backdrop-filter: blur(12px); }
@@ -168,9 +225,31 @@ tbody tr:hover td:not(.empty) { background: #faf9f4; }
 .pill[data-state="RESOLVE_REQUEST"] { background: #f3e8cf; color: #795820; }
 .identifier { color: #65716c; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; }
 .score-high { color: #a33d34; font-weight: 800; }
+.review-button { min-height: auto; padding: .38rem .65rem; border: 1px solid #bfc8c3; background: #fff; color: #315e50; font-size: .72rem; }
+.review-button:hover { border-color: #315e50; background: #edf2ef; }
+.sessions-table th:last-child, .sessions-table td:last-child { position: sticky; right: 0; background: #fbfaf6; box-shadow: -8px 0 14px rgba(32, 52, 44, .05); }
+.sessions-table th:last-child { background: #f6f5f0; }
+.detail-panel { border-color: #b8c7bf; box-shadow: 0 20px 55px rgba(35, 72, 61, .1); }
+.detail-identifier { margin: .45rem 0 0; }
+.detail-status { margin: 0; padding: 0 1.35rem 1.2rem; color: #6a7671; font-size: .82rem; }
+.detail-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; border-top: 1px solid #deded7; border-bottom: 1px solid #deded7; background: #deded7; }
+.detail-grid article { min-height: 5.5rem; padding: 1rem; background: #fbfaf6; }
+.detail-grid span { display: block; color: #747e7a; font-size: .65rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.detail-grid strong { display: block; margin-top: .65rem; color: #24483d; font-size: .92rem; line-height: 1.35; }
+.detail-lists { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; padding: 1.35rem; }
+.detail-lists article { min-height: 7rem; padding: 1rem; border: 1px solid #e0e0d9; border-radius: .7rem; background: #fff; }
+h3 { margin: 0; color: #334740; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+.tag-list { display: flex; flex-wrap: wrap; gap: .45rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+.tag-list li { padding: .3rem .52rem; border-radius: .4rem; background: #edf1ef; color: #365448; font-size: .72rem; }
+.tag-list li[data-kind="failed"] { background: #f8dfdc; color: #8b342c; }
+.tag-list li[data-kind="missing"] { background: #f5ead2; color: #76571f; }
+.tag-list li[data-kind="empty"] { background: #f2f2ee; color: #77807c; font-style: italic; }
+.detail-timeline { border-top: 1px solid #deded7; }
+.compact-heading { padding-top: 1rem; padding-bottom: 1rem; }
+.detail-privacy { margin: 0; padding: 1rem 1.35rem; border-top: 1px solid #e2e2dc; color: #7a837f; font-size: .72rem; }
 footer { padding: 1.6rem 1rem 2.5rem; color: #7a827e; text-align: center; font-size: .72rem; letter-spacing: .04em; }
-@media (max-width: 850px) { form { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 600px) { .privacy-note { display: none; } .hero { align-items: start; flex-direction: column; } .connection { width: 100%; } form, .summary-grid { grid-template-columns: 1fr; } .summary-grid article { min-height: 5.5rem; } .summary-grid strong { margin-top: .75rem; } }
+@media (max-width: 850px) { form { grid-template-columns: 1fr 1fr; } .summary-grid { grid-template-columns: 1fr 1fr; } .detail-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .privacy-note { display: none; } .hero { align-items: start; flex-direction: column; } .connection { width: 100%; } form, .summary-grid, .detail-lists { grid-template-columns: 1fr; } .summary-grid article { min-height: 5.5rem; } .summary-grid strong { margin-top: .75rem; } .detail-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; animation: none !important; } }
 `;
 
@@ -186,6 +265,11 @@ const connectionStatus = document.querySelector('#connection-status');
 const connectionMessage = document.querySelector('#connection-message');
 const sessionsBody = document.querySelector('#sessions-body');
 const eventsBody = document.querySelector('#events-body');
+const detailPanel = document.querySelector('#call-detail');
+const detailContent = document.querySelector('#detail-content');
+const detailStatus = document.querySelector('#detail-status');
+const detailEventsBody = document.querySelector('#detail-events-body');
+const closeDetailButton = document.querySelector('#close-detail-button');
 
 const storedTenant = sessionStorage.getItem('lanternbell.operator.tenant');
 const storedKey = sessionStorage.getItem('lanternbell.operator.key');
@@ -200,14 +284,16 @@ form.addEventListener('submit', function (event) {
 });
 
 refreshButton.addEventListener('click', loadActivity);
+closeDetailButton.addEventListener('click', closeCallDetail);
 forgetButton.addEventListener('click', function () {
   sessionStorage.removeItem('lanternbell.operator.tenant');
   sessionStorage.removeItem('lanternbell.operator.key');
   apiKeyInput.value = '';
   refreshButton.disabled = true;
   resetSummary();
-  replaceWithMessage(sessionsBody, 6, 'Connect to view recent sessions.');
+  replaceWithMessage(sessionsBody, 7, 'Connect to view recent sessions.');
   replaceWithMessage(eventsBody, 4, 'Connect to view recent events.');
+  closeCallDetail();
   setConnection('idle', 'Key forgotten');
   apiKeyInput.focus();
 });
@@ -251,7 +337,7 @@ function renderActivity(activity) {
   document.querySelector('#latest-update').textContent = sessions.length ? formatDate(sessions[0].updatedAt) : 'No calls yet';
 
   sessionsBody.replaceChildren();
-  if (!sessions.length) replaceWithMessage(sessionsBody, 6, 'No sessions found for this tenant.');
+  if (!sessions.length) replaceWithMessage(sessionsBody, 7, 'No sessions found for this tenant.');
   sessions.forEach(function (session) {
     const row = document.createElement('tr');
     appendCell(row, formatDate(session.updatedAt));
@@ -269,6 +355,15 @@ function renderActivity(activity) {
     const idCell = appendCell(row, shorten(session.sessionId));
     idCell.classList.add('identifier');
     idCell.title = session.sessionId;
+    const reviewCell = document.createElement('td');
+    const reviewButton = document.createElement('button');
+    reviewButton.className = 'button review-button';
+    reviewButton.type = 'button';
+    reviewButton.textContent = 'Review';
+    reviewButton.setAttribute('aria-label', 'Review call ' + shorten(session.sessionId));
+    reviewButton.addEventListener('click', function () { loadCallDetail(session.sessionId); });
+    reviewCell.append(reviewButton);
+    row.append(reviewCell);
     sessionsBody.append(row);
   });
 
@@ -284,6 +379,91 @@ function renderActivity(activity) {
     idCell.title = event.correlationId;
     eventsBody.append(row);
   });
+}
+
+async function loadCallDetail(sessionId) {
+  const tenantId = tenantInput.value.trim();
+  const apiKey = apiKeyInput.value;
+  if (!tenantId || !apiKey) {
+    setConnection('error', 'Tenant ID and API key are required');
+    return;
+  }
+
+  detailPanel.hidden = false;
+  detailContent.hidden = true;
+  detailStatus.textContent = 'Loading selected call…';
+  document.querySelector('#detail-session-id').textContent = shorten(sessionId);
+  try {
+    const endpoint = '/v1/tenants/' + encodeURIComponent(tenantId) + '/diagnostics/sessions/' + encodeURIComponent(sessionId);
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { authorization: 'Bearer ' + apiKey },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || payload.error || 'Unable to load call details.');
+    renderCallDetail(payload);
+    detailStatus.textContent = 'Loaded ' + formatDate(new Date().toISOString());
+    detailContent.hidden = false;
+  } catch (error) {
+    detailStatus.textContent = error instanceof Error ? error.message : 'Unable to load call details.';
+  }
+}
+
+function renderCallDetail(detail) {
+  document.querySelector('#detail-session-id').textContent = detail.session.sessionId;
+  document.querySelector('#detail-state').textContent = friendlyLabel(detail.session.currentState);
+  document.querySelector('#detail-intent').textContent = detail.session.intent ? friendlyLabel(detail.session.intent) : 'Not identified';
+  document.querySelector('#detail-duration').textContent = formatDuration(detail.session.createdAt, detail.session.updatedAt);
+  document.querySelector('#detail-event-count').textContent = String(detail.eventCount);
+  document.querySelector('#detail-retries').textContent = String(detail.session.retryCount);
+  document.querySelector('#detail-redactions').textContent = String(detail.redactedTranscriptCount);
+  renderTags('#completed-tools', detail.completedToolNames, 'None completed', 'completed');
+  renderTags('#failed-tools', detail.failedToolNames, 'No failures', 'failed');
+  renderTags('#missing-facts', detail.missingFactNames, 'Nothing missing', 'missing');
+  renderTags('#collected-facts', detail.collectedFactNames, 'No categories captured', 'collected');
+
+  detailEventsBody.replaceChildren();
+  const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
+  if (!timeline.length) replaceWithMessage(detailEventsBody, 5, 'No events found for this call.');
+  timeline.forEach(function (event) {
+    const row = document.createElement('tr');
+    appendCell(row, formatDate(event.occurredAt));
+    appendCell(row, friendlyLabel(event.eventType));
+    appendCell(row, event.tool ? friendlyLabel(event.tool.name) : '—');
+    const outcome = event.tool
+      ? friendlyLabel(event.tool.outcome) + (event.tool.reason ? ' · ' + friendlyLabel(event.tool.reason) : '')
+      : '—';
+    appendCell(row, outcome);
+    appendCell(row, friendlyLabel(event.redactionStatus));
+    detailEventsBody.append(row);
+  });
+}
+
+function renderTags(selector, values, emptyMessage, kind) {
+  const list = document.querySelector(selector);
+  list.replaceChildren();
+  const items = Array.isArray(values) ? values : [];
+  if (!items.length) {
+    const item = document.createElement('li');
+    item.dataset.kind = 'empty';
+    item.textContent = emptyMessage;
+    list.append(item);
+    return;
+  }
+  items.forEach(function (value) {
+    const item = document.createElement('li');
+    item.dataset.kind = kind;
+    item.textContent = friendlyLabel(value);
+    list.append(item);
+  });
+}
+
+function closeCallDetail() {
+  detailPanel.hidden = true;
+  detailContent.hidden = true;
+  detailStatus.textContent = '';
 }
 
 function appendCell(row, value) {
@@ -324,9 +504,21 @@ function formatDate(value) {
 }
 
 function friendlyLabel(value) {
-  return String(value || 'unknown').toLowerCase().split('_').map(function (part) {
-    return part.charAt(0).toUpperCase() + part.slice(1);
+  const acronyms = { ai: 'AI', api: 'API', crm: 'CRM', pii: 'PII', stt: 'STT', tts: 'TTS' };
+  return String(value || 'unknown').replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().split(/[_.\s-]+/).map(function (part) {
+    return acronyms[part] || part.charAt(0).toUpperCase() + part.slice(1);
   }).join(' ');
+}
+
+function formatDuration(startValue, endValue) {
+  const start = new Date(startValue).getTime();
+  const end = new Date(endValue).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 'Unknown';
+  const seconds = Math.round((end - start) / 1000);
+  if (seconds < 60) return seconds + ' sec';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return minutes + ' min ' + remainder + ' sec';
 }
 
 function shorten(value) {

@@ -860,3 +860,19 @@ Recommended next product increment:
 
 1. Add a redacted call-detail drawer/page to the operator console showing the complete event timeline, completed/failed tools, and missing fact names.
 2. Continue excluding transcript text and captured fact values from the operator display.
+
+## 2026-08-01 redacted operator call-detail view
+
+- Added tenant-authenticated `GET /v1/tenants/:tenantId/diagnostics/sessions/:sessionId` for an operator-safe per-call detail contract.
+- The endpoint returns session state, counts, captured/missing fact names, completed/failed tool names, handoff classification, and the complete event-type timeline.
+- It does not return captured fact values, caller phone numbers, names, addresses, transcript text, raw event payloads, or the raw handoff object.
+- Cross-tenant session access returns `SESSION_NOT_FOUND`, even when the requesting tenant has a valid key.
+- Added **Review** actions to call rows and a responsive detail panel with summary metrics, outcome groups, and the full redacted timeline.
+- Safe tool metadata distinguishes requested, completed, failed, and skipped operations; skip reasons are limited to an explicit allowlist.
+- Local authenticated browser validation confirmed the panel rendered the synthetic call's outcomes while omitting its test names, phone number, address, transcript, and payloads.
+- TypeScript build and the full test suite passed `286/286`.
+
+Next action:
+
+1. Push and manually deploy the call-detail increment to Render.
+2. Validate the most recent real call through the new **Review** action on `https://voice.lanternbell.com/operator/calls`.

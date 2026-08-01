@@ -337,6 +337,23 @@ export async function handleApiRequest(
       return response;
     }
 
+    const tenantCallDetailMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/diagnostics\/sessions\/([^/]+)$/,
+    );
+    if (request.method === "GET" && tenantCallDetailMatch?.[1] && tenantCallDetailMatch[2]) {
+      const tenantId = decodeURIComponent(tenantCallDetailMatch[1]);
+      await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromHeaders(request.headers));
+      response = jsonResponse(
+        200,
+        await service.getTenantCallDetail({
+          tenantId,
+          sessionId: decodeURIComponent(tenantCallDetailMatch[2]),
+        }),
+      );
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
     const startMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/first-call\/sessions$/);
     if (request.method === "POST" && startMatch?.[1]) {
       const tenantId = decodeURIComponent(startMatch[1]);
@@ -853,6 +870,23 @@ async function routeRequest(
     const input = { tenantId };
     addIfPresent(input, "limit", optionalPositiveIntegerFromQuery(url.searchParams.get("limit"), "limit"));
     sendJson(response, 200, await service.listTenantActivity(input));
+    return;
+  }
+
+  const tenantCallDetailMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/diagnostics\/sessions\/([^/]+)$/,
+  );
+  if (method === "GET" && tenantCallDetailMatch?.[1] && tenantCallDetailMatch[2]) {
+    const tenantId = decodeURIComponent(tenantCallDetailMatch[1]);
+    await requireTenantApiKey(apiKeyVerifier, tenantId, extractApiKeyFromIncomingMessage(request));
+    sendJson(
+      response,
+      200,
+      await service.getTenantCallDetail({
+        tenantId,
+        sessionId: decodeURIComponent(tenantCallDetailMatch[2]),
+      }),
+    );
     return;
   }
 

@@ -4,6 +4,8 @@ import type { EventStore } from "../events/in-memory-event-store.js";
 import type { CallIntent, StructuredFacts } from "../domain/call-types.js";
 import { createSessionReplaySnapshot } from "../debug/session-replay.js";
 import type { SessionReplaySnapshot } from "../debug/session-replay.js";
+import { createTenantCallDetail } from "../debug/tenant-call-detail.js";
+import type { TenantCallDetail } from "../debug/tenant-call-detail.js";
 import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
@@ -45,6 +47,7 @@ export type FirstCallService = {
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
   listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
+  getTenantCallDetail: (input: GetTenantCallDetailInput) => Promise<TenantCallDetail>;
 };
 
 export type StartFirstCallSessionInput = {
@@ -151,6 +154,11 @@ export type ListTenantActivityInput = {
   limit?: number;
 };
 
+export type GetTenantCallDetailInput = {
+  tenantId: string;
+  sessionId: string;
+};
+
 export type TenantActivitySessionSummary = {
   callId: string;
   sessionId: string;
@@ -193,6 +201,45 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
   const idFactory = options.idFactory ?? randomId;
   const extractor = options.extractor ?? deterministicFirstCallExtractor;
   const registry = options.registry ?? createDefaultRegistry();
+
+  const replaySession = async (input: ReplayFirstCallSessionInput): Promise<ReplayFirstCallSessionOutput> => {
+    const existingSession = await options.store.get(input.tenantId, input.sessionId);
+    if (!existingSession) {
+      throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+    }
+    const events = (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [];
+    const facts = existingSession.facts as Partial<FirstCallFacts>;
+    const decision = decideFirstCallNextStep(facts);
+    const toolResults = events
+      .filter((event) => event.eventType === "TOOL_EXECUTED" || event.eventType === "TOOL_FAILED")
+      .map((event): ToolResult<object> => {
+        const result: ToolResult<object> = {
+          toolCallId: String(event.payload.toolCallId ?? ""),
+          toolName: String(event.payload.toolName ?? ""),
+          ok: event.eventType === "TOOL_EXECUTED",
+        };
+        if (typeof event.payload.errorCode === "string") result.errorCode = event.payload.errorCode;
+        if (typeof event.payload.callerSafeSummary === "string") {
+          result.callerSafeSummary = event.payload.callerSafeSummary;
+        }
+        return result;
+      });
+    const handoff = createFirstCallHandoffSummary({
+      session: existingSession,
+      facts,
+      decision,
+      toolResults,
+    });
+    return {
+      session: existingSession,
+      events,
+      snapshot: createReplaySnapshot({
+        session: existingSession,
+        events,
+        handoff,
+      }),
+    };
+  };
 
   return {
     async startSession(input) {
@@ -473,44 +520,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
     },
 
-    async replaySession(input) {
-      const existingSession = await options.store.get(input.tenantId, input.sessionId);
-      if (!existingSession) {
-        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
-      }
-      const events = (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [];
-      const facts = existingSession.facts as Partial<FirstCallFacts>;
-      const decision = decideFirstCallNextStep(facts);
-      const toolResults = events
-        .filter((event) => event.eventType === "TOOL_EXECUTED" || event.eventType === "TOOL_FAILED")
-        .map((event): ToolResult<object> => {
-          const result: ToolResult<object> = {
-            toolCallId: String(event.payload.toolCallId ?? ""),
-            toolName: String(event.payload.toolName ?? ""),
-            ok: event.eventType === "TOOL_EXECUTED",
-          };
-          if (typeof event.payload.errorCode === "string") result.errorCode = event.payload.errorCode;
-          if (typeof event.payload.callerSafeSummary === "string") {
-            result.callerSafeSummary = event.payload.callerSafeSummary;
-          }
-          return result;
-        });
-      const handoff = createFirstCallHandoffSummary({
-        session: existingSession,
-        facts,
-        decision,
-        toolResults,
-      });
-      return {
-        session: existingSession,
-        events,
-        snapshot: createReplaySnapshot({
-          session: existingSession,
-          events,
-          handoff,
-        }),
-      };
-    },
+    replaySession,
 
     async listTenantActivity(input) {
       const limit = normalizeActivityLimit(input.limit);
@@ -522,6 +532,10 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         sessions: sessions.map(summarizeSession),
         recentEvents: recentEvents.map(summarizeEvent),
       };
+    },
+
+    async getTenantCallDetail(input) {
+      return createTenantCallDetail(await replaySession(input));
     },
   };
 }

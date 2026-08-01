@@ -123,8 +123,12 @@ test("operator call-review assets keep credentials out of URLs and render with s
   assert.match(script.body, /authorization: 'Bearer ' \+ apiKey/);
   assert.match(script.body, /sessionStorage/);
   assert.match(script.body, /encodeURIComponent\(tenantId\)/);
+  assert.match(script.body, /diagnostics\/sessions/);
+  assert.match(script.body, /Review call/);
+  assert.match(script.body, /renderCallDetail/);
   assert.doesNotMatch(script.body, /innerHTML/);
   assert.doesNotMatch(script.body, /apiKey=/);
+  assert.doesNotMatch(script.body, /\/replay/);
   assert.equal(styles.status, 200);
   assert.match(styles.headers["content-type"] ?? "", /^text\/css/);
   assert.match(styles.body, /LanternBell|brand-mark|summary-grid/);
@@ -265,6 +269,79 @@ test("tenant diagnostics activity endpoint requires auth and validates limit", a
   assert.equal(missingKey.body.error, "API_KEY_REQUIRED");
   assert.equal(invalidLimit.status, 400);
   assert.equal(invalidLimit.body.error, "VALIDATION_ERROR");
+});
+
+test("tenant call detail returns operational outcomes without PII or raw payloads", async () => {
+  const sessionId = "session-operator-detail-private-1";
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    callId: "call-operator-detail-private-1",
+    sessionId,
+    callerPhone: "555-777-1212",
+  });
+  const transcript =
+    "This is Officer Laura Fields with Tulsa Police. We have Thomas Fields deceased at 900 Cedar Lane, Tulsa. My number is 555-777-1212.";
+  await fetchJson("POST", `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`, {
+    transcript,
+    correlationId: "corr-operator-detail-private-1",
+  });
+  await fetchJson("POST", `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`, {
+    transcript,
+    correlationId: "corr-operator-detail-private-2",
+  });
+
+  const response = await fetchJson(
+    "GET",
+    `/v1/tenants/fh-demo/diagnostics/sessions/${sessionId}`,
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.tenantId, "fh-demo");
+  assert.equal(response.body.session.sessionId, sessionId);
+  assert.equal(response.body.session.currentState, "ESCALATE");
+  assert.equal(response.body.escalated, true);
+  assert.equal(response.body.completedToolNames.includes("crm.create_intake_lead"), true);
+  assert.equal(response.body.completedToolNames.includes("dispatch.create_removal_request"), true);
+  assert.deepEqual(response.body.failedToolNames, []);
+  assert.equal(response.body.collectedFactNames.includes("caller_name"), true);
+  assert.equal(response.body.timeline.some((event: { eventType: string }) => event.eventType === "TOOL_EXECUTED"), true);
+  assert.equal(
+    response.body.timeline.some(
+      (event: { tool?: { name?: string; outcome?: string; reason?: string } }) =>
+        event.tool?.name === "crm.create_intake_lead" &&
+        event.tool.outcome === "skipped" &&
+        event.tool.reason === "already_completed",
+    ),
+    true,
+  );
+
+  const serialized = JSON.stringify(response.body);
+  assert.doesNotMatch(serialized, /Laura Fields/);
+  assert.doesNotMatch(serialized, /Thomas Fields/);
+  assert.doesNotMatch(serialized, /555-777-1212/);
+  assert.doesNotMatch(serialized, /900 Cedar Lane/);
+  assert.equal("facts" in response.body.session, false);
+  assert.equal("callerPhone" in response.body.session, false);
+  assert.equal(response.body.timeline.some((event: object) => "transcript" in event), false);
+  assert.equal(response.body.timeline.some((event: object) => "payload" in event), false);
+  assert.equal("handoff" in response.body, false);
+});
+
+test("tenant call detail requires auth and preserves tenant isolation", async () => {
+  const missingKey = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/diagnostics/sessions/session-operator-detail-private-1",
+    undefined,
+    { apiKey: null },
+  );
+  const crossTenant = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-crm-only/diagnostics/sessions/session-operator-detail-private-1",
+  );
+
+  assert.equal(missingKey.status, 401);
+  assert.equal(missingKey.body.error, "API_KEY_REQUIRED");
+  assert.equal(crossTenant.status, 404);
+  assert.equal(crossTenant.body.error, "SESSION_NOT_FOUND");
 });
 
 test("API request logging captures request metadata without request bodies", async () => {
