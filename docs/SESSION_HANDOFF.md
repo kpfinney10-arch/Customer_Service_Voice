@@ -781,3 +781,21 @@ Next action:
 - Signed permanent-host readiness passed in `signed_webhook` mode with `handoffMode: simulate` and public readiness.
 - Signed cloud scenario run `lanternbell-intent-fix-1785593214` passed `7/7`.
 - The cloud police-residence replay retained session intent `first_call_intake`; its final per-turn extracted intent was `unknown`, CRM and dispatch completed, and no tools failed.
+
+## 2026-08-01 managed PostgreSQL recovery drill
+
+- Confirmed that the paid Basic Render PostgreSQL database has continuous point-in-time recovery with a rolling three-day window.
+- Created a logical export from `lanternbell-voice-db`; Render completed the `.dir.tar.gz` export at approximately `2026-08-01 09:15 CDT` and retains it for at least seven days.
+- Restored production to the isolated Basic-256mb database `lanternbell-voice-db-restore-drill-20260801` from `2026-08-01 09:10:59 CDT`.
+- Temporary recovery database ID: `dpg-d9n0ijrncjis7397hhtg-a`.
+- The restored database reached Available status in approximately six minutes. The application remained connected to the original production database throughout the drill.
+- Added a read-only TypeScript recovery validator that reports migration versions, aggregate record counts, event-sequence integrity, and orphaned-event counts without printing caller data.
+- Validation passed with migrations `001_initial_voice_persistence` and `002_stable_event_sequence`, one tenant, 29 sessions, 331 events, zero missing or duplicate event sequences, and zero orphaned events.
+- Temporarily allowed only the validation Mac's public IP on the recovery database. Removed the rule immediately after validation and confirmed that all external traffic was blocked again.
+- Deleted the temporary recovery database after validation. The Render account returned to the original web service and production database; the temporary monthly-rate charge ended at deletion.
+- Local TypeScript validation command: `npm run validate:postgres-recovery` with `DATABASE_URL` set to the database being checked.
+
+Next action:
+
+1. Add independent uptime monitoring for `https://voice.lanternbell.com/health`.
+2. Add call-level alerts for failed provider commands, failed tools, and abnormal call termination.

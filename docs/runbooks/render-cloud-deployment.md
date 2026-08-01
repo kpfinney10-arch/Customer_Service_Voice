@@ -144,7 +144,20 @@ If cloud validation fails after DNS cutover:
 
 ## Before Customer Data
 
-- Confirm the managed PostgreSQL backup retention that applies to the selected plan.
-- Perform and document a restore drill.
+- Confirm the managed PostgreSQL backup retention that applies to the selected plan. Completed 2026-08-01: three-day point-in-time recovery and logical exports retained for at least seven days.
+- Perform and document a restore drill. Completed 2026-08-01: isolated restore reached Available in approximately six minutes, aggregate validation passed, the temporary IP rule was removed, and the temporary database was deleted.
 - Add uptime and failed-call alerts.
 - Rotate any secret that was exposed during setup.
+
+## PostgreSQL recovery validation
+
+Build the TypeScript project, set `DATABASE_URL` to the isolated recovery database, and run:
+
+```sh
+npm run build
+npm run validate:postgres-recovery
+```
+
+The validator emits only migration versions, aggregate counts, and integrity totals. It does not emit session payloads, events, transcripts, caller names, phone numbers, or addresses. A passing result requires both current migrations, no missing or duplicate event sequence values, and no events without a matching session.
+
+The 2026-08-01 drill restored point `2026-08-01 09:10:59 CDT` to temporary database `dpg-d9n0ijrncjis7397hhtg-a`. Validation passed with 29 sessions and 331 events. External access was limited to one temporary `/32` rule, removed after validation, and the recovered database was deleted at approximately `2026-08-01 11:46 CDT`.
