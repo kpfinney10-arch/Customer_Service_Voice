@@ -874,5 +874,13 @@ Recommended next product increment:
 
 Next action:
 
-1. Push and manually deploy the call-detail increment to Render.
-2. Validate the most recent real call through the new **Review** action on `https://voice.lanternbell.com/operator/calls`.
+1. Reload `https://voice.lanternbell.com/operator/calls` and select **Review** on the most recent real call.
+2. Use the detail panel during the next controlled live call to decide whether the next operator increment should focus on filtering, alerts, or staff follow-up status.
+
+Deployment update:
+
+- Pushed commit `46e0b62` (`Add redacted operator call details`) to `main`.
+- Manually deployed it to Render as `dep-d9n39v0ae00c73ap86h0`; build, PostgreSQL pre-deploy migration, startup, internal health checks, and zero-downtime cutover passed.
+- Production detail validation on the latest real call returned 18 timeline events, both expected completed tools, no failed tools, and the two expected missing fact names.
+- The production response contained zero raw event payloads, no session facts object, and no raw handoff object.
+- The updated operator JavaScript was live, and production `/health/calls` remained HTTP 200 with zero failures.
