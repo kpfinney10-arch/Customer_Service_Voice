@@ -1655,6 +1655,7 @@ test("Twilio webhook route handles live officer residence report across slot pro
     "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-police-residence-live-2/replay",
   );
   assert.equal(replay.body.session.currentState, "ESCALATE");
+  assert.equal(replay.body.session.intent, "first_call_intake");
   assert.equal(replay.body.session.facts.caller_name, "Officer Mendes");
   assert.equal(replay.body.session.facts.caller_phone, "817-632-4211");
   assert.equal(replay.body.session.facts.caller_relationship_to_decedent, "facility_staff");
@@ -1667,6 +1668,10 @@ test("Twilio webhook route handles live officer residence report across slot pro
     "crm.create_intake_lead",
     "dispatch.create_removal_request",
   ]);
+  const latestIntentEvent = replay.body.events
+    .filter((event: { eventType: string }) => event.eventType === "INTENT_DETECTED")
+    .at(-1);
+  assert.equal(latestIntentEvent.payload.intent, "unknown");
   assert.doesNotMatch(
     replay.body.snapshot.handoff.recommendedActions.join(" "),
     /Verify the death with hospice, law enforcement, or the medical examiner/i,

@@ -577,7 +577,7 @@ function createReplaySnapshot(input: {
 }
 
 function effectiveCallIntent(existingIntent: CallIntent | null, extractedIntent: CallIntent): CallIntent {
-  if (existingIntent && isRoutineInquiryIntent(existingIntent) && extractedIntent === "unknown") return existingIntent;
+  if (existingIntent && existingIntent !== "unknown" && extractedIntent === "unknown") return existingIntent;
   return extractedIntent;
 }
 
