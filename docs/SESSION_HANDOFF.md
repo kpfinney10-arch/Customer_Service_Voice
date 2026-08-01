@@ -768,6 +768,16 @@ Before real production traffic:
 
 Next action:
 
-1. Fix the session-level intent so later slot-only turns do not overwrite a previously established `first_call_intake` intent with `unknown`.
-2. Decide whether officer/facility death calls should explicitly ask `currently_with_decedent` and `requested_funeral_home` before escalation, or continue leaving them for staff confirmation.
-3. Before accepting customer data, complete the managed PostgreSQL backup/restore drill and add uptime plus failed-call alerting.
+1. Decide whether officer/facility death calls should explicitly ask `currently_with_decedent` and `requested_funeral_home` before escalation, or continue leaving them for staff confirmation.
+2. Before accepting customer data, complete the managed PostgreSQL backup/restore drill and add uptime plus failed-call alerting.
+
+## 2026-08-01 established intent preservation
+
+- Fixed the diagnostics issue observed in controlled call `CAe1670388173831ec8474505578338c29`: later slot-only turns classified as `unknown` no longer overwrite an established non-unknown session intent.
+- Per-turn `INTENT_DETECTED` events remain unchanged and continue recording the extractor's raw result, preserving diagnostic accuracy while the session retains its established routing intent.
+- Added a regression assertion to the multi-turn police-residence Twilio route test. The final session must retain `first_call_intake` while the last address-only event may remain `unknown`.
+- TypeScript build, focused officer-call regression, and the full `273/273` suite passed.
+- Pushed commit `aa85a0f` and manually deployed it to Render. Deployment `dep-d9mvqfbm8hqs73d9digg` reached Live status.
+- Signed permanent-host readiness passed in `signed_webhook` mode with `handoffMode: simulate` and public readiness.
+- Signed cloud scenario run `lanternbell-intent-fix-1785593214` passed `7/7`.
+- The cloud police-residence replay retained session intent `first_call_intake`; its final per-turn extracted intent was `unknown`, CRM and dispatch completed, and no tools failed.
