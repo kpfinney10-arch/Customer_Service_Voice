@@ -50,8 +50,12 @@ import {
 } from "../providers/telephony/telnyx-adapter.js";
 import {
   createTwilioHandoffAcceptedTwiMl,
+  createTwilioHandoffRejectedTwiMl,
+  createTwilioHandoffResultTwiMl,
   createTwilioHandoffScreeningTwiMl,
   createTwilioTwiMl,
+  translateTwilioHandoffDialResult,
+  translateTwilioHandoffScreeningDecision,
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../providers/telephony/twilio-adapter.js";
@@ -445,7 +449,8 @@ export async function handleApiRequest(
 
     const twilioHandoffAcceptMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/handoff-accept$/);
     if (request.method === "POST" && twilioHandoffAcceptMatch?.[1]) {
-      const { rawBody } = await readWebFormPayload(request);
+      const tenantId = decodeURIComponent(twilioHandoffAcceptMatch[1]);
+      const { body, rawBody } = await readWebFormPayload(request);
       await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
         provider: "twilio",
         method: request.method,
@@ -454,7 +459,24 @@ export async function handleApiRequest(
         rawBody,
         headers: request.headers,
       });
-      response = twimlResponse(createTwilioHandoffAcceptedTwiMl());
+      response = twimlResponse(await handleTwilioHandoffAccept(service, tenantId, body));
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const twilioHandoffResultMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/handoff-result$/);
+    if (request.method === "POST" && twilioHandoffResultMatch?.[1]) {
+      const tenantId = decodeURIComponent(twilioHandoffResultMatch[1]);
+      const { body, rawBody } = await readWebFormPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider: "twilio",
+        method: request.method,
+        path: url.pathname,
+        url: request.url,
+        rawBody,
+        headers: request.headers,
+      });
+      response = twimlResponse(await handleTwilioHandoffResult(service, tenantId, body));
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -979,7 +1001,8 @@ async function routeRequest(
 
   const twilioHandoffAcceptMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/handoff-accept$/);
   if (method === "POST" && twilioHandoffAcceptMatch?.[1]) {
-    const { rawBody } = await readFormPayload(request);
+    const tenantId = decodeURIComponent(twilioHandoffAcceptMatch[1]);
+    const { body, rawBody } = await readFormPayload(request);
     await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
       provider: "twilio",
       method,
@@ -988,7 +1011,23 @@ async function routeRequest(
       rawBody,
       headers: headersFromIncomingMessage(request),
     });
-    sendTwiml(response, 200, createTwilioHandoffAcceptedTwiMl());
+    sendTwiml(response, 200, await handleTwilioHandoffAccept(service, tenantId, body));
+    return;
+  }
+
+  const twilioHandoffResultMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/handoff-result$/);
+  if (method === "POST" && twilioHandoffResultMatch?.[1]) {
+    const tenantId = decodeURIComponent(twilioHandoffResultMatch[1]);
+    const { body, rawBody } = await readFormPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider: "twilio",
+      method,
+      path: url.pathname,
+      url: publicRequestUrlFromIncomingMessage(request),
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
+    sendTwiml(response, 200, await handleTwilioHandoffResult(service, tenantId, body));
     return;
   }
 
@@ -1345,6 +1384,7 @@ async function handleTwilioWebhook(
   });
   const actionUrl = path;
   const handoffScreeningUrl = twilioHandoffScreenPath(tenantId);
+  const handoffResultUrl = twilioHandoffResultPath(tenantId);
 
   if (translated.kind === "inbound_call") {
     const output = await handleInboundTelephonyCall(service, translated.input);
@@ -1358,7 +1398,7 @@ async function handleTwilioWebhook(
     const output = await handleTelephonySpeechTurn(service, translated.input);
     return createTwilioTwiMl({
       voiceResponse: output.voiceResponse,
-      options: { actionUrl, handoffScreeningUrl, handoffMode },
+      options: { actionUrl, handoffScreeningUrl, handoffResultUrl, handoffMode },
     });
   }
 
@@ -1374,6 +1414,61 @@ async function handleTwilioWebhook(
     voiceResponse: output.voiceResponse,
     options: { actionUrl, handoffMode },
   });
+}
+
+async function handleTwilioHandoffAccept(
+  service: FirstCallService,
+  tenantId: string,
+  body: Record<string, string>,
+): Promise<string> {
+  const decision = translateTwilioHandoffScreeningDecision(body);
+  await service.recordHandoffOutcome({
+    tenantId,
+    sessionId: decision.sessionId,
+    provider: "twilio",
+    phase: "screening",
+    outcome: decision.outcome,
+    succeeded: decision.succeeded,
+    terminal: false,
+    correlationId: decision.correlationId,
+  });
+  return decision.succeeded
+    ? createTwilioHandoffAcceptedTwiMl()
+    : createTwilioHandoffRejectedTwiMl();
+}
+
+async function handleTwilioHandoffResult(
+  service: FirstCallService,
+  tenantId: string,
+  body: Record<string, string>,
+): Promise<string> {
+  const result = translateTwilioHandoffDialResult(body);
+  const events = (await service.listEvents({ tenantId, sessionId: result.sessionId })).events;
+  const screeningAccepted = events.some(
+    (event) =>
+      event.eventType === "HANDOFF_OUTCOME_RECORDED" &&
+      event.payload.provider === "twilio" &&
+      event.payload.phase === "screening" &&
+      event.payload.outcome === "accepted" &&
+      event.payload.succeeded === true,
+  );
+  const succeeded = result.dialStatus === "completed" && screeningAccepted;
+  const outcome = result.dialStatus === "completed"
+    ? screeningAccepted
+      ? "connected"
+      : "screening_not_accepted"
+    : result.dialStatus;
+  await service.recordHandoffOutcome({
+    tenantId,
+    sessionId: result.sessionId,
+    provider: "twilio",
+    phase: "dial",
+    outcome,
+    succeeded,
+    terminal: true,
+    correlationId: result.correlationId,
+  });
+  return createTwilioHandoffResultTwiMl({ succeeded });
 }
 
 async function handleTwilioHandoffScreen(
@@ -1428,6 +1523,10 @@ function twilioHandoffScreenPath(tenantId: string): string {
 
 function twilioHandoffAcceptPath(tenantId: string): string {
   return `/v1/tenants/${encodeURIComponent(tenantId)}/telephony/twilio/handoff-accept`;
+}
+
+function twilioHandoffResultPath(tenantId: string): string {
+  return `/v1/tenants/${encodeURIComponent(tenantId)}/telephony/twilio/handoff-result`;
 }
 
 function summarizeTelnyxCommandResults(results: TelnyxCommandResult[]): Array<{

@@ -6,12 +6,14 @@ const MAX_FAILURE_EVENTS = 100;
 const MONITORED_EVENT_TYPES = [
   "TOOL_FAILED",
   "PROVIDER_COMMANDS_EXECUTED",
+  "HANDOFF_OUTCOME_RECORDED",
   "CALL_ENDED",
 ] as const;
 
 export type CallFailureKind =
   | "tool_failure"
   | "provider_command_failure"
+  | "handoff_failure"
   | "abnormal_call_end";
 
 export type CallHealthSnapshot = {
@@ -109,6 +111,14 @@ function failureKind(event: CallEvent): CallFailureKind | undefined {
     event.payload.allSucceeded === false
   ) {
     return "provider_command_failure";
+  }
+  if (
+    event.eventType === "HANDOFF_OUTCOME_RECORDED" &&
+    event.payload.terminal === true &&
+    event.payload.succeeded === false &&
+    event.payload.outcome !== "canceled"
+  ) {
+    return "handoff_failure";
   }
   if (
     event.eventType === "CALL_ENDED" &&

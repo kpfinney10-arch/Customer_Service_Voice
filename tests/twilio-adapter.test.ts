@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   createTwilioHandoffAcceptedTwiMl,
+  createTwilioHandoffRejectedTwiMl,
+  createTwilioHandoffResultTwiMl,
   createTwilioHandoffScreeningTwiMl,
   createTwilioTwiMl,
+  DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE,
   DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE,
   DEFAULT_TWILIO_SPEECH_HINTS,
   DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS,
+  translateTwilioHandoffDialResult,
+  translateTwilioHandoffScreeningDecision,
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../src/providers/telephony/twilio-adapter.js";
@@ -114,6 +119,70 @@ test("Twilio adapter rejects missing CallSid", () => {
   );
 });
 
+test("Twilio adapter translates handoff screening acceptance, rejection, and timeout", () => {
+  assert.deepEqual(
+    translateTwilioHandoffScreeningDecision({
+      ParentCallSid: "parent-call-1",
+      CallSid: "screened-call-1",
+      Digits: "1",
+    }),
+    {
+      sessionId: "parent-call-1",
+      correlationId: "screened-call-1",
+      outcome: "accepted",
+      succeeded: true,
+    },
+  );
+  assert.deepEqual(
+    translateTwilioHandoffScreeningDecision({
+      ParentCallSid: "parent-call-1",
+      CallSid: "screened-call-2",
+      Digits: "2",
+    }),
+    {
+      sessionId: "parent-call-1",
+      correlationId: "screened-call-2",
+      outcome: "rejected",
+      succeeded: false,
+    },
+  );
+  assert.deepEqual(
+    translateTwilioHandoffScreeningDecision({
+      ParentCallSid: "parent-call-1",
+      CallSid: "screened-call-3",
+    }),
+    {
+      sessionId: "parent-call-1",
+      correlationId: "screened-call-3",
+      outcome: "no_input",
+      succeeded: false,
+    },
+  );
+});
+
+test("Twilio adapter validates final dial handoff statuses", () => {
+  assert.deepEqual(
+    translateTwilioHandoffDialResult({
+      CallSid: "parent-call-1",
+      DialCallSid: "screened-call-1",
+      DialCallStatus: "no-answer",
+    }),
+    {
+      sessionId: "parent-call-1",
+      correlationId: "screened-call-1",
+      dialStatus: "no_answer",
+    },
+  );
+  assert.throws(
+    () =>
+      translateTwilioHandoffDialResult({
+        CallSid: "parent-call-1",
+        DialCallStatus: "ringing",
+      }),
+    /DialCallStatus is not supported/,
+  );
+});
+
 test("Twilio TwiML maps listen responses to Say plus speech Gather", () => {
   const twiml = createTwilioTwiMl({
     voiceResponse: createListenVoiceResponse("I am assisting the funeral director with gathering call information."),
@@ -201,12 +270,13 @@ test("Twilio TwiML adds called-party screening URL for warm handoff", () => {
     options: {
       actionUrl: "/twilio",
       handoffScreeningUrl: "/v1/tenants/fh-demo/telephony/twilio/handoff-screen",
+      handoffResultUrl: "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
     },
   });
 
   assert.equal(
     twiml,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="25" answerOnBridge="true"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am connecting you now.</Say><Dial timeout="25" answerOnBridge="true" action="/v1/tenants/fh-demo/telephony/twilio/handoff-result" method="POST"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
   );
 });
 
@@ -216,12 +286,24 @@ test("Twilio handoff screening TwiML prompts called party to accept", () => {
     acceptUrl: "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
   });
   const accepted = createTwilioHandoffAcceptedTwiMl();
+  const rejected = createTwilioHandoffRejectedTwiMl();
+  const connected = createTwilioHandoffResultTwiMl({ succeeded: true });
+  const unavailable = createTwilioHandoffResultTwiMl({ succeeded: false });
 
   assert.equal(
     screening,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="dtmf" numDigits="1" action="/v1/tenants/fh-demo/telephony/twilio/handoff-accept" method="POST" timeout="8"><Say>Incoming funeral home handoff. Caller Sarah. Deceased Robert. Press 1 to accept this call.</Say></Gather><Say>No input received. Goodbye.</Say><Hangup/></Response>',
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="dtmf" numDigits="1" action="/v1/tenants/fh-demo/telephony/twilio/handoff-accept" method="POST" timeout="8" actionOnEmptyResult="true"><Say>Incoming funeral home handoff. Caller Sarah. Deceased Robert. Press 1 to accept this call.</Say></Gather><Say>No input received. Goodbye.</Say><Hangup/></Response>',
   );
   assert.equal(accepted, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
+  assert.equal(
+    rejected,
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>This call will not be connected. Goodbye.</Say><Hangup/></Response>',
+  );
+  assert.equal(connected, '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  assert.equal(
+    unavailable,
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE}</Say><Hangup/></Response>`,
+  );
 });
 
 test("Twilio TwiML keeps non-phone handoffs as safe hangups", () => {

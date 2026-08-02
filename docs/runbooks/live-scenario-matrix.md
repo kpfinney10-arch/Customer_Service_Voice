@@ -29,6 +29,12 @@ The script validates:
 - Safety warnings for family residence calls.
 - Routine-call wrapup without dispatch.
 
+Latest permanent-host validation:
+
+- On 2026-08-02, the signed matrix passed `7/7` against `https://voice.lanternbell.com` using Render, managed PostgreSQL, the permanent Twilio webhook, and simulated handoffs.
+- Run ID: `render-pilot-readiness-1785680625`.
+- Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
+
 ## Scenario Coverage
 
 | Lane | Automated Smoke | Real Phone Audio | Expected Outcome |
@@ -71,6 +77,8 @@ Before a monitored pilot, the matrix should show:
 - No known issue that causes dispatch creation without an authorized source.
 - No known issue that loses caller phone, decedent name, pickup location, or ME case number after the caller provides it clearly.
 - Human handoff failure behavior documented and tested.
+
+The automated human-handoff outcome contract is documented in `docs/architecture/twilio-handoff-outcomes.md`. A real-number acceptance/failure drill remains required before changing a tenant from simulated to live handoffs.
 
 ## Production Exit Criteria
 

@@ -221,5 +221,6 @@ curl -s -H 'x-api-key: replace-with-local-dev-key' \
 
 - The first pass uses Twilio's TwiML `<Gather input="speech">` flow rather than streaming audio.
 - Handoff uses Twilio called-party screening on `<Dial><Number>` for phone destinations. The funeral home rep hears a session replay summary and presses `1` to accept before bridging.
-- Warm conference handoff, reject/retry routing, and richer operator accept/reject audit events should be added as follow-ups.
+- Signed screening acceptance and final dial outcomes are recorded through `handoff-accept` and `handoff-result` callbacks. Busy, no-answer, failed, and unaccepted-screening results return a caller-safe urgent-follow-up message and are surfaced by call health.
+- A tenant-specific alternate-destination retry policy and full warm-conference workflow remain future work; do not infer a fallback phone number.
 - Speech recognition is improved with Twilio hints and empty-result reprompting. OpenAI-backed fact extraction is available behind `FIRST_CALL_EXTRACTOR=openai`; production deployment still needs stable hosting, secrets management, and webhook signature enforcement.

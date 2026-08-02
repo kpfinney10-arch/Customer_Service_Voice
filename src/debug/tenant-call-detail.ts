@@ -13,6 +13,12 @@ export type TenantCallDetailEvent = {
   occurredAt: string;
   redactionStatus: string;
   tool?: TenantCallDetailToolEvent;
+  handoff?: {
+    phase: string;
+    outcome: string;
+    succeeded: boolean;
+    terminal: boolean;
+  };
 };
 
 export type TenantCallDetail = {
@@ -80,7 +86,22 @@ function summarizeTimelineEvent(event: CallEvent): TenantCallDetailEvent {
   };
   const tool = summarizeToolEvent(event);
   if (tool) summary.tool = tool;
+  const handoff = summarizeHandoffEvent(event);
+  if (handoff) summary.handoff = handoff;
   return summary;
+}
+
+function summarizeHandoffEvent(event: CallEvent): TenantCallDetailEvent["handoff"] | undefined {
+  if (event.eventType !== "HANDOFF_OUTCOME_RECORDED") return undefined;
+  const phase = safeHandoffPhase(event.payload.phase);
+  const outcome = safeHandoffOutcome(event.payload.outcome);
+  if (!phase || !outcome) return undefined;
+  return {
+    phase,
+    outcome,
+    succeeded: event.payload.succeeded === true,
+    terminal: event.payload.terminal === true,
+  };
 }
 
 function summarizeToolEvent(event: CallEvent): TenantCallDetailToolEvent | undefined {
@@ -104,6 +125,26 @@ function summarizeToolEvent(event: CallEvent): TenantCallDetailToolEvent | undef
 function safeSkipReason(value: unknown): string | undefined {
   if (value === "already_completed" || value === "tenant_feature_disabled") return value;
   return undefined;
+}
+
+function safeHandoffPhase(value: unknown): string | undefined {
+  return value === "screening" || value === "dial" ? value : undefined;
+}
+
+function safeHandoffOutcome(value: unknown): string | undefined {
+  return [
+    "accepted",
+    "rejected",
+    "no_input",
+    "connected",
+    "screening_not_accepted",
+    "busy",
+    "no_answer",
+    "failed",
+    "canceled",
+  ].includes(String(value))
+    ? String(value)
+    : undefined;
 }
 
 function addIfPresent<T extends object, K extends keyof T>(target: T, key: K, value: T[K] | undefined): void {

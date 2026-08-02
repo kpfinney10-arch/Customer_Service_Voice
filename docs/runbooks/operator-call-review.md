@@ -32,6 +32,7 @@ Production URL:
 - Completed and failed tool names.
 - Captured and missing information category names without their values.
 - The complete event-type timeline, including safe tool outcomes and duplicate-prevention reasons.
+- Safe Twilio handoff screening and final outcomes, without destination or caller details.
 
 The console does not request or display raw event payloads, transcripts, caller phone numbers, names, addresses, or captured structured fact values. It never calls the raw replay endpoint.
 

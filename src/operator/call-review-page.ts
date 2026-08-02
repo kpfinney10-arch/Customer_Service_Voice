@@ -434,7 +434,9 @@ function renderCallDetail(detail) {
     appendCell(row, event.tool ? friendlyLabel(event.tool.name) : '—');
     const outcome = event.tool
       ? friendlyLabel(event.tool.outcome) + (event.tool.reason ? ' · ' + friendlyLabel(event.tool.reason) : '')
-      : '—';
+      : event.handoff
+        ? friendlyLabel(event.handoff.phase) + ' · ' + friendlyLabel(event.handoff.outcome)
+        : '—';
     appendCell(row, outcome);
     appendCell(row, friendlyLabel(event.redactionStatus));
     detailEventsBody.append(row);

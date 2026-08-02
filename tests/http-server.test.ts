@@ -931,6 +931,27 @@ test("Twilio webhook route rejects missing Twilio signatures when configured", a
   assert.match(response.body, /WEBHOOK_SIGNATURE_INVALID/);
 });
 
+test("Twilio handoff callbacks reject missing Twilio signatures when configured", async () => {
+  const verifier = new HmacWebhookSignatureVerifier({ twilio: "twilio-auth-token" });
+  for (const path of [
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
+  ]) {
+    const response = await fetchText(
+      "POST",
+      path,
+      new URLSearchParams({ CallSid: "unsigned-handoff-1" }),
+      {
+        apiKey: null,
+        webhookSignatureVerifier: verifier,
+        extraHeaders: { "content-type": "application/x-www-form-urlencoded" },
+      },
+    );
+    assert.equal(response.status, 401);
+    assert.match(response.body, /WEBHOOK_SIGNATURE_INVALID/);
+  }
+});
+
 test("Twilio webhook route reprompts on empty speech callbacks", async () => {
   await fetchText(
     "POST",
@@ -1012,7 +1033,7 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
   assert.equal(response.status, 200);
   assert.equal(
     response.body,
-    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Dial timeout="25" answerOnBridge="true"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
+    '<?xml version="1.0" encoding="UTF-8"?><Response><Say>I am going to connect you with a funeral home team member now.</Say><Dial timeout="25" answerOnBridge="true" action="/v1/tenants/fh-demo/telephony/twilio/handoff-result" method="POST"><Number url="/v1/tenants/fh-demo/telephony/twilio/handoff-screen" method="POST">+15555550100</Number></Dial></Response>',
   );
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-speech-1/replay");
@@ -1059,6 +1080,168 @@ test("Twilio webhook route advances speech callbacks through first-call workflow
 
   assert.equal(accepted.status, 200);
   assert.equal(accepted.body, '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Connecting now.</Say></Response>');
+
+  const completed = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-speech-1",
+      DialCallSid: "outbound-called-party-1",
+      DialCallStatus: "completed",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(completed.status, 200);
+  assert.equal(completed.body, '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+
+  const completedReplay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-speech-1/replay",
+  );
+  assert.deepEqual(
+    completedReplay.body.snapshot.handoffOutcomes.map((outcome: Record<string, unknown>) => ({
+      phase: outcome.phase,
+      outcome: outcome.outcome,
+      succeeded: outcome.succeeded,
+      terminal: outcome.terminal,
+    })),
+    [
+      { phase: "screening", outcome: "accepted", succeeded: true, terminal: false },
+      { phase: "dial", outcome: "connected", succeeded: true, terminal: true },
+    ],
+  );
+});
+
+test("Twilio handoff route records unavailable transfers and returns caller-safe fallback", async () => {
+  const callSid = "twilio-call-http-handoff-unavailable-1";
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: callSid,
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: callSid,
+      SpeechResult:
+        "My name is Sarah Miller. My father Robert Miller passed away at 123 Maple Street, Springfield. My phone is 555-212-3434.",
+      Confidence: "0.92",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+
+  const unavailable = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
+    new URLSearchParams({
+      CallSid: callSid,
+      DialCallSid: "outbound-unavailable-1",
+      DialCallStatus: "no-answer",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+
+  assert.equal(unavailable.status, 200);
+  assert.match(unavailable.body, /no team member was available to take the transfer/);
+  assert.match(unavailable.body, /recorded for urgent follow-up/);
+  assert.match(unavailable.body, /<Hangup\/>/);
+
+  const duplicateDelivery = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
+    new URLSearchParams({
+      CallSid: callSid,
+      DialCallSid: "outbound-unavailable-1",
+      DialCallStatus: "no-answer",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+  assert.equal(duplicateDelivery.status, 200);
+
+  const replay = await fetchJson("GET", `/v1/tenants/fh-demo/first-call/sessions/${callSid}/replay`);
+  assert.deepEqual(
+    replay.body.snapshot.handoffOutcomes.map((outcome: Record<string, unknown>) => ({
+      phase: outcome.phase,
+      outcome: outcome.outcome,
+      succeeded: outcome.succeeded,
+      terminal: outcome.terminal,
+    })),
+    [{ phase: "dial", outcome: "no_answer", succeeded: false, terminal: true }],
+  );
+
+  const detail = await fetchJson("GET", `/v1/tenants/fh-demo/diagnostics/sessions/${callSid}`);
+  const handoffEvent = detail.body.timeline.find(
+    (event: Record<string, unknown>) => event.eventType === "HANDOFF_OUTCOME_RECORDED",
+  );
+  assert.deepEqual(handoffEvent.handoff, {
+    phase: "dial",
+    outcome: "no_answer",
+    succeeded: false,
+    terminal: true,
+  });
+  assert.equal(JSON.stringify(detail.body).includes("+15551230000"), false);
+});
+
+test("Twilio handoff screening rejects wrong or missing acceptance digits", async () => {
+  const callSid = "twilio-call-http-handoff-rejected-1";
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({ CallSid: callSid, From: "+15551230000", To: "+15559870000" }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+
+  const rejected = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
+    new URLSearchParams({
+      CallSid: "outbound-rejected-1",
+      ParentCallSid: callSid,
+      Digits: "2",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+  const noInput = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-accept",
+    new URLSearchParams({
+      CallSid: "outbound-no-input-1",
+      ParentCallSid: callSid,
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+
+  assert.match(rejected.body, /will not be connected/);
+  assert.match(noInput.body, /will not be connected/);
+  const notConnected = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/handoff-result",
+    new URLSearchParams({
+      CallSid: callSid,
+      DialCallSid: "outbound-no-input-1",
+      DialCallStatus: "completed",
+    }),
+    { apiKey: null, extraHeaders: { "content-type": "application/x-www-form-urlencoded" } },
+  );
+  assert.match(notConnected.body, /no team member was available/);
+  const replay = await fetchJson("GET", `/v1/tenants/fh-demo/first-call/sessions/${callSid}/replay`);
+  assert.deepEqual(
+    replay.body.snapshot.handoffOutcomes.map((outcome: Record<string, unknown>) => outcome.outcome),
+    ["rejected", "no_input", "screening_not_accepted"],
+  );
 });
 
 test("Twilio webhook route simulates configured demo handoffs without dialing", async () => {

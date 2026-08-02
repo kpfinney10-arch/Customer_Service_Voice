@@ -29,6 +29,18 @@ test("call health probe classifies recent persisted failures", async () => {
   store.append([
     event("tool-failed", "TOOL_FAILED", { toolName: "crm.create_intake_lead" }),
     event("provider-failed", "PROVIDER_COMMANDS_EXECUTED", { allSucceeded: false }),
+    event("handoff-failed", "HANDOFF_OUTCOME_RECORDED", {
+      phase: "dial",
+      outcome: "no_answer",
+      succeeded: false,
+      terminal: true,
+    }),
+    event("screening-rejected", "HANDOFF_OUTCOME_RECORDED", {
+      phase: "screening",
+      outcome: "rejected",
+      succeeded: false,
+      terminal: false,
+    }),
     event("call-failed", "CALL_ENDED", { reason: "provider_failed" }),
     event("provider-succeeded", "PROVIDER_COMMANDS_EXECUTED", { allSucceeded: true }),
   ]);
@@ -37,9 +49,10 @@ test("call health probe classifies recent persisted failures", async () => {
   assert.deepEqual(await probe.snapshot(), {
     ok: false,
     windowSeconds: 1_800,
-    failureCount: 3,
+    failureCount: 4,
     failureKinds: [
       "abnormal_call_end",
+      "handoff_failure",
       "provider_command_failure",
       "tool_failure",
     ],
@@ -52,6 +65,12 @@ test("call health probe ignores normal disconnects and expired failures", async 
   store.append([
     event("completed", "CALL_ENDED", { reason: "completed" }),
     event("canceled", "CALL_ENDED", { reason: "canceled" }),
+    event("handoff-canceled", "HANDOFF_OUTCOME_RECORDED", {
+      phase: "dial",
+      outcome: "canceled",
+      succeeded: false,
+      terminal: true,
+    }),
     event("expired", "TOOL_FAILED", {}, "2026-08-01T14:29:59.000Z"),
   ]);
   const probe = new EventStoreCallHealthProbe(store, { windowSeconds: 1_800, now });

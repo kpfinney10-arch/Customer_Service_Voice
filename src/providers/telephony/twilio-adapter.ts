@@ -38,6 +38,7 @@ export type TwilioTwiMlOptions = {
   actionOnEmptyResult?: boolean;
   hints?: string[];
   handoffScreeningUrl?: string;
+  handoffResultUrl?: string;
 };
 
 export type TwilioHandoffMode = "live" | "simulate";
@@ -45,6 +46,21 @@ export type TwilioHandoffMode = "live" | "simulate";
 export const DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS = 2;
 export const DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE =
   "This demo has recorded that a funeral home team member should follow up. No live transfer will be placed.";
+export const DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE =
+  "I am sorry, no team member was available to take the transfer. Your information has been recorded for urgent follow-up. If you need immediate emergency assistance, please call 911.";
+
+export type TwilioHandoffScreeningDecision = {
+  sessionId: string;
+  correlationId: string;
+  outcome: "accepted" | "rejected" | "no_input";
+  succeeded: boolean;
+};
+
+export type TwilioHandoffDialResult = {
+  sessionId: string;
+  correlationId: string;
+  dialStatus: "completed" | "busy" | "no_answer" | "failed" | "canceled";
+};
 
 export const DEFAULT_TWILIO_SPEECH_HINTS = [
   "caller name",
@@ -138,6 +154,40 @@ export function translateTwilioWebhook(input: {
   };
 }
 
+export function translateTwilioHandoffScreeningDecision(
+  fields: TwilioWebhookFields,
+): TwilioHandoffScreeningDecision {
+  const sessionId = requiredString(fields.ParentCallSid, "ParentCallSid");
+  const correlationId = optionalString(fields.CallSid) ?? sessionId;
+  const digits = optionalString(fields.Digits);
+  if (digits === "1") {
+    return { sessionId, correlationId, outcome: "accepted", succeeded: true };
+  }
+  return {
+    sessionId,
+    correlationId,
+    outcome: digits ? "rejected" : "no_input",
+    succeeded: false,
+  };
+}
+
+export function translateTwilioHandoffDialResult(fields: TwilioWebhookFields): TwilioHandoffDialResult {
+  const sessionId = requiredString(fields.CallSid, "CallSid");
+  const correlationId = optionalString(fields.DialCallSid) ?? sessionId;
+  const rawStatus = requiredString(fields.DialCallStatus, "DialCallStatus");
+  const dialStatus = rawStatus === "no-answer" ? "no_answer" : rawStatus;
+  if (
+    dialStatus !== "completed" &&
+    dialStatus !== "busy" &&
+    dialStatus !== "no_answer" &&
+    dialStatus !== "failed" &&
+    dialStatus !== "canceled"
+  ) {
+    throw new TwilioWebhookError("DialCallStatus is not supported.");
+  }
+  return { sessionId, correlationId, dialStatus };
+}
+
 export function createTwilioTwiMl(input: {
   voiceResponse: VoiceResponse;
   options: TwilioTwiMlOptions;
@@ -226,6 +276,7 @@ export function createTwilioHandoffScreeningTwiMl(input: {
     action: input.acceptUrl,
     method: "POST",
     timeout: String(input.timeoutSeconds ?? 8),
+    actionOnEmptyResult: "true",
   };
   const options = {
     actionUrl: input.acceptUrl,
@@ -249,6 +300,34 @@ export function createTwilioHandoffAcceptedTwiMl(input: {
   return xmlResponse(sayElement(input.text ?? "Connecting now.", options));
 }
 
+export function createTwilioHandoffRejectedTwiMl(input: {
+  text?: string;
+  voice?: string;
+  language?: string;
+} = {}): string {
+  const options = { actionUrl: "" };
+  addIfPresent(options, "voice", input.voice);
+  addIfPresent(options, "language", input.language);
+  return xmlResponse(
+    sayElement(input.text ?? "This call will not be connected. Goodbye.", options) + hangupElement(),
+  );
+}
+
+export function createTwilioHandoffResultTwiMl(input: {
+  succeeded: boolean;
+  failureText?: string;
+  voice?: string;
+  language?: string;
+}): string {
+  if (input.succeeded) return xmlResponse(hangupElement());
+  const options = { actionUrl: "" };
+  addIfPresent(options, "voice", input.voice);
+  addIfPresent(options, "language", input.language);
+  return xmlResponse(
+    sayElement(input.failureText ?? DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE, options) + hangupElement(),
+  );
+}
+
 function handoffElement(action: Extract<VoiceResponseAction, { type: "handoff" }>, options: TwilioTwiMlOptions): string {
   if (isPhoneHandoff(action)) {
     return dialElement(action.destination, options);
@@ -260,6 +339,8 @@ function dialElement(phoneNumber: string, options: TwilioTwiMlOptions): string {
   const attributes = {
     timeout: String(options.dialTimeoutSeconds ?? 25),
     answerOnBridge: "true",
+    action: options.handoffResultUrl,
+    method: options.handoffResultUrl ? options.method ?? "POST" : undefined,
   };
   const numberAttributes = {
     url: options.handoffScreeningUrl,

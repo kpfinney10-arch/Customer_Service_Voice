@@ -18,7 +18,17 @@ export type SessionReplaySnapshot = {
   redactedTranscriptCount: number;
   interruptionCount: number;
   providerCommandBatches?: ProviderCommandBatchSummary[];
+  handoffOutcomes?: HandoffOutcomeSummary[];
   handoff?: FirstCallHandoffSummary;
+};
+
+export type HandoffOutcomeSummary = {
+  provider: string;
+  phase: string;
+  outcome: string;
+  succeeded: boolean;
+  terminal: boolean;
+  occurredAt: string;
 };
 
 export type ProviderCommandBatchSummary = {
@@ -49,6 +59,7 @@ export function createSessionReplaySnapshot(input: {
   const failedToolNames = toolNamesByStatus(input.events, false);
   const completedToolNames = toolNamesByStatus(input.events, true);
   const providerCommandBatches = summarizeProviderCommandBatches(input.events);
+  const handoffOutcomes = summarizeHandoffOutcomes(input.events);
   const snapshot: SessionReplaySnapshot = {
     tenantId: input.session.tenantId,
     callId: input.session.callId,
@@ -70,8 +81,22 @@ export function createSessionReplaySnapshot(input: {
   if (providerCommandBatches.length > 0) {
     snapshot.providerCommandBatches = providerCommandBatches;
   }
+  if (handoffOutcomes.length > 0) snapshot.handoffOutcomes = handoffOutcomes;
   addIfPresent(snapshot, "handoff", input.handoff);
   return snapshot;
+}
+
+function summarizeHandoffOutcomes(events: CallEvent[]): HandoffOutcomeSummary[] {
+  return events
+    .filter((event) => event.eventType === "HANDOFF_OUTCOME_RECORDED")
+    .map((event) => ({
+      provider: stringFromPayload(event.payload.provider, "unknown"),
+      phase: stringFromPayload(event.payload.phase, "unknown"),
+      outcome: stringFromPayload(event.payload.outcome, "unknown"),
+      succeeded: booleanFromPayload(event.payload.succeeded),
+      terminal: booleanFromPayload(event.payload.terminal),
+      occurredAt: event.occurredAt,
+    }));
 }
 
 function toolNamesByStatus(events: CallEvent[], ok: boolean): string[] {

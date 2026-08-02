@@ -44,6 +44,7 @@ export type FirstCallService = {
   interruptSession: (input: InterruptFirstCallSessionInput) => Promise<InterruptFirstCallSessionOutput>;
   endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
   recordProviderCommands: (input: RecordProviderCommandsInput) => Promise<RecordProviderCommandsOutput>;
+  recordHandoffOutcome: (input: RecordHandoffOutcomeInput) => Promise<RecordHandoffOutcomeOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
   listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
@@ -127,6 +128,24 @@ export type ProviderCommandResultSummary = {
 
 export type RecordProviderCommandsOutput = {
   event: CallEvent;
+};
+
+export type HandoffOutcomePhase = "screening" | "dial";
+
+export type RecordHandoffOutcomeInput = {
+  tenantId: string;
+  sessionId: string;
+  provider: string;
+  phase: HandoffOutcomePhase;
+  outcome: string;
+  succeeded: boolean;
+  terminal: boolean;
+  correlationId?: string;
+};
+
+export type RecordHandoffOutcomeOutput = {
+  event: CallEvent;
+  duplicate: boolean;
 };
 
 export type ListFirstCallEventsInput = {
@@ -508,6 +527,43 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       });
       await options.eventStore?.append([event]);
       return { event };
+    },
+
+    async recordHandoffOutcome(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const correlationId = input.correlationId ?? idFactory();
+      const existingEvents =
+        (await options.eventStore?.listBySession(existingSession.tenantId, existingSession.sessionId)) ?? [];
+      const duplicate = existingEvents.find(
+        (event) =>
+          event.eventType === "HANDOFF_OUTCOME_RECORDED" &&
+          event.correlationId === correlationId &&
+          event.payload.provider === input.provider &&
+          event.payload.phase === input.phase &&
+          event.payload.outcome === input.outcome,
+      );
+      if (duplicate) return { event: duplicate, duplicate: true };
+
+      const event = createCallEvent({
+        eventId: idFactory(),
+        eventType: "HANDOFF_OUTCOME_RECORDED",
+        callId: existingSession.callId,
+        sessionId: existingSession.sessionId,
+        tenantId: existingSession.tenantId,
+        correlationId,
+        payload: {
+          provider: input.provider,
+          phase: input.phase,
+          outcome: input.outcome,
+          succeeded: input.succeeded,
+          terminal: input.terminal,
+        },
+      });
+      await options.eventStore?.append([event]);
+      return { event, duplicate: false };
     },
 
     async listEvents(input) {
