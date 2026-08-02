@@ -32,7 +32,8 @@ The script validates:
 Latest permanent-host validation:
 
 - On 2026-08-02, the signed matrix passed `7/7` against `https://voice.lanternbell.com` using Render, managed PostgreSQL, the permanent Twilio webhook, and simulated handoffs.
-- Run ID: `render-pilot-readiness-1785680625`.
+- The post-deployment release run used ID `render-handoff-release-1785681418` on commit `8bb8246`.
+- A signed synthetic acceptance plus connected-result callback persisted the expected screening and dial outcomes without placing a real call.
 - Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
 
 ## Scenario Coverage

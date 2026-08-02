@@ -909,3 +909,25 @@ Roadmap and scope decision:
 - "Complete Voice" means reliable, secure, observable, recoverable, and ready for a controlled pilot, not theoretically perfect or permanently feature-complete.
 - Existing Lovable code will be treated as working product prototypes. Modernization versus replacement will be decided independently for each application only after a structured technical and product audit.
 - The authoritative scope boundary is now `docs/PROJECT_SCOPE.md`; the ordered program plan and phase gates are in `docs/architecture/mvp-roadmap.md`.
+
+## 2026-08-02 production Twilio handoff-outcome hardening
+
+- Ran the full signed Twilio scenario matrix against the existing Render deployment before the change. All seven lanes passed under run ID `render-pilot-readiness-1785680625`, and call health remained green.
+- Added a signed final `<Dial>` callback so live Twilio transfers record an explicit terminal result instead of treating a dial attempt as a completed handoff.
+- Called parties must press `1`; wrong digits and no input are recorded as rejected screening decisions. A Twilio `completed` dial is classified as connected only when the parent session contains the accepted-screening event.
+- Terminal outcomes are `connected`, `screening_not_accepted`, `busy`, `no_answer`, `failed`, or `canceled`. Failed outcomes return a caller-safe urgent-follow-up message and hang up cleanly.
+- Added append-only `HANDOFF_OUTCOME_RECORDED` events, replay summaries, safe allowlisted operator-timeline fields, and duplicate-delivery protection.
+- Aggregate `/health/calls` now reports `handoff_failure` for terminal unaccepted, busy, no-answer, and failed transfers. Caller-canceled transfers remain recorded but do not trigger a platform alert.
+- All screening, acceptance, and result callbacks remain covered by Twilio signature verification. Events and operator responses contain no phone destination, caller details, transcripts, or captured intake values.
+- TypeScript typecheck, build, and full test suite passed `291/291`.
+- Pushed commit `8bb8246` (`Record and recover Twilio handoff outcomes`) to `main`.
+- Render deployment `dep-d9nlbgm7bikc73c5j2ag` checked out the correct commit, built successfully, found zero npm vulnerabilities, completed PostgreSQL pre-deploy migration, passed internal health checks, and reached Live.
+- The post-deployment signed matrix passed `7/7` under run ID `render-handoff-release-1785681418`.
+- A signed synthetic acceptance plus connected-result callback returned HTTP 200 for both callbacks and persisted `screening/accepted` followed by `dial/connected` on the production PostgreSQL timeline without dialing a number.
+- The production operator detail returned only the four allowlisted handoff fields, the updated browser client was live, and `/health/calls` returned HTTP 200 with zero failures.
+- Render remains deliberately configured with `TWILIO_HANDOFF_MODE=simulate`; no real transfer behavior changed.
+
+Next action:
+
+1. Keep the real-number accepted/rejected/no-answer drill gated until an approved destination and second phone are available.
+2. Move next to named operator users, short-lived sessions, role-based authorization, and access auditing before funeral-home staff use the console.
