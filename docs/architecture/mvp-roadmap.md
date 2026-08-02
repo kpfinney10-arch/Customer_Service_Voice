@@ -78,7 +78,7 @@
 - Durable event persistence.
 - Tenant-aware auth and permissions.
 - Prompt and rule versioning.
-- Audit log UI (redacted activity and per-call timeline views complete; role-based production access remains).
+- Audit log UI with redacted activity and per-call timeline views behind named, role-based production access.
 - Latency metrics.
 - Replayable call timeline (initial redacted operator timeline complete; engineering replay remains available).
 - Signed Twilio screening and final handoff outcome callbacks with caller-safe failure fallback and aggregate alerting.

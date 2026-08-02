@@ -949,3 +949,20 @@ Next action:
 1. Run the hidden-password provisioning command for `kpfinney10@gmail.com` locally.
 2. Add its JSON output to Render as secret `OPERATOR_USERS_JSON`.
 3. Commit and push the implementation, allow migration `003` to deploy, then verify named login, activity, detail, logout, access audit persistence, and `/health/calls`.
+
+## 2026-08-02 named operator production activation
+
+- Generated the owner's password verifier locally without placing the plaintext password in chat, source control, or Render configuration, then saved the resulting `OPERATOR_USERS_JSON` value in the existing Render service environment.
+- Pushed commit `c10161c` (`Add named operator access control`) to `main` and manually deployed the latest commit because the Render auto-deploy webhook did not start a deployment.
+- Render deployment `dep-d9nm71jm8hqs73elm0r0` reached Live after the TypeScript build, PostgreSQL migration `003_operator_identity_and_access`, startup, and internal health checks passed.
+- Production `/health` and `/health/calls` returned HTTP 200; call health remained green with zero failures. The operator page retained restrictive CSP, no-store, frame-denial, and content-type security headers, while an unauthenticated session request returned `401 SESSION_REQUIRED`.
+- The owner completed the first named production login. The secure cookie session survived navigation and loaded all 20 current redacted call sessions and the recent operational event table.
+- A production call-detail review loaded the complete redacted event timeline, completed-tool result, missing-information result, and captured category names without transcript text or captured fact values.
+- A direct read-only PostgreSQL audit check confirmed durable successful rows for `LOGIN_SUCCEEDED`, `CALL_ACTIVITY_VIEWED`, and `CALL_DETAIL_VIEWED`. The console was left signed in; logout, expiry, revocation, and denied-access behavior remain covered by the automated HTTP and PostgreSQL suites rather than disrupting the owner's active session.
+- Production browser code uses the named session API only and contains no browser API-key storage or authorization-header path.
+
+Next action:
+
+1. Run a controlled-pilot readiness gap review against the documented pilot and production exit criteria.
+2. Convert only the remaining launch-blocking gaps into an ordered checklist; keep the real-number handoff drill gated until a second approved phone is available.
+3. Prioritize the first evidence-backed gap, expected to be operational latency/repeated-prompt monitoring and a documented privacy/retention decision, before adding lower-value operator workflow features.
