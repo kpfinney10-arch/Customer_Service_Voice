@@ -69,6 +69,8 @@ import { evaluateTwilioReadinessFromEnv } from "../providers/telephony/twilio-re
 import type { TwilioReadiness } from "../providers/telephony/twilio-readiness.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
+import { OperatorAuthenticationError, OperatorAuthService } from "../security/operator-auth.js";
+import { InMemoryOperatorAuthStore } from "../security/operator-auth-store.js";
 
 export type ApiServerOptions = {
   service?: FirstCallService;
@@ -84,6 +86,7 @@ export type ApiServerOptions = {
   telnyxReadiness?: TelnyxReadiness;
   twilioReadiness?: TwilioReadiness;
   callHealthProbe?: CallHealthProbe;
+  operatorAuthService?: OperatorAuthService;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -106,6 +109,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const telnyxReadiness = options.telnyxReadiness ?? evaluateTelnyxReadinessFromEnv();
   const twilioReadiness = options.twilioReadiness ?? evaluateTwilioReadinessFromEnv();
   const callHealthProbe = options.callHealthProbe ?? createHealthyCallHealthProbe();
+  const operatorAuthService = options.operatorAuthService ?? new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false });
 
   return http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -135,6 +139,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         telnyxReadiness,
         twilioReadiness,
         callHealthProbe,
+        operatorAuthService,
         request,
         response,
       );
@@ -142,6 +147,11 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
       if (error instanceof ApiError) {
         errorCode = error.code;
         sendJson(response, error.statusCode, { error: error.code, message: error.message }, error.headers);
+        return;
+      }
+      if (error instanceof OperatorAuthenticationError) {
+        errorCode = error.code;
+        sendJson(response, operatorAuthStatusCode(error), { error: error.code, message: error.message });
         return;
       }
       if (error instanceof FirstCallServiceError) {
@@ -217,6 +227,7 @@ export async function handleApiRequest(
   telnyxReadiness: TelnyxReadiness = evaluateTelnyxReadinessFromEnv(),
   twilioReadiness: TwilioReadiness = evaluateTwilioReadinessFromEnv(),
   callHealthProbe: CallHealthProbe = createHealthyCallHealthProbe(),
+  operatorAuthService: OperatorAuthService = new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false }),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -258,6 +269,61 @@ export async function handleApiRequest(
         path: url.pathname,
         requestKey: tenantIdFromPath(url.pathname) ?? "anonymous",
       });
+    }
+
+    if (request.method === "POST" && url.pathname === "/v1/operator/session") {
+      requireSameOrigin(request.headers.get("origin"), url.origin);
+      const body = await readWebJsonObject(request);
+      const login = await operatorAuthService.login({
+        tenantId: requiredString(body.tenantId, "tenantId"),
+        email: requiredString(body.email, "email"),
+        password: requiredString(body.password, "password"),
+        requestId,
+      });
+      response = jsonResponse(201, { session: login.session }, { "set-cookie": login.setCookie });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    if (request.method === "GET" && url.pathname === "/v1/operator/session") {
+      const principal = await operatorAuthService.currentSession(request.headers.get("cookie"));
+      response = jsonResponse(200, { session: principal });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    if (request.method === "DELETE" && url.pathname === "/v1/operator/session") {
+      requireSameOrigin(request.headers.get("origin"), url.origin);
+      const clearCookie = await operatorAuthService.logout(request.headers.get("cookie"), requestId);
+      response = jsonResponse(200, { ok: true }, { "set-cookie": clearCookie });
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    if (request.method === "GET" && url.pathname === "/v1/operator/calls") {
+      const principal = await operatorAuthService.requirePermission(request.headers.get("cookie"), "calls:read", { requestId });
+      const input = { tenantId: principal.tenantId };
+      const limit = optionalPositiveIntegerFromQuery(url.searchParams.get("limit"), "limit");
+      addIfPresent(input, "limit", limit);
+      const activity = await service.listTenantActivity(input);
+      await operatorAuthService.auditAccess(principal, "CALL_ACTIVITY_VIEWED", {
+        requestId,
+        metadata: { limit: limit ?? 20 },
+      });
+      response = jsonResponse(200, activity);
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const operatorCallMatch = url.pathname.match(/^\/v1\/operator\/calls\/([^/]+)$/);
+    if (request.method === "GET" && operatorCallMatch?.[1]) {
+      const sessionId = decodeURIComponent(operatorCallMatch[1]);
+      const principal = await operatorAuthService.requirePermission(request.headers.get("cookie"), "calls:read", { requestId, targetId: sessionId });
+      const detail = await service.getTenantCallDetail({ tenantId: principal.tenantId, sessionId });
+      await operatorAuthService.auditAccess(principal, "CALL_DETAIL_VIEWED", { requestId, targetId: sessionId });
+      response = jsonResponse(200, detail);
+      response.headers.set("x-request-id", requestId);
+      return response;
     }
 
     const tenantConfigMatch = url.pathname.match(/^\/v1\/tenants\/([^/]+)\/config$/);
@@ -736,6 +802,13 @@ export async function handleApiRequest(
       response.headers.set("x-request-id", requestId);
       return response;
     }
+    if (error instanceof OperatorAuthenticationError) {
+      errorCode = error.code;
+      const headers = error.code === "SESSION_EXPIRED" ? { "set-cookie": operatorAuthService.clearCookie() } : {};
+      response = jsonResponse(operatorAuthStatusCode(error), { error: error.code, message: error.message }, headers);
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
     if (error instanceof IdempotencyConflictError) {
       errorCode = "IDEMPOTENCY_KEY_CONFLICT";
       response = jsonResponse(409, {
@@ -802,6 +875,7 @@ async function routeRequest(
   telnyxReadiness: TelnyxReadiness,
   twilioReadiness: TwilioReadiness,
   callHealthProbe: CallHealthProbe,
+  operatorAuthService: OperatorAuthService,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -828,6 +902,55 @@ async function routeRequest(
   const operatorAsset = method === "GET" ? operatorPageAsset(url.pathname) : undefined;
   if (operatorAsset) {
     sendText(response, 200, operatorAsset.body, operatorAsset.contentType, operatorPageSecurityHeaders);
+    return;
+  }
+
+  if (method === "POST" && url.pathname === "/v1/operator/session") {
+    requireSameOrigin(headerValue(request.headers.origin), new URL(publicRequestUrlFromIncomingMessage(request)).origin);
+    const body = await readJsonObject(request);
+    const login = await operatorAuthService.login({
+      tenantId: requiredString(body.tenantId, "tenantId"),
+      email: requiredString(body.email, "email"),
+      password: requiredString(body.password, "password"),
+      requestId: requestIdFromIncomingMessage(request),
+    });
+    sendJson(response, 201, { session: login.session }, { "set-cookie": login.setCookie });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/operator/session") {
+    const principal = await operatorAuthService.currentSession(headerValue(request.headers.cookie));
+    sendJson(response, 200, { session: principal });
+    return;
+  }
+
+  if (method === "DELETE" && url.pathname === "/v1/operator/session") {
+    requireSameOrigin(headerValue(request.headers.origin), new URL(publicRequestUrlFromIncomingMessage(request)).origin);
+    const clearCookie = await operatorAuthService.logout(headerValue(request.headers.cookie), requestIdFromIncomingMessage(request));
+    sendJson(response, 200, { ok: true }, { "set-cookie": clearCookie });
+    return;
+  }
+
+  if (method === "GET" && url.pathname === "/v1/operator/calls") {
+    const requestId = requestIdFromIncomingMessage(request);
+    const principal = await operatorAuthService.requirePermission(headerValue(request.headers.cookie), "calls:read", { requestId });
+    const input = { tenantId: principal.tenantId };
+    const limit = optionalPositiveIntegerFromQuery(url.searchParams.get("limit"), "limit");
+    addIfPresent(input, "limit", limit);
+    const activity = await service.listTenantActivity(input);
+    await operatorAuthService.auditAccess(principal, "CALL_ACTIVITY_VIEWED", { requestId, metadata: { limit: limit ?? 20 } });
+    sendJson(response, 200, activity);
+    return;
+  }
+
+  const operatorCallMatch = url.pathname.match(/^\/v1\/operator\/calls\/([^/]+)$/);
+  if (method === "GET" && operatorCallMatch?.[1]) {
+    const requestId = requestIdFromIncomingMessage(request);
+    const sessionId = decodeURIComponent(operatorCallMatch[1]);
+    const principal = await operatorAuthService.requirePermission(headerValue(request.headers.cookie), "calls:read", { requestId, targetId: sessionId });
+    const detail = await service.getTenantCallDetail({ tenantId: principal.tenantId, sessionId });
+    await operatorAuthService.auditAccess(principal, "CALL_DETAIL_VIEWED", { requestId, targetId: sessionId });
+    sendJson(response, 200, detail);
     return;
   }
 
@@ -1726,6 +1849,12 @@ function optionalPositiveIntegerFromQuery(value: string | null, field: string): 
   return parsed;
 }
 
+function requireSameOrigin(origin: string | null | undefined, expectedOrigin: string): void {
+  if (origin && origin !== expectedOrigin) {
+    throw new ApiError(403, "CROSS_ORIGIN_REQUEST_FORBIDDEN", "Cross-origin operator requests are not allowed.");
+  }
+}
+
 function addIfPresent<T extends object, K extends string, V>(
   target: T,
   key: K,
@@ -1961,4 +2090,8 @@ class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function operatorAuthStatusCode(error: OperatorAuthenticationError): number {
+  return error.code === "ACCESS_FORBIDDEN" ? 403 : 401;
 }

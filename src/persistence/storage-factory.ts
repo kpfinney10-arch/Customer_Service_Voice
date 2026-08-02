@@ -13,6 +13,9 @@ import { PostgresEventStore } from "./postgres-event-store.js";
 import { PostgresIdempotencyStore } from "./postgres-idempotency-store.js";
 import { migratePostgres } from "./postgres-schema.js";
 import { PostgresSessionStore } from "./postgres-session-store.js";
+import { InMemoryOperatorAuthStore } from "../security/operator-auth-store.js";
+import type { OperatorAuthStore } from "../security/operator-auth-store.js";
+import { PostgresOperatorAuthStore } from "./postgres-operator-auth-store.js";
 
 export type StorageDriver = "memory" | "file" | "postgres";
 
@@ -21,6 +24,7 @@ export type PersistenceStores = {
   sessionStore: SessionStore;
   eventStore: EventStore;
   idempotencyStore: IdempotencyStore;
+  operatorAuthStore: OperatorAuthStore;
   dataDir?: string;
   initialize: () => Promise<void>;
   close: () => Promise<void>;
@@ -43,6 +47,7 @@ export function createPersistenceStoresFromEnv(
       sessionStore: new InMemorySessionStore(),
       eventStore: new InMemoryEventStore(),
       idempotencyStore: new InMemoryIdempotencyStore(),
+      operatorAuthStore: new InMemoryOperatorAuthStore(),
       initialize: async () => {},
       close: async () => {},
     };
@@ -56,6 +61,7 @@ export function createPersistenceStoresFromEnv(
       sessionStore: new FileSessionStore(join(dataDir, "sessions")),
       eventStore: new FileEventStore(join(dataDir, "events.jsonl")),
       idempotencyStore: new FileIdempotencyStore(join(dataDir, "idempotency")),
+      operatorAuthStore: new InMemoryOperatorAuthStore(),
       initialize: async () => {},
       close: async () => {},
     };
@@ -78,6 +84,7 @@ export function createPersistenceStoresFromEnv(
     sessionStore: new PostgresSessionStore(pool),
     eventStore: new PostgresEventStore(pool),
     idempotencyStore: new PostgresIdempotencyStore(pool),
+    operatorAuthStore: new PostgresOperatorAuthStore(pool),
     initialize: async () => migratePostgres(pool),
     close: async () => pool.end(),
   };

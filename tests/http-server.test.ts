@@ -24,6 +24,8 @@ import type { TelnyxCallControlClient } from "../src/providers/telephony/telnyx-
 import type { TelnyxReadiness } from "../src/providers/telephony/telnyx-readiness.js";
 import type { TwilioReadiness } from "../src/providers/telephony/twilio-readiness.js";
 import type { FirstCallExtractor } from "../src/verticals/funeral-home/first-call-extractor.js";
+import { OperatorAuthService, hashOperatorPassword } from "../src/security/operator-auth.js";
+import { InMemoryOperatorAuthStore } from "../src/security/operator-auth-store.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -120,10 +122,11 @@ test("operator call-review assets keep credentials out of URLs and render with s
 
   assert.equal(script.status, 200);
   assert.match(script.headers["content-type"] ?? "", /^text\/javascript/);
-  assert.match(script.body, /authorization: 'Bearer ' \+ apiKey/);
-  assert.match(script.body, /sessionStorage/);
-  assert.match(script.body, /encodeURIComponent\(tenantId\)/);
-  assert.match(script.body, /diagnostics\/sessions/);
+  assert.match(script.body, /\/v1\/operator\/session/);
+  assert.match(script.body, /credentials: 'same-origin'/);
+  assert.match(script.body, /\/v1\/operator\/calls/);
+  assert.doesNotMatch(script.body, /authorization:/);
+  assert.doesNotMatch(script.body, /sessionStorage|localStorage/);
   assert.match(script.body, /Review call/);
   assert.match(script.body, /renderCallDetail/);
   assert.doesNotMatch(script.body, /innerHTML/);
@@ -132,6 +135,49 @@ test("operator call-review assets keep credentials out of URLs and render with s
   assert.equal(styles.status, 200);
   assert.match(styles.headers["content-type"] ?? "", /^text\/css/);
   assert.match(styles.body, /LanternBell|brand-mark|summary-grid/);
+});
+
+test("operator session routes authenticate a named user and audit tenant-scoped call access", async () => {
+  const store = new InMemoryOperatorAuthStore();
+  await store.upsertUser({
+    userId: "operator-user-1",
+    tenantId: "fh-demo",
+    email: "operator@example.com",
+    displayName: "Demo Operator",
+    passwordHash: await hashOperatorPassword("operator lantern bell password"),
+    role: "operator",
+    active: true,
+    createdAt: "2026-08-02T12:00:00.000Z",
+    updatedAt: "2026-08-02T12:00:00.000Z",
+  });
+  const operatorAuthService = new OperatorAuthService(store, { secureCookie: false });
+  const login = await fetchJson("POST", "/v1/operator/session", {
+    tenantId: "fh-demo",
+    email: "operator@example.com",
+    password: "operator lantern bell password",
+  }, { apiKey: null, operatorAuthService });
+
+  assert.equal(login.status, 201);
+  assert.equal(login.body.session.role, "operator");
+  assert.match(login.headers["set-cookie"] ?? "", /^lb_operator_session=/);
+  assert.match(login.headers["set-cookie"] ?? "", /HttpOnly/);
+  const cookie = (login.headers["set-cookie"] ?? "").split(";")[0] ?? "";
+
+  const activity = await fetchJson("GET", "/v1/operator/calls?limit=5", undefined, {
+    apiKey: null,
+    operatorAuthService,
+    extraHeaders: { cookie },
+  });
+  assert.equal(activity.status, 200);
+  assert.ok(Array.isArray(activity.body.sessions));
+  assert.equal(store.auditEvents.some((event) => event.eventType === "CALL_ACTIVITY_VIEWED"), true);
+
+  const unauthenticated = await fetchJson("GET", "/v1/operator/calls", undefined, {
+    apiKey: null,
+    operatorAuthService,
+  });
+  assert.equal(unauthenticated.status, 401);
+  assert.equal(unauthenticated.body.error, "SESSION_REQUIRED");
 });
 
 test("tenant config endpoint returns authenticated tenant configuration", async () => {
@@ -5887,6 +5933,7 @@ async function fetchJson(
     twilioReadiness?: TwilioReadiness;
     extractor?: FirstCallExtractor;
     callHealthProbe?: CallHealthProbe;
+    operatorAuthService?: OperatorAuthService;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -5928,6 +5975,7 @@ async function fetchJson(
     options.telnyxReadiness,
     options.twilioReadiness,
     options.callHealthProbe,
+    options.operatorAuthService,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
@@ -5956,6 +6004,7 @@ async function fetchText(
     telnyxReadiness?: TelnyxReadiness;
     twilioReadiness?: TwilioReadiness;
     callHealthProbe?: CallHealthProbe;
+    operatorAuthService?: OperatorAuthService;
   } = {},
 ): Promise<{ status: number; body: string; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -5991,6 +6040,7 @@ async function fetchText(
     options.telnyxReadiness,
     options.twilioReadiness,
     options.callHealthProbe,
+    options.operatorAuthService,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {

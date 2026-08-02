@@ -29,6 +29,10 @@ import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 import { createFirstCallExtractorFromEnv } from "./first-call-extractor-environment.js";
 import type { FirstCallExtractor } from "../verticals/funeral-home/first-call-extractor.js";
+import { OperatorAuthService } from "../security/operator-auth.js";
+import type { OperatorUser } from "../security/operator-auth-store.js";
+import { parseOperatorUsers } from "../security/operator-users-config.js";
+import type { OperatorAuthStore } from "../security/operator-auth-store.js";
 
 export type ServerEnvironment = {
   host: string;
@@ -52,6 +56,9 @@ export type ServerEnvironment = {
   telnyxReadiness: TelnyxReadiness;
   twilioReadiness: TwilioReadiness;
   firstCallExtractor: FirstCallExtractor;
+  operatorAuthService: OperatorAuthService;
+  operatorAuthStore: OperatorAuthStore;
+  operatorUsers: OperatorUser[];
 };
 
 export class ServerEnvironmentError extends Error {
@@ -96,7 +103,30 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     telnyxReadiness: evaluateTelnyxReadinessFromEnv(env),
     twilioReadiness: evaluateTwilioReadinessFromEnv(env),
     firstCallExtractor: createFirstCallExtractorFromEnv(env),
+    operatorAuthService: new OperatorAuthService(persistence.operatorAuthStore, {
+      absoluteTtlMs: parseDurationMinutes(env.OPERATOR_SESSION_ABSOLUTE_MINUTES, 480, "OPERATOR_SESSION_ABSOLUTE_MINUTES"),
+      idleTtlMs: parseDurationMinutes(env.OPERATOR_SESSION_IDLE_MINUTES, 30, "OPERATOR_SESSION_IDLE_MINUTES"),
+      secureCookie: parseBoolean(env.OPERATOR_COOKIE_SECURE, true, "OPERATOR_COOKIE_SECURE"),
+    }),
+    operatorAuthStore: persistence.operatorAuthStore,
+    operatorUsers: parseOperatorUsers(env.OPERATOR_USERS_JSON),
   };
+}
+
+function parseDurationMinutes(value: string | undefined, fallbackMinutes: number, name: string): number {
+  if (!value?.trim()) return fallbackMinutes * 60_000;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 5 || parsed > 1_440) {
+    throw new ServerEnvironmentError("INVALID_OPERATOR_SESSION_DURATION", `${name} must be an integer between 5 and 1440.`);
+  }
+  return parsed * 60_000;
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean, name: string): boolean {
+  if (!value?.trim()) return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ServerEnvironmentError("INVALID_BOOLEAN", `${name} must be true or false.`);
 }
 
 function parseHost(value: string | undefined): string {

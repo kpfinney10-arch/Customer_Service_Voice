@@ -36,6 +36,14 @@ services:
         value: simulate
       - key: TENANT_API_KEYS
         sync: false
+      - key: OPERATOR_USERS_JSON
+        sync: false
+      - key: OPERATOR_SESSION_ABSOLUTE_MINUTES
+        value: "480"
+      - key: OPERATOR_SESSION_IDLE_MINUTES
+        value: "30"
+      - key: OPERATOR_COOKIE_SECURE
+        value: "true"
       - key: TENANT_CONFIGS_JSON
         sync: false
       - key: TELEPHONY_WEBHOOK_SECRETS

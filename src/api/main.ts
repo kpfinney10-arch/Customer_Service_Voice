@@ -3,6 +3,7 @@ import { createFirstCallService } from "./first-call-service.js";
 import { createApiServer, listen } from "./http-server.js";
 import { loadServerEnvironment } from "../config/server-environment.js";
 import { createConsoleLogger } from "../observability/logger.js";
+import { synchronizeOperatorUsers } from "../security/operator-users-config.js";
 
 const logger = createConsoleLogger();
 let closePersistence: (() => Promise<void>) | undefined;
@@ -11,6 +12,7 @@ try {
   const environment = loadServerEnvironment();
   closePersistence = environment.storage.close;
   await environment.storage.initialize();
+  await synchronizeOperatorUsers(environment.operatorAuthStore, environment.operatorUsers);
   const service = createFirstCallService({
     store: environment.sessionStore,
     eventStore: environment.eventStore,
@@ -29,6 +31,7 @@ try {
     telnyxReadiness: environment.telnyxReadiness,
     twilioReadiness: environment.twilioReadiness,
     callHealthProbe: environment.callHealthProbe,
+    operatorAuthService: environment.operatorAuthService,
     logger,
   });
   const url = await listen(server, environment.port, environment.host);

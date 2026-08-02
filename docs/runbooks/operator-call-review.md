@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use the browser-based operator console during controlled call testing to confirm how the deterministic workflow handled recent calls. The first version intentionally exposes only redacted session summaries and event metadata.
+Use the browser-based operator console during controlled call testing to confirm how the deterministic workflow handled recent calls. The console exposes only redacted session summaries and operational event metadata.
 
 Production URL:
 
@@ -12,16 +12,24 @@ Production URL:
 
 1. Open the operator URL over HTTPS.
 2. Keep the tenant ID as `fh-demo` for the current demo environment.
-3. Retrieve the Render tenant API key from macOS Keychain without writing it to a file:
+3. Enter the email and password for a named operator account.
+4. Select **Sign in**, then use **Refresh** after a test call.
+5. Select **Review** on a call row to open its redacted detail panel.
+6. Select **Sign out** when the review is finished.
 
-   ```bash
-   security find-generic-password -s "LanternBell Render Tenant API Key" -w
-   ```
+The browser session expires after 30 minutes without an authenticated request and after eight hours regardless of activity.
 
-4. Paste the key into the API key field and select **Load activity**.
-5. Use **Refresh** after a test call.
-6. Select **Review** on a call row to open its redacted detail panel.
-7. Use **Forget key** when the review is finished.
+## First-Account Provisioning
+
+Generate the account configuration locally. The command hides password input and outputs only a memory-hard password hash:
+
+```bash
+npm run operator:provision -- --email kpfinney10@gmail.com --name "Kyle Finney" --tenant fh-demo --role owner
+```
+
+Copy the single-line JSON output into the Render `OPERATOR_USERS_JSON` secret environment variable. Never commit the output: it is a password verifier and must still be treated as secret. Redeploy the current commit, then validate sign-in, activity loading, call detail, sign-out, and `/health/calls`.
+
+Use `owner` only for the LanternBell account administrator. Funeral-home staff should normally receive `operator` or read-only `viewer` roles. Adding, changing, or disabling a user is done by updating `OPERATOR_USERS_JSON` and redeploying. Stable user IDs are derived from tenant and normalized email unless an explicit `userId` is supplied.
 
 ## Data Shown
 
@@ -31,22 +39,23 @@ Production URL:
 - A selected call's duration, event count, retry count, and redacted-turn count.
 - Completed and failed tool names.
 - Captured and missing information category names without their values.
-- The complete event-type timeline, including safe tool outcomes and duplicate-prevention reasons.
-- Safe Twilio handoff screening and final outcomes, without destination or caller details.
+- The complete event-type timeline, including safe tool and Twilio handoff outcomes.
 
 The console does not request or display raw event payloads, transcripts, caller phone numbers, names, addresses, or captured structured fact values. It never calls the raw replay endpoint.
 
-## Credential Handling
+## Credential and Session Handling
 
-- The API key is stored only in `sessionStorage`, so it is limited to the current browser tab and is removed when the tab is closed.
-- The key is sent to the same-origin tenant diagnostics endpoint in an `Authorization: Bearer` header.
-- The key is never placed in the URL, HTML, source repository, logs, cookies, or long-lived browser storage.
-- Do not paste the key into screenshots, support messages, or shared documents.
-- The current API-key screen is for controlled demo testing. Before funeral-home staff use the console, replace it with named users, role-based authorization, short-lived sessions, and access auditing.
+- Passwords are stored only as salted `scrypt` hashes; plaintext passwords are never persisted.
+- Session identifiers are 256-bit random values. Only SHA-256 digests are stored in PostgreSQL.
+- The browser cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, same-origin, and unavailable to JavaScript.
+- Session tokens are never placed in URLs, HTML, source control, browser storage, application logs, or audit metadata.
+- Tenant and role come from the authenticated server session, not browser-supplied call requests.
+- Login success/failure, expiry, logout, denied authorization, activity views, and call-detail views are appended to `operator_access_audit`.
+- Existing tenant API keys remain for machine integrations and engineering diagnostics only.
 
 ## Troubleshooting
 
-- **API key is required:** enter the tenant key and retry.
-- **API key is not authorized:** confirm the key belongs to the displayed tenant ID.
+- **Sign-in details are not valid:** confirm tenant, normalized email, account status, and password; repeated failures are throttled.
+- **Operator session is required/expired:** sign in again. An expired cookie is not reusable.
 - **No sessions found:** complete a call against the same deployment and tenant, then refresh.
-- **Service unavailable:** check `https://voice.lanternbell.com/health/calls` and the independent uptime monitor before changing any call settings.
+- **Service unavailable:** check `https://voice.lanternbell.com/health/calls` and the independent uptime monitor before changing call settings.

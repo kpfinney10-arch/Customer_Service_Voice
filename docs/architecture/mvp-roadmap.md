@@ -112,6 +112,7 @@ This is the agreed product sequence. Future phases document direction and archit
 ### Phase C: Establish the Shared Platform Foundation
 
 - Define shared organization and tenant identifiers, named users, roles, permissions, session behavior, and access auditing.
+- Treat the Voice operator identity boundary as the pilot implementation of those concepts, while deferring the shared identity-provider decision until the CRM and Dispatch audits.
 - Define versioned APIs, cross-module event conventions, integration authentication, idempotency, and error contracts.
 - Use TypeScript as the default application and integration language unless a documented audit finding justifies an exception.
 - Establish common product navigation and design conventions without creating a tightly coupled monolith.

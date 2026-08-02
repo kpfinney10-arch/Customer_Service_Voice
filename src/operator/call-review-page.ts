@@ -35,10 +35,10 @@ export const operatorCallReviewHtml = `<!doctype html>
       <section class="access-panel" aria-labelledby="access-title">
         <div class="panel-heading">
           <div>
-            <p class="eyebrow">Testing access</p>
-            <h2 id="access-title">Connect to a tenant</h2>
+            <p class="eyebrow">Staff access</p>
+            <h2 id="access-title">Sign in</h2>
           </div>
-          <button class="button button-quiet" id="forget-button" type="button">Forget key</button>
+          <button class="button button-quiet" id="logout-button" type="button" hidden>Sign out</button>
         </div>
         <form id="access-form">
           <label>
@@ -46,8 +46,12 @@ export const operatorCallReviewHtml = `<!doctype html>
             <input id="tenant-id" name="tenantId" value="fh-demo" autocomplete="organization" required>
           </label>
           <label>
-            API key
-            <input id="api-key" name="apiKey" type="password" autocomplete="current-password" required>
+            Email
+            <input id="email" name="email" type="email" autocomplete="username" required>
+          </label>
+          <label>
+            Password
+            <input id="password" name="password" type="password" autocomplete="current-password" minlength="12" maxlength="128" required>
           </label>
           <label>
             Calls shown
@@ -57,9 +61,9 @@ export const operatorCallReviewHtml = `<!doctype html>
               <option value="50">50</option>
             </select>
           </label>
-          <button class="button button-primary" type="submit">Load activity</button>
+          <button class="button button-primary" type="submit">Sign in</button>
         </form>
-        <p class="storage-note">The key stays in this browser tab only and is never placed in the address bar.</p>
+        <p class="storage-note">Your session is held in a secure, browser-inaccessible cookie and expires after inactivity.</p>
       </section>
 
       <section class="summary-grid" aria-label="Call activity summary">
@@ -80,7 +84,7 @@ export const operatorCallReviewHtml = `<!doctype html>
         <div class="table-scroll">
           <table class="sessions-table">
             <thead><tr><th>Updated</th><th>State</th><th>Intent</th><th>Escalation</th><th>Retries</th><th>Session</th><th><span class="visually-hidden">Review</span></th></tr></thead>
-            <tbody id="sessions-body"><tr><td class="empty" colspan="7">Connect to view recent sessions.</td></tr></tbody>
+            <tbody id="sessions-body"><tr><td class="empty" colspan="7">Sign in to view recent sessions.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -150,7 +154,7 @@ export const operatorCallReviewHtml = `<!doctype html>
         <div class="table-scroll">
           <table>
             <thead><tr><th>Occurred</th><th>Event</th><th>Redaction</th><th>Correlation</th></tr></thead>
-            <tbody id="events-body"><tr><td class="empty" colspan="4">Connect to view recent events.</td></tr></tbody>
+            <tbody id="events-body"><tr><td class="empty" colspan="4">Sign in to view recent events.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -196,7 +200,7 @@ h2 { font-size: 1.45rem; }
 .access-panel { padding: 1.35rem; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.35rem; }
 .access-panel .panel-heading { padding: 0 0 1rem; }
-form { display: grid; grid-template-columns: 1fr 1.5fr .7fr auto; gap: .8rem; align-items: end; }
+form { display: grid; grid-template-columns: .8fr 1.2fr 1.2fr .55fr auto; gap: .8rem; align-items: end; }
 label { display: grid; gap: .4rem; color: #4d5b56; font-size: .76rem; font-weight: 700; letter-spacing: .04em; }
 input, select { width: 100%; min-height: 2.8rem; border: 1px solid #c9cbc3; border-radius: .55rem; padding: .65rem .75rem; background: #fff; color: #1d2925; outline: none; }
 input:focus, select:focus { border-color: #3e7561; box-shadow: 0 0 0 3px rgba(62, 117, 97, .14); }
@@ -257,9 +261,10 @@ export const operatorCallReviewJavaScript = `'use strict';
 
 const form = document.querySelector('#access-form');
 const tenantInput = document.querySelector('#tenant-id');
-const apiKeyInput = document.querySelector('#api-key');
+const emailInput = document.querySelector('#email');
+const passwordInput = document.querySelector('#password');
 const limitInput = document.querySelector('#result-limit');
-const forgetButton = document.querySelector('#forget-button');
+const logoutButton = document.querySelector('#logout-button');
 const refreshButton = document.querySelector('#refresh-button');
 const connectionStatus = document.querySelector('#connection-status');
 const connectionMessage = document.querySelector('#connection-message');
@@ -271,55 +276,72 @@ const detailStatus = document.querySelector('#detail-status');
 const detailEventsBody = document.querySelector('#detail-events-body');
 const closeDetailButton = document.querySelector('#close-detail-button');
 
-const storedTenant = sessionStorage.getItem('lanternbell.operator.tenant');
-const storedKey = sessionStorage.getItem('lanternbell.operator.key');
-if (storedTenant) tenantInput.value = storedTenant;
-if (storedKey) apiKeyInput.value = storedKey;
-
-form.addEventListener('submit', function (event) {
+form.addEventListener('submit', async function (event) {
   event.preventDefault();
-  sessionStorage.setItem('lanternbell.operator.tenant', tenantInput.value.trim());
-  sessionStorage.setItem('lanternbell.operator.key', apiKeyInput.value);
-  loadActivity();
+  await signIn();
 });
 
 refreshButton.addEventListener('click', loadActivity);
 closeDetailButton.addEventListener('click', closeCallDetail);
-forgetButton.addEventListener('click', function () {
-  sessionStorage.removeItem('lanternbell.operator.tenant');
-  sessionStorage.removeItem('lanternbell.operator.key');
-  apiKeyInput.value = '';
+logoutButton.addEventListener('click', async function () {
+  await fetch('/v1/operator/session', { method: 'DELETE', credentials: 'same-origin', cache: 'no-store' });
+  passwordInput.value = '';
   refreshButton.disabled = true;
+  logoutButton.hidden = true;
+  form.hidden = false;
   resetSummary();
-  replaceWithMessage(sessionsBody, 7, 'Connect to view recent sessions.');
-  replaceWithMessage(eventsBody, 4, 'Connect to view recent events.');
+  replaceWithMessage(sessionsBody, 7, 'Sign in to view recent sessions.');
+  replaceWithMessage(eventsBody, 4, 'Sign in to view recent events.');
   closeCallDetail();
-  setConnection('idle', 'Key forgotten');
-  apiKeyInput.focus();
+  setConnection('idle', 'Signed out');
+  emailInput.focus();
 });
 
-async function loadActivity() {
+async function signIn() {
   const tenantId = tenantInput.value.trim();
-  const apiKey = apiKeyInput.value;
-  if (!tenantId || !apiKey) {
-    setConnection('error', 'Tenant ID and API key are required');
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  if (!tenantId || !email || !password) {
+    setConnection('error', 'Tenant, email, and password are required');
     return;
   }
+  setConnection('loading', 'Signing in…');
+  try {
+    const response = await fetch('/v1/operator/session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tenantId: tenantId, email: email, password: password }),
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || payload.error || 'Unable to sign in.');
+    passwordInput.value = '';
+    form.hidden = true;
+    logoutButton.hidden = false;
+    await loadActivity();
+  } catch (error) {
+    setConnection('error', error instanceof Error ? error.message : 'Unable to sign in.');
+  }
+}
 
+async function loadActivity() {
   setConnection('loading', 'Loading activity…');
   refreshButton.disabled = true;
   try {
-    const endpoint = '/v1/tenants/' + encodeURIComponent(tenantId) + '/diagnostics/activity?limit=' + encodeURIComponent(limitInput.value);
+    const endpoint = '/v1/operator/calls?limit=' + encodeURIComponent(limitInput.value);
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: { authorization: 'Bearer ' + apiKey },
       cache: 'no-store',
       credentials: 'same-origin'
     });
     const payload = await response.json();
+    if (response.status === 401) showSignIn();
     if (!response.ok) throw new Error(payload.message || payload.error || 'Unable to load activity.');
     renderActivity(payload);
     setConnection('success', 'Connected · ' + formatDate(new Date().toISOString()));
+    form.hidden = true;
+    logoutButton.hidden = false;
     refreshButton.disabled = false;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load activity.';
@@ -382,26 +404,19 @@ function renderActivity(activity) {
 }
 
 async function loadCallDetail(sessionId) {
-  const tenantId = tenantInput.value.trim();
-  const apiKey = apiKeyInput.value;
-  if (!tenantId || !apiKey) {
-    setConnection('error', 'Tenant ID and API key are required');
-    return;
-  }
-
   detailPanel.hidden = false;
   detailContent.hidden = true;
   detailStatus.textContent = 'Loading selected call…';
   document.querySelector('#detail-session-id').textContent = shorten(sessionId);
   try {
-    const endpoint = '/v1/tenants/' + encodeURIComponent(tenantId) + '/diagnostics/sessions/' + encodeURIComponent(sessionId);
+    const endpoint = '/v1/operator/calls/' + encodeURIComponent(sessionId);
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: { authorization: 'Bearer ' + apiKey },
       cache: 'no-store',
       credentials: 'same-origin'
     });
     const payload = await response.json();
+    if (response.status === 401) showSignIn();
     if (!response.ok) throw new Error(payload.message || payload.error || 'Unable to load call details.');
     renderCallDetail(payload);
     detailStatus.textContent = 'Loaded ' + formatDate(new Date().toISOString());
@@ -528,7 +543,24 @@ function shorten(value) {
   return text.length > 16 ? text.slice(0, 8) + '…' + text.slice(-5) : text;
 }
 
-if (storedTenant && storedKey) loadActivity();
+async function restoreSession() {
+  try {
+    const response = await fetch('/v1/operator/session', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) return;
+    form.hidden = true;
+    logoutButton.hidden = false;
+    await loadActivity();
+  } catch { /* Sign-in form remains available. */ }
+}
+
+function showSignIn() {
+  form.hidden = false;
+  logoutButton.hidden = true;
+  refreshButton.disabled = true;
+  passwordInput.focus();
+}
+
+restoreSession();
 `;
 
 export const operatorPageSecurityHeaders: Readonly<Record<string, string>> = Object.freeze({

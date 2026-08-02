@@ -6,6 +6,7 @@ import { PostgresEventStore } from "../src/persistence/postgres-event-store.js";
 import { PostgresIdempotencyStore } from "../src/persistence/postgres-idempotency-store.js";
 import { migratePostgres } from "../src/persistence/postgres-schema.js";
 import { PostgresSessionStore } from "../src/persistence/postgres-session-store.js";
+import { PostgresOperatorAuthStore } from "../src/persistence/postgres-operator-auth-store.js";
 import { createCallEvent } from "../src/events/call-event.js";
 import { createCallSession, updateSession } from "../src/session/call-session.js";
 
@@ -156,6 +157,58 @@ test("PostgreSQL migration and stores preserve tenant isolation and durable reco
   );
   assert.equal(await idempotency.get("tenant-c", "retry-1"), undefined);
 
+  await database.end();
+});
+
+test("PostgreSQL operator identity store persists users, digested sessions, and audits", async () => {
+  const database = createTestDatabase();
+  await migratePostgres(database);
+  const store = new PostgresOperatorAuthStore(database);
+  await store.upsertUser({
+    userId: "operator-user-1",
+    tenantId: "fh-demo",
+    email: "owner@example.com",
+    displayName: "Demo Owner",
+    passwordHash: "scrypt-hash-not-raw-password",
+    role: "owner",
+    active: true,
+    createdAt: "2026-08-02T12:00:00.000Z",
+    updatedAt: "2026-08-02T12:00:00.000Z",
+  });
+  assert.equal((await store.findUserByEmail("fh-demo", "owner@example.com"))?.userId, "operator-user-1");
+  assert.equal((await store.findUserById("operator-user-1"))?.role, "owner");
+
+  await store.createSession({
+    sessionId: "operator-session-1",
+    tokenHash: "sha256-token-digest",
+    userId: "operator-user-1",
+    tenantId: "fh-demo",
+    role: "owner",
+    createdAt: "2026-08-02T12:00:00.000Z",
+    lastSeenAt: "2026-08-02T12:00:00.000Z",
+    expiresAt: "2026-08-02T20:00:00.000Z",
+  });
+  await store.touchSession("operator-session-1", "2026-08-02T12:05:00.000Z");
+  assert.equal((await store.findSessionByTokenHash("sha256-token-digest"))?.lastSeenAt, "2026-08-02T12:05:00.000Z");
+  await store.revokeSession("operator-session-1", "2026-08-02T12:06:00.000Z");
+  assert.equal((await store.findSessionByTokenHash("sha256-token-digest"))?.revokedAt, "2026-08-02T12:06:00.000Z");
+
+  await store.appendAudit({
+    auditId: "audit-1",
+    tenantId: "fh-demo",
+    userId: "operator-user-1",
+    sessionId: "operator-session-1",
+    eventType: "LOGOUT_SUCCEEDED",
+    outcome: "success",
+    occurredAt: "2026-08-02T12:06:00.000Z",
+    metadata: {},
+  });
+  const audit = await database.query<{ event_type: string; metadata: object }>(
+    "SELECT event_type, metadata FROM operator_access_audit WHERE audit_id = $1",
+    ["audit-1"],
+  );
+  assert.equal(audit.rows[0]?.event_type, "LOGOUT_SUCCEEDED");
+  assert.deepEqual(audit.rows[0]?.metadata, {});
   await database.end();
 });
 

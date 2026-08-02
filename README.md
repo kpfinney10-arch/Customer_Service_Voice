@@ -110,6 +110,11 @@ Endpoints:
 - `GET /health/calls`
 - `GET /version`
 - `GET /operator/calls`
+- `POST /v1/operator/session`
+- `GET /v1/operator/session`
+- `DELETE /v1/operator/session`
+- `GET /v1/operator/calls`
+- `GET /v1/operator/calls/:sessionId`
 - `GET /v1/tenants/:tenantId/config`
 - `GET /v1/tenants/:tenantId/readiness`
 - `GET /v1/tenants/:tenantId/diagnostics/activity`
@@ -126,13 +131,13 @@ Endpoints:
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/events`
 - `GET /v1/tenants/:tenantId/first-call/sessions/:sessionId/replay`
 
-All tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. `GET /health`, `GET /health/calls`, and `GET /version` remain public. The call-health route exposes only aggregate, PII-safe status for external monitoring.
+Machine-facing tenant routes require either `x-api-key` or `Authorization: Bearer <key>`. Browser operator routes use a named-user session and never accept the tenant API key. `GET /health`, `GET /health/calls`, and `GET /version` remain public. The call-health route exposes only aggregate, PII-safe status for external monitoring.
 
 The version endpoint returns deployment metadata from `SERVICE_NAME`, `SERVICE_VERSION`, `SERVICE_COMMIT`, and `SERVICE_BUILD_TIME`. These values make it easier to confirm which build is running during debugging, support, and staging-to-production comparisons.
 
 Server startup validates `HOST`, `PORT`, `TENANT_API_KEYS`, `TENANT_CONFIGS_JSON`, storage, and rate-limit settings before binding. Invalid values produce a structured `startup_error` log and stop the process. `HOST` defaults to `127.0.0.1`; cloud services should set it to `0.0.0.0`.
 
-Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions, event timelines, and idempotency replay records under `STORAGE_DATA_DIR` so early human-testing data survives server restarts. The production `postgres` driver requires `DATABASE_URL`, runs migration-managed schema setup before accepting traffic, and persists tenant-scoped sessions, append-only events, and idempotency records in PostgreSQL.
+Storage is selected with `STORAGE_DRIVER`. The default `memory` driver is fastest for tests and local experiments. The `file` driver writes sessions, event timelines, and idempotency replay records under `STORAGE_DATA_DIR` so early human-testing data survives server restarts. The production `postgres` driver requires `DATABASE_URL`, runs migration-managed schema setup before accepting traffic, and persists tenant-scoped sessions, append-only events, idempotency records, named operator users, digested browser sessions, and access audits in PostgreSQL.
 
 The server installs graceful shutdown handlers for `SIGINT` and `SIGTERM`. On shutdown, it stops accepting new HTTP requests, attempts to close active connections and the persistence pool, logs lifecycle events, and exits with a non-zero code if shutdown fails.
 
@@ -152,7 +157,7 @@ The tenant readiness endpoint evaluates whether a tenant is ready to receive fir
 
 The tenant diagnostics activity endpoint returns recent session summaries and recent event summaries for early human testing. It is tenant API-key protected, accepts an optional `limit` query parameter, and intentionally omits raw event payloads and transcripts.
 
-The operator call-review page at `/operator/calls` turns the redacted diagnostics feeds into a browser view for controlled testing. The activity feed lists recent sessions; selecting **Review** requests a dedicated redacted detail contract with summary counts, captured and missing fact names, completed and failed tool names, and the complete event-type timeline. The detail response excludes captured fact values, raw payloads, transcripts, caller phone numbers, names, and addresses. The HTML shell contains no call data. An operator enters a tenant ID and API key, which remain in the current browser tab through `sessionStorage`; the key is sent only in the authenticated request header and never in the URL. The page uses a restrictive content security policy and loads no third-party assets. See `docs/runbooks/operator-call-review.md`.
+The operator call-review page at `/operator/calls` turns redacted operator endpoints into a browser view for controlled testing. The activity feed lists recent sessions; selecting **Review** requests a dedicated redacted detail contract with summary counts, captured and missing fact names, completed and failed tool names, and the complete event-type timeline. The detail response excludes captured fact values, raw payloads, transcripts, caller phone numbers, names, and addresses. The HTML shell contains no call data. Staff sign in as a named user. The browser receives an opaque `HttpOnly`, `Secure`, `SameSite=Strict` cookie with a 30-minute idle timeout and eight-hour absolute timeout; JavaScript cannot read it. Tenant scope and role permissions are resolved from the server-side session, and sign-in, sign-out, denied access, activity views, and call-detail views are durably audited. Machine API keys remain separate. See `docs/runbooks/operator-call-review.md` and `docs/architecture/operator-identity-access.md`.
 
 Tenant feature flags gate workflow execution. If `voiceIntake` is disabled, new first-call sessions and telephony inbound calls return `TENANT_FEATURE_DISABLED`. If `crmHandoff` or `dispatchHandoff` is disabled, the workflow emits a `TOOL_SKIPPED` audit event instead of calling that tool. This lets a tenant start with voice intake and human routing before every downstream integration is live.
 

@@ -931,3 +931,21 @@ Next action:
 
 1. Keep the real-number accepted/rejected/no-answer drill gated until an approved destination and second phone are available.
 2. Move next to named operator users, short-lived sessions, role-based authorization, and access auditing before funeral-home staff use the console.
+
+## 2026-08-02 named operator identity and access implementation
+
+- Replaced browser API-key handling with named-user login and server-owned tenant scope. The operator JavaScript no longer reads, stores, or sends a tenant API key and uses no `sessionStorage` or `localStorage` credential path.
+- Added `owner`, `operator`, and `viewer` roles with explicit permissions. Active user status, tenant membership, and current role are revalidated on every authenticated request.
+- Added salted memory-hard `scrypt` password verification, generic failed-login responses, and a five-attempt/15-minute identity throttle in addition to the HTTP request limiter.
+- Added 256-bit opaque sessions with only SHA-256 token digests stored in PostgreSQL. Cookies are `HttpOnly`, `Secure`, `SameSite=Strict`; sessions have a 30-minute idle timeout and eight-hour absolute timeout.
+- Added same-origin enforcement for login/logout and durable append-only audits for login success/failure, session expiry, logout, denied access, call-list views, and call-detail views.
+- Added PostgreSQL migration `003_operator_identity_and_access` for users, sessions, and audit events. Machine diagnostics retain their API-key boundary, and Twilio remains on signed webhooks.
+- Added a hidden-password local provisioning command: `npm run operator:provision -- --email ... --name ... --tenant fh-demo --role owner`. It outputs only the `OPERATOR_USERS_JSON` verifier configuration.
+- Documented that this is a narrow Voice pilot identity boundary. CRM/Dispatch audits will decide whether it moves behind a shared LanternBell identity service or external provider; the stable contracts are tenant, user, role, permission, session, and audit.
+- Focused TypeScript, HTTP, security, and PostgreSQL tests passed. Production activation is deliberately gated on generating the owner's password verifier outside chat and setting the Render `OPERATOR_USERS_JSON` secret.
+
+Next action:
+
+1. Run the hidden-password provisioning command for `kpfinney10@gmail.com` locally.
+2. Add its JSON output to Render as secret `OPERATOR_USERS_JSON`.
+3. Commit and push the implementation, allow migration `003` to deploy, then verify named login, activity, detail, logout, access audit persistence, and `/health/calls`.
