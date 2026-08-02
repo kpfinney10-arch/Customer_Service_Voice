@@ -1,0 +1,106 @@
+# Controlled Pilot Readiness
+
+Review date: 2026-08-02  
+Scope: LanternBell Voice only  
+Target: one low-volume, actively monitored funeral-home pilot
+
+## Current Decision
+
+- **Go:** continued owner-operated demo calls using the production Render deployment, managed PostgreSQL, signed Twilio webhook, simulated handoffs, and the named operator console.
+- **No-go:** accepting real funeral-home customer data or enabling live handoffs today.
+
+The service is technically stable enough for continued controlled testing. The no-go is caused by a small set of explicit launch gates, not by unfinished core call orchestration.
+
+## Evidence Review
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Production availability | Pass | `https://voice.lanternbell.com/health/calls` returned HTTP 200 with zero failures in the 1,800-second window on 2026-08-02. |
+| Signed call scenarios | Pass | The deployed signed Twilio matrix passed `7/7` under run ID `render-handoff-release-1785681418`. |
+| Core real-audio lanes | Pass with final recheck required | The scenario matrix records prior real-phone passes across hospice, ME, hospital, police, family residence, pricing, and existing-family lanes. A final release recheck remains part of the go/no-go drill. |
+| Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
+| Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
+| Durable persistence and recovery | Pass | Managed PostgreSQL is active. A point-in-time restore to an isolated database, aggregate integrity validation, access-rule removal, and temporary-database deletion were completed on 2026-08-01. |
+| Availability and failure alerting | Pass for current failure classes | UptimeRobot checks `/health/calls`; the controlled down/recovery drill delivered both emails. Tool, provider-command, handoff, and abnormal-call-end failures are covered. |
+| Named staff access | Pass | Production login, tenant-scoped activity, redacted call detail, secure cookie handling, and durable access-audit writes were verified on 2026-08-02. |
+| Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
+| Release identification | Open | Production `/version` currently reports `commit: "local"` and `buildTime: "local"`; the running release cannot yet be identified reliably from the service. |
+| Long-latency and repeated-prompt alerting | Open | Request durations are logged and session retries are stored, but `/health/calls` does not classify long webhook latency or repeated-prompt/retry exhaustion. |
+| Data retention and deletion | Blocked | PostgreSQL stores structured facts and redacted transcript events, but no approved retention schedule or tenant-scoped purge process exists. Current transcript redaction masks phone, email, and SSN patterns but does not comprehensively remove names, addresses, or death-care context. |
+| First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
+| Incident response | Open | Rollback, recovery, health, and operator procedures exist, but they are not yet assembled into one pilot incident runbook with owner, severity, communication, and stop-traffic decisions. |
+
+## Ordered Launch Gates
+
+### 1. Approve and enforce the pilot data-handling policy
+
+Owner decision required before real customer data is accepted.
+
+Acceptance criteria:
+
+- Inventory the stored session facts, transcript events, tool outcomes, operator access audits, request logs, idempotency records, and backups.
+- Record approved retention periods for each category, whether recordings are disabled or retained, who may access each category, and how customer deletion requests are handled.
+- Obtain appropriate legal/privacy review for the selected policy; this engineering checklist does not make that legal determination.
+- Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
+- Document how expired/deleted data is handled after a database restore and how managed-backup retention differs from active-database retention.
+
+### 2. Close the operational observability gaps
+
+This is the next engineering increment that can proceed without another phone or customer account.
+
+Acceptance criteria:
+
+- Populate `/version` with the actual Render commit and deployment/build timestamp, while retaining safe local defaults.
+- Extend persisted call health to classify excessive webhook latency and repeated-prompt/retry exhaustion using documented thresholds that avoid caller or tenant data in the public response.
+- Add focused unit, HTTP, PostgreSQL, privacy, and environment tests.
+- Create a short pilot incident runbook covering alert receipt, triage, traffic stop, rollback, database recovery, customer communication ownership, and incident closure.
+- Repeat the external down/recovery drill if the health contract changes materially.
+
+### 3. Complete the real handoff drill
+
+External prerequisite: a second approved phone and an approved transfer destination.
+
+Acceptance criteria:
+
+- Keep production in simulation mode until the drill begins.
+- Validate accepted screening and connection, rejected or unanswered screening, and no-answer/busy terminal behavior through real phones.
+- Confirm caller-safe fallback, redacted operator detail, durable outcome events, and expected `/health/calls` behavior.
+- Return to simulation immediately after the drill unless the first pilot customer and operating coverage are ready.
+
+### 4. Configure the first pilot tenant
+
+Acceptance criteria:
+
+- Create a stable non-demo tenant identifier, display name, timezone, real on-call routing, and approved feature flags.
+- Create tenant-specific machine secrets and named staff accounts with least-privilege roles.
+- Record the customer support contact, LanternBell incident owner, pilot hours, call-volume limit, and stop-traffic procedure.
+- Verify tenant isolation for call activity, call detail, access audit, configuration, API keys, and webhook routing.
+- Run signed readiness without exposing secrets or caller data.
+
+### 5. Rebaseline the release and make the go/no-go decision
+
+Acceptance criteria:
+
+- Typecheck, build, and run the complete automated suite on the exact candidate commit.
+- Pass the signed production scenario matrix `7/7` after all launch-gate changes.
+- Complete one clean and one noisy real-audio pass for each high-value pilot lane, or explicitly document why a lane is excluded from the pilot.
+- Run a bounded concurrency check sized to the agreed pilot call limit; a broad scale test is not required for a single low-volume monitored pilot.
+- Confirm health, alerts, operator access, audit persistence, backup/recovery status, data policy, handoff mode, and tenant configuration.
+- Record an explicit **Go**, **Conditional Go**, or **No-go** decision with the owner and evidence links in `docs/SESSION_HANDOFF.md`.
+
+## Deliberately Deferred
+
+These are useful future improvements but are not launch blockers for one low-volume, monitored pilot:
+
+- General-purpose customer self-service onboarding UI.
+- Cross-product shared identity provider selection before the CRM and Dispatch audits.
+- Advanced operator filtering, assignment, notes, and case-status workflow that would duplicate future CRM ownership.
+- Broad multi-region or high-concurrency architecture.
+- Enabling the OpenAI extractor when deterministic extraction remains the approved pilot configuration.
+
+## Change Control
+
+- No real customer data enters the system until gate 1 is complete.
+- No live transfer destination is enabled until gate 3 is complete.
+- No first customer is onboarded until gates 1 through 4 are complete.
+- Material changes to these gates require an explicit roadmap/scope decision.

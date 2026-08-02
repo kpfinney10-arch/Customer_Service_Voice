@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-07-07
+Last updated: 2026-08-02
 
 ## Project
 
@@ -966,3 +966,19 @@ Next action:
 1. Run a controlled-pilot readiness gap review against the documented pilot and production exit criteria.
 2. Convert only the remaining launch-blocking gaps into an ordered checklist; keep the real-number handoff drill gated until a second approved phone is available.
 3. Prioritize the first evidence-backed gap, expected to be operational latency/repeated-prompt monitoring and a documented privacy/retention decision, before adding lower-value operator workflow features.
+
+## 2026-08-02 controlled-pilot readiness review
+
+- Added `docs/runbooks/controlled-pilot-readiness.md` as the evidence-backed Voice launch checklist and linked it from the live scenario matrix.
+- Current decision: **Go** for continued owner-operated production demo calls with simulated handoffs; **No-go** for real funeral-home customer data or live handoffs today.
+- Confirmed production `/health/calls` remains HTTP 200 with zero failures, and the named operator session still loads 20 redacted sessions.
+- Confirmed one new operational gap directly in production: `/version` returns `commit: "local"` and `buildTime: "local"`, so release identity must be corrected before the pilot go/no-go.
+- Completed foundations include signed Twilio traffic, the `7/7` scenario matrix, real-phone lane evidence, deterministic dispatch safety, managed PostgreSQL, restore validation, independent failure alerting, named operator access, tenant authorization, redacted operator detail, and durable access auditing.
+- Ordered launch gates are: approve and enforce data retention/deletion; close release-identity, latency/repeated-prompt monitoring, and incident-response gaps; complete the real-phone handoff drill; configure the first non-demo tenant; then rebaseline the exact release and record a formal go/no-go.
+- Lower-value operator workflow features remain deferred so Voice does not duplicate future CRM ownership or delay the controlled pilot.
+- Readiness-review validation passed TypeScript typecheck, build, and the full `296/296` automated suite.
+
+Next action:
+
+1. Implement gate 2's operational increment: correct Render release identity, add long-latency and repeated-prompt health classification, and create the pilot incident runbook.
+2. In parallel with later engineering work, the owner will need to make the gate 1 data-retention decisions before any real customer data is accepted.

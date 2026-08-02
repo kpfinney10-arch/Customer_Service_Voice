@@ -83,11 +83,11 @@ The automated human-handoff outcome contract is documented in `docs/architecture
 
 ## Production Exit Criteria
 
-Before unattended production traffic, add:
+Current status is tracked in [Controlled Pilot Readiness](controlled-pilot-readiness.md). Before unattended production traffic, require:
 
-- Durable database persistence.
-- Stable HTTPS deployment endpoint or named Cloudflare tunnel.
-- Secret management outside local env files.
+- Durable database persistence, stable HTTPS, secret management, and tested recovery. These are complete for the current Render deployment.
 - Monitoring and alerting for failed webhooks, failed handoffs, provider errors, long latency, and repeated prompts.
 - Tenant-specific configuration loaded from onboarding data.
 - Privacy and retention policy for call transcripts, replay data, and handoff summaries.
+- A real-number handoff drill before changing from simulated to live transfers.
+- A recorded go/no-go decision for the exact candidate release and first pilot tenant.
