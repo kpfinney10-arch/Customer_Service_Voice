@@ -24,9 +24,9 @@ The service is technically stable enough for continued controlled testing. The n
 | Availability and failure alerting | Pass | UptimeRobot checks `/health/calls`. Incident `347421514523615151` recorded the controlled `repeated_prompt` HTTP 503 and automatic recovery over 5 minutes 5 seconds on 2026-08-16; the configured notification contact remained attached, and the owner confirmed receipt of both the down and recovery emails. |
 | Named staff access | Pass | Production login, tenant-scoped activity, redacted call detail, secure cookie handling, and durable access-audit writes were verified on 2026-08-02. |
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
-| Release identification | Pass | Production `/version` reports exact Render commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` and final restored build time `2026-08-16T17:28:50.285Z`. |
+| Release identification | Pass | Production `/version` reports exact Render commit `b5a05258027749bc02b838a83e1ad4cd8fc5f6b8` and protected-environment activation build time `2026-08-16T22:27:56.830Z`. |
 | Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
-| Data retention and deletion | Implementation complete; activation blocked | The owner approved the pilot policy on 2026-08-16. The repository now omits durable transcript text, scrubs legacy transcript payloads in migration `004`, and includes dry-run-first, tenant-isolated, idempotent purge and fixed retention commands with Twilio deletion. Production deployment, protected secrets, dry-run evidence, a daily execution owner, and appropriate legal/privacy review remain required. |
+| Data retention and deletion | Engineering activation passed; governance blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. The `fh-demo` purge preview found 45 sessions, 521 events, and 2 Twilio call references; normal retention found zero expired records. A daily execution owner or reviewed scheduler and appropriate legal/privacy review remain required. |
 | First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
@@ -34,7 +34,7 @@ The service is technically stable enough for continued controlled testing. The n
 
 ### 1. Approve and enforce the pilot data-handling policy
 
-Status: policy approved and implementation completed locally on 2026-08-16. Activation evidence and appropriate legal/privacy review remain required before real customer data is accepted.
+Status: policy approved, implementation deployed, protected variables configured, and safe production dry-runs completed on 2026-08-16. Appropriate legal/privacy review and daily retention ownership remain required before real customer data is accepted.
 
 Acceptance criteria:
 
@@ -44,7 +44,7 @@ Acceptance criteria:
 - [x] Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
 - [x] Implement fixed retention cleanup and a Twilio call-resource deletion boundary.
 - [x] Document how expired/deleted data is reconciled after a restore and how managed-backup retention differs from active-database retention.
-- [ ] Deploy migration `004`, configure protected lifecycle secrets, and record safe production dry-run evidence.
+- [x] Deploy migration `004`, configure protected lifecycle secrets, and record safe production dry-run evidence.
 - [ ] Assign and verify the daily retention execution owner or approve a reviewed scheduler.
 
 ### 2. Close the operational observability gaps

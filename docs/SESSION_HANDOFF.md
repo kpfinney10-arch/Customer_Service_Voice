@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-08-02
+Last updated: 2026-08-16
 
 ## Project
 
@@ -25,7 +25,19 @@ The backend scaffold is a TypeScript Node service with no runtime dependencies b
 - LLM fallback sanitization for controlled facts such as caller relationship, place of death type, and urgency.
 - Diagnostic activity and replay endpoints.
 
-Recent known-good test count from this session: `243/243` passing.
+Recent known-good test count: `305/305` passing.
+
+### Production data-lifecycle activation (2026-08-16)
+
+- Production commit: `b5a05258027749bc02b838a83e1ad4cd8fc5f6b8` (`Add pilot data lifecycle controls`).
+- Render lifecycle deployment: `dep-da13ip7lk1mc7394luhg`.
+- `/version` build time after protected-environment activation: `2026-08-16T22:27:56.830Z`.
+- PostgreSQL migration `004` completed successfully during pre-deploy.
+- Render contains protected `DATA_PURGE_AUDIT_SECRET`, `TWILIO_ACCOUNT_SID`, and `TWILIO_AUTH_TOKEN` variables; values were not recorded in source control or documentation.
+- Production tenant-purge dry-run for `fh-demo` reported 45 call sessions, 521 call events, 2 Twilio call references, 1 operator session, 6 operator access audits, and 1 operator user. Nothing was deleted.
+- Production retention dry-run reported zero records beyond their retention cutoffs. Nothing was deleted.
+- Post-deploy `/health` and `/health/calls` both returned healthy, with zero call-health failures in the 1,800-second window.
+- Gate 1 remains closed to real customer data until appropriate legal/privacy review is complete and a daily retention execution owner or reviewed scheduler is assigned.
 
 Latest parser hardening commit from this session:
 
