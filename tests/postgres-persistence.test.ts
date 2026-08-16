@@ -160,6 +160,66 @@ test("PostgreSQL migration and stores preserve tenant isolation and durable reco
   await database.end();
 });
 
+test("PostgreSQL event store preserves pilot call-quality signals", async () => {
+  const database = createTestDatabase();
+  await migratePostgres(database);
+  const events = new PostgresEventStore(database);
+  const turnEvent = createCallEvent({
+    eventId: "quality-turn-1",
+    eventType: "STATE_TRANSITIONED",
+    callId: "quality-call-1",
+    sessionId: "quality-session-1",
+    tenantId: "fh-demo",
+    correlationId: "quality-correlation-1",
+    occurredAt: "2026-08-16T16:30:00.000Z",
+    payload: {
+      from: "IDENTIFY_INTENT",
+      to: "IDENTIFY_INTENT",
+      step: "collect_caller",
+      missingTargetFacts: ["caller_phone"],
+      turnDurationMs: 1_600,
+    },
+  });
+  const repeatedPromptEvent = createCallEvent({
+    eventId: "quality-repeat-1",
+    eventType: "PROMPT_REPEATED",
+    callId: "quality-call-1",
+    sessionId: "quality-session-1",
+    tenantId: "fh-demo",
+    correlationId: "quality-correlation-2",
+    occurredAt: "2026-08-16T16:31:00.000Z",
+    payload: { reason: "empty_speech", repeatCount: 3 },
+  });
+
+  await events.append([turnEvent, repeatedPromptEvent]);
+
+  const persisted = await events.listRecentByTypesSince(
+    ["STATE_TRANSITIONED", "PROMPT_REPEATED"],
+    "2026-08-16T16:00:00.000Z",
+    10,
+  );
+  assert.deepEqual(
+    persisted.map((event) => ({ eventType: event.eventType, payload: event.payload })),
+    [
+      {
+        eventType: "PROMPT_REPEATED",
+        payload: { reason: "empty_speech", repeatCount: 3 },
+      },
+      {
+        eventType: "STATE_TRANSITIONED",
+        payload: {
+          from: "IDENTIFY_INTENT",
+          to: "IDENTIFY_INTENT",
+          step: "collect_caller",
+          missingTargetFacts: ["caller_phone"],
+          turnDurationMs: 1_600,
+        },
+      },
+    ],
+  );
+  await database.end();
+});
+
 test("PostgreSQL operator identity store persists users, digested sessions, and audits", async () => {
   const database = createTestDatabase();
   await migratePostgres(database);

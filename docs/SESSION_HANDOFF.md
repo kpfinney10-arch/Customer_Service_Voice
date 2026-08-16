@@ -982,3 +982,20 @@ Next action:
 
 1. Implement gate 2's operational increment: correct Render release identity, add long-latency and repeated-prompt health classification, and create the pilot incident runbook.
 2. In parallel with later engineering work, the owner will need to make the gate 1 data-retention decisions before any real customer data is accepted.
+
+## 2026-08-16 pilot observability deployment
+
+- Added exact release identification using Render's runtime commit metadata plus a build-generated timestamp artifact. Safe local fallbacks remain available outside Render.
+- Added persisted aggregate `turnDurationMs` on state/escalation events and `PROMPT_REPEATED` events for consecutive empty-speech callbacks. No transcript or captured caller value is added to either signal.
+- Extended `/health/calls` with `long_turn_latency` at or above 1,500 ms and `repeated_prompt` at three consecutive no-progress decisions or empty-speech reprompts. The public contract remains aggregate and contains no tenant, session, caller, transcript, prompt, or raw-event data.
+- Added `docs/runbooks/pilot-incident-response.md` covering incident ownership, severity, safe evidence, stop-traffic decisions, rollback, recovery, communication, verification, and closure.
+- TypeScript typecheck, production build, and the complete automated suite passed `301/301`, including a focused PostgreSQL round-trip for both new call-quality signals.
+- Pushed runtime commit `0f626c6` (`Add pilot call quality observability`) to `main`.
+- Manually deployed the latest commit because Render's automatic GitHub deployment did not start. Deployment `dep-da0ueq8u01pc73947e1g` checked out the exact commit, found zero npm vulnerabilities, generated build metadata, completed PostgreSQL pre-deploy migration, passed internal health checks, and reached Live.
+- Production `/version` returned commit `0f626c6f5ad09dd0f47d6c2ac52e6988bcaf4112` and build time `2026-08-16T16:38:08.498Z`.
+- Production `/health` and `/health/calls` returned HTTP 200. Call health reported a 1,800-second window, zero failures, and no failure categories.
+
+Next action:
+
+1. Run a controlled external alert drill for the new `long_turn_latency` or `repeated_prompt` health category, then confirm both UptimeRobot down and recovery notifications.
+2. Keep real customer data blocked until gate 1's retention, deletion, recording, and privacy decisions are approved and enforced.

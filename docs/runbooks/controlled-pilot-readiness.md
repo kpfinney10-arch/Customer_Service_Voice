@@ -1,8 +1,8 @@
 # Controlled Pilot Readiness
 
-Review date: 2026-08-02  
-Scope: LanternBell Voice only  
-Target: one low-volume, actively monitored funeral-home pilot
+- Review date: 2026-08-16
+- Scope: LanternBell Voice only
+- Target: one low-volume, actively monitored funeral-home pilot
 
 ## Current Decision
 
@@ -15,20 +15,20 @@ The service is technically stable enough for continued controlled testing. The n
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Production availability | Pass | `https://voice.lanternbell.com/health/calls` returned HTTP 200 with zero failures in the 1,800-second window on 2026-08-02. |
+| Production availability | Pass | `https://voice.lanternbell.com/health/calls` returned HTTP 200 with zero failures in the 1,800-second window on 2026-08-16. |
 | Signed call scenarios | Pass | The deployed signed Twilio matrix passed `7/7` under run ID `render-handoff-release-1785681418`. |
 | Core real-audio lanes | Pass with final recheck required | The scenario matrix records prior real-phone passes across hospice, ME, hospital, police, family residence, pricing, and existing-family lanes. A final release recheck remains part of the go/no-go drill. |
 | Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
 | Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
 | Durable persistence and recovery | Pass | Managed PostgreSQL is active. A point-in-time restore to an isolated database, aggregate integrity validation, access-rule removal, and temporary-database deletion were completed on 2026-08-01. |
-| Availability and failure alerting | Pass for current failure classes | UptimeRobot checks `/health/calls`; the controlled down/recovery drill delivered both emails. Tool, provider-command, handoff, and abnormal-call-end failures are covered. |
+| Availability and failure alerting | Pass with call-quality drill pending | UptimeRobot checks `/health/calls`; the prior controlled down/recovery drill delivered both emails. Existing failure classes are validated, while an external drill for the new latency or repeated-prompt category remains. |
 | Named staff access | Pass | Production login, tenant-scoped activity, redacted call detail, secure cookie handling, and durable access-audit writes were verified on 2026-08-02. |
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
-| Release identification | Open | Production `/version` currently reports `commit: "local"` and `buildTime: "local"`; the running release cannot yet be identified reliably from the service. |
-| Long-latency and repeated-prompt alerting | Open | Request durations are logged and session retries are stored, but `/health/calls` does not classify long webhook latency or repeated-prompt/retry exhaustion. |
+| Release identification | Pass | Production `/version` reports exact Render commit `0f626c6f5ad09dd0f47d6c2ac52e6988bcaf4112` and build time `2026-08-16T16:38:08.498Z`. |
+| Long-latency and repeated-prompt alerting | Pass with external drill pending | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed; the controlled external alert drill remains. |
 | Data retention and deletion | Blocked | PostgreSQL stores structured facts and redacted transcript events, but no approved retention schedule or tenant-scoped purge process exists. Current transcript redaction masks phone, email, and SSN patterns but does not comprehensively remove names, addresses, or death-care context. |
 | First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
-| Incident response | Open | Rollback, recovery, health, and operator procedures exist, but they are not yet assembled into one pilot incident runbook with owner, severity, communication, and stop-traffic decisions. |
+| Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
 ## Ordered Launch Gates
 
@@ -48,13 +48,15 @@ Acceptance criteria:
 
 This is the next engineering increment that can proceed without another phone or customer account.
 
+Status: implementation deployed on 2026-08-16; controlled external alert drill pending.
+
 Acceptance criteria:
 
-- Populate `/version` with the actual Render commit and deployment/build timestamp, while retaining safe local defaults.
-- Extend persisted call health to classify excessive webhook latency and repeated-prompt/retry exhaustion using documented thresholds that avoid caller or tenant data in the public response.
-- Add focused unit, HTTP, PostgreSQL, privacy, and environment tests.
-- Create a short pilot incident runbook covering alert receipt, triage, traffic stop, rollback, database recovery, customer communication ownership, and incident closure.
-- Repeat the external down/recovery drill if the health contract changes materially.
+- [x] Populate `/version` with the actual Render commit and deployment/build timestamp, while retaining safe local defaults.
+- [x] Extend persisted call health to classify excessive webhook latency and repeated-prompt/retry exhaustion using documented thresholds that avoid caller or tenant data in the public response.
+- [x] Add focused unit, HTTP, PostgreSQL, privacy, and environment tests.
+- [x] Create a short pilot incident runbook covering alert receipt, triage, traffic stop, rollback, database recovery, customer communication ownership, and incident closure.
+- [ ] Repeat the external down/recovery drill because the health contract now includes two additional failure categories.
 
 ### 3. Complete the real handoff drill
 
