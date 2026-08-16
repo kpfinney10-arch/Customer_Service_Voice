@@ -172,31 +172,28 @@ const scenarios = [
   },
   {
     id: "pricing-routine",
-    title: "Routine pricing inquiry closes for office-hours follow-up",
+    title: "Pricing inquiry fails closed without contact collection",
     turns: [
       {
         speech:
           "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
-        includes: ["May I have your name"],
-        excludes: ["person who passed away", "<Dial "],
-      },
-      {
-        speech: "My name is Kyle Smith. My callback number is 603-731-5845.",
-        includes: ["follow up during office hours", "<Hangup/>"],
-        excludes: ["<Gather ", "<Dial"],
+        includes: [
+          "Pricing is not enabled in this automated service",
+          "do not need to provide your name or phone number",
+          "<Hangup/>",
+        ],
+        excludes: ["May I have your name", "best phone number", "<Gather ", "<Dial"],
       },
     ],
     expectedState: "WRAPUP",
     expectedIntent: "pricing_or_billing",
     expectedFacts: {
-      caller_name: "Kyle Smith",
-      caller_phone: "603-731-5845",
       reasonForCall: "pricing_or_billing",
       death_reported: false,
     },
-    expectedFactAbsent: ["decedent_name", "pickup_address"],
-    expectedCompletedToolNames: ["crm.create_intake_lead"],
-    expectedCompletedToolNamesExclude: ["dispatch.create_removal_request"],
+    expectedFactAbsent: ["caller_name", "caller_phone", "decedent_name", "pickup_address"],
+    expectedCompletedToolNames: [],
+    expectedCompletedToolNamesExclude: ["crm.create_intake_lead", "dispatch.create_removal_request"],
   },
   {
     id: "family-office-hours",

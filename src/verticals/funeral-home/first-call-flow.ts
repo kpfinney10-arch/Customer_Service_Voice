@@ -16,6 +16,7 @@ export type FirstCallStep =
   | "create_crm_intake"
   | "create_dispatch_review_request"
   | "routine_follow_up"
+  | "pricing_blocked"
   | "escalate";
 
 export type FirstCallFlowDecision = {
@@ -109,6 +110,15 @@ export function decideRoutineInquiryNextStep(facts: Partial<FirstCallFacts>): Fi
   };
 }
 
+export function decidePricingInquiryNextStep(): FirstCallFlowDecision {
+  return {
+    nextState: "WRAPUP",
+    step: "pricing_blocked",
+    missingTargetFacts: [],
+    toolNames: [],
+  };
+}
+
 export function firstCallPromptForStep(step: FirstCallStep): string {
   switch (step) {
     case "acknowledge":
@@ -127,6 +137,8 @@ export function firstCallPromptForStep(step: FirstCallStep): string {
       return "I am sending this to dispatch for review.";
     case "routine_follow_up":
       return "I have your question and contact information. I will have the funeral home team follow up during office hours. Thank you for calling.";
+    case "pricing_blocked":
+      return "Pricing is not enabled in this automated service. Please speak with a funeral home team member for accurate price information. You do not need to provide your name or phone number to request prices.";
     case "escalate":
       return "I am going to connect you with a funeral home team member now.";
   }

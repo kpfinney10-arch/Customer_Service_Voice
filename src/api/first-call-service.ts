@@ -24,6 +24,7 @@ import { createFirstCallHandoffSummary } from "../verticals/funeral-home/first-c
 import type { FirstCallHandoffSummary } from "../verticals/funeral-home/first-call-handoff.js";
 import {
   decideFirstCallNextStep,
+  decidePricingInquiryNextStep,
   decideRoutineInquiryNextStep,
   firstCallPromptForDecision,
   firstCallPromptForStep,
@@ -351,9 +352,12 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       );
       const sessionFacts = sessionFactsForIntent(effectiveIntent, reviewedFacts, existingSession.facts);
       extraction.warnings = unresolvedFirstCallWarnings(extraction.warnings, sessionFacts);
-      const nextStepDecision = isRoutineInquiryIntent(effectiveIntent)
-        ? decideRoutineInquiryNextStep(reviewedFacts)
-        : decideFirstCallNextStep(reviewedFacts);
+      const nextStepDecision =
+        effectiveIntent === "pricing_or_billing"
+          ? decidePricingInquiryNextStep()
+          : isRoutineFollowUpIntent(effectiveIntent)
+            ? decideRoutineInquiryNextStep(reviewedFacts)
+            : decideFirstCallNextStep(reviewedFacts);
       const decision = firstCallDecisionAfterValidation(
         nextStepDecision,
         reviewedFacts,
@@ -714,6 +718,10 @@ function isRoutineInquiryIntent(intent: CallIntent | null | undefined): boolean 
   return intent === "pricing_or_billing" || intent === "family_question" || intent === "service_schedule_question";
 }
 
+function isRoutineFollowUpIntent(intent: CallIntent | null | undefined): boolean {
+  return intent === "family_question" || intent === "service_schedule_question";
+}
+
 function factsForIntent(
   intent: CallIntent,
   facts: Partial<FirstCallFacts>,
@@ -1056,6 +1064,7 @@ function firstCallDecisionAfterValidation(
   factConfidence: FirstCallFactConfidence | undefined,
   transcript: string,
 ): FirstCallFlowDecision {
+  if (decision.step === "pricing_blocked") return decision;
   if (needsCallerNameSpellingConfirmation(facts)) {
     return {
       nextState: "RESOLVE_REQUEST",

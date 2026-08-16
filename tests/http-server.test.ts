@@ -638,12 +638,12 @@ test("telephony inbound-call route starts first-call session", async () => {
   assert.equal(inbound.body.nextExpectedInput, "caller_speech");
   assert.equal(
     inbound.body.responseText,
-    "I am assisting the funeral director with gathering call information. May I have your name and the best phone number in case we are disconnected?",
+    "I am an automated assistant helping the funeral director. How may I help you today?",
   );
   assert.deepEqual(inbound.body.voiceResponse.actions, [
     {
       type: "say",
-      text: "I am assisting the funeral director with gathering call information. May I have your name and the best phone number in case we are disconnected?",
+      text: "I am an automated assistant helping the funeral director. How may I help you today?",
     },
     { type: "listen", expectedInput: "caller_speech" },
   ]);
@@ -898,8 +898,7 @@ test("Telnyx webhook route advances speech gather events through first-call work
         message_history: [
           {
             role: "assistant",
-            content:
-              "I am assisting the funeral director with gathering call information. May I have your name and the best phone number in case we are disconnected?",
+            content: "I am an automated assistant helping the funeral director. How may I help you today?",
           },
           {
             role: "user",
@@ -945,7 +944,7 @@ test("Twilio webhook route starts first-call session without tenant API key and 
   assert.match(response.body, /hints="[^"]*decedent name[^"]*address[^"]*hospice/);
   assert.match(
     response.body,
-    /<Say>I am assisting the funeral director with gathering call information\. May I have your name/,
+    /<Say>I am an automated assistant helping the funeral director\. How may I help you today\?/,
   );
 
   const events = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-1/events");
@@ -3005,7 +3004,7 @@ test("Twilio webhook route harvests stream-of-thought medical examiner facts bef
   ]);
 });
 
-test("Twilio webhook route closes routine pricing inquiries after contact capture", async () => {
+test("Twilio webhook route fails closed on pricing without collecting contact details", async () => {
   await fetchText(
     "POST",
     "/v1/tenants/fh-demo/telephony/twilio/webhook",
@@ -3041,31 +3040,13 @@ test("Twilio webhook route closes routine pricing inquiries after contact captur
   );
 
   assert.equal(opening.status, 200);
-  assert.match(opening.body, /<Gather /);
-  assert.match(opening.body, /May I have your name/);
+  assert.match(opening.body, /Pricing is not enabled in this automated service/);
+  assert.match(opening.body, /do not need to provide your name or phone number/i);
+  assert.match(opening.body, /<Hangup\/>/);
+  assert.doesNotMatch(opening.body, /<Gather /);
+  assert.doesNotMatch(opening.body, /<Dial/);
+  assert.doesNotMatch(opening.body, /May I have your name|best phone number|callback number/i);
   assert.doesNotMatch(opening.body, /person who passed away|located right now/i);
-
-  const contact = await fetchText(
-    "POST",
-    "/v1/tenants/fh-demo/telephony/twilio/webhook",
-    new URLSearchParams({
-      CallSid: "twilio-call-http-pricing-1",
-      SpeechResult: "My name is Kyle Smith. My callback number is 603-731-5845.",
-      Confidence: "0.92",
-    }),
-    {
-      apiKey: null,
-      extraHeaders: {
-        "content-type": "application/x-www-form-urlencoded",
-      },
-    },
-  );
-
-  assert.equal(contact.status, 200);
-  assert.match(contact.body, /follow up during office hours/);
-  assert.match(contact.body, /<Hangup\/>/);
-  assert.doesNotMatch(contact.body, /<Gather /);
-  assert.doesNotMatch(contact.body, /<Dial/);
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-pricing-1/replay");
   assert.equal(replay.body.session.currentState, "WRAPUP");
@@ -3073,10 +3054,10 @@ test("Twilio webhook route closes routine pricing inquiries after contact captur
   assert.equal(replay.body.session.facts.reasonForCall, "pricing_or_billing");
   assert.equal(replay.body.session.facts.death_reported, false);
   assert.equal(replay.body.session.facts.decedent_name, undefined);
-  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, []);
 });
 
-test("Twilio webhook route keeps pricing caller name before callback-only prompt", async () => {
+test("Twilio webhook route still fails closed when a pricing caller volunteers a name", async () => {
   await fetchText(
     "POST",
     "/v1/tenants/fh-demo/telephony/twilio/webhook",
@@ -3100,7 +3081,7 @@ test("Twilio webhook route keeps pricing caller name before callback-only prompt
     new URLSearchParams({
       CallSid: "twilio-call-http-pricing-live-name-calling",
       SpeechResult:
-        "Hi. My name is Kyle Smith calling to ask about direct. Cremation pricing. No 1 has passed away right now. I'm just trying to understand your basic costs and what is included?",
+        "Hi. My name is Kyle Finny calling to ask about direct. Cremation pricing. No 1 has passed away right now. I'm just trying to understand your basic costs and what is included?",
       Confidence: "0.92",
     }),
     {
@@ -3112,31 +3093,13 @@ test("Twilio webhook route keeps pricing caller name before callback-only prompt
   );
 
   assert.equal(opening.status, 200);
-  assert.match(opening.body, /What is the best phone number/);
-  assert.doesNotMatch(opening.body, /May I have your name/);
+  assert.match(opening.body, /Pricing is not enabled in this automated service/);
+  assert.match(opening.body, /do not need to provide your name or phone number/i);
+  assert.match(opening.body, /<Hangup\/>/);
+  assert.doesNotMatch(opening.body, /<Gather /);
+  assert.doesNotMatch(opening.body, /<Dial/);
+  assert.doesNotMatch(opening.body, /May I have your name|best phone number|callback number/i);
   assert.doesNotMatch(opening.body, /person who passed away|located right now/i);
-
-  const contact = await fetchText(
-    "POST",
-    "/v1/tenants/fh-demo/telephony/twilio/webhook",
-    new URLSearchParams({
-      CallSid: "twilio-call-http-pricing-live-name-calling",
-      SpeechResult: "My callback number is 603-731-5845.",
-      Confidence: "0.92",
-    }),
-    {
-      apiKey: null,
-      extraHeaders: {
-        "content-type": "application/x-www-form-urlencoded",
-      },
-    },
-  );
-
-  assert.equal(contact.status, 200);
-  assert.match(contact.body, /follow up during office hours/);
-  assert.match(contact.body, /<Hangup\/>/);
-  assert.doesNotMatch(contact.body, /<Gather /);
-  assert.doesNotMatch(contact.body, /<Dial/);
 
   const replay = await fetchJson(
     "GET",
@@ -3144,11 +3107,10 @@ test("Twilio webhook route keeps pricing caller name before callback-only prompt
   );
   assert.equal(replay.body.session.currentState, "WRAPUP");
   assert.equal(replay.body.session.intent, "pricing_or_billing");
-  assert.equal(replay.body.session.facts.caller_name, "Kyle Smith");
-  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Finny");
   assert.equal(replay.body.session.facts.death_reported, false);
   assert.equal(replay.body.session.facts.decedent_name, undefined);
-  assert.deepEqual(replay.body.snapshot.completedToolNames, ["crm.create_intake_lead"]);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, []);
 });
 
 test("Twilio webhook route closes existing-family office-hours inquiries", async () => {
@@ -4716,7 +4678,7 @@ test("first-call API captures hospital release decedent on the first turn", asyn
   assert.equal(location.body.decision.step, "escalate");
 });
 
-test("first-call API routes pricing inquiries to office-hours follow-up", async () => {
+test("first-call API fails closed on pricing without collecting contact details", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-pricing-inquiry-1",
     callerPhone: "603-731-5845",
@@ -4737,29 +4699,14 @@ test("first-call API routes pricing inquiries to office-hours follow-up", async 
   assert.equal(opening.body.session.facts.reasonForCall, "pricing_or_billing");
   assert.equal(opening.body.session.facts.urgency, "routine");
   assert.equal(opening.body.session.facts.decedent_name, undefined);
-  assert.equal(opening.body.decision.step, "collect_caller");
+  assert.equal(opening.body.session.currentState, "WRAPUP");
+  assert.equal(opening.body.decision.step, "pricing_blocked");
+  assert.deepEqual(opening.body.decision.toolNames, []);
+  assert.deepEqual(opening.body.toolResults, []);
+  assert.match(opening.body.responseText, /pricing is not enabled/i);
+  assert.match(opening.body.responseText, /do not need to provide your name or phone number/i);
+  assert.doesNotMatch(opening.body.responseText, /callback|may I have your name/i);
   assert.doesNotMatch(opening.body.responseText, /person who passed away|located right now/i);
-
-  const contact = await fetchJson(
-    "POST",
-    "/v1/tenants/fh-demo/first-call/sessions/session-contextual-pricing-inquiry-1/transcript",
-    {
-      transcript: "My name is Kyle Smith. My callback number is 603-731-5845.",
-    },
-  );
-
-  assert.equal(contact.status, 200);
-  assert.equal(contact.body.session.currentState, "WRAPUP");
-  assert.equal(contact.body.session.intent, "pricing_or_billing");
-  assert.equal(contact.body.session.facts.caller_name, "Kyle Smith");
-  assert.equal(contact.body.session.facts.caller_phone, "603-731-5845");
-  assert.equal(contact.body.session.facts.death_reported, false);
-  assert.equal(contact.body.session.facts.decedent_name, undefined);
-  assert.equal(contact.body.decision.step, "routine_follow_up");
-  assert.deepEqual(contact.body.toolResults.map((result: { toolName: string }) => result.toolName), [
-    "crm.create_intake_lead",
-  ]);
-  assert.match(contact.body.responseText, /follow up during office hours/i);
 });
 
 test("first-call API passes current facts and active step into extractor", async () => {

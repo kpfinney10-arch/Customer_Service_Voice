@@ -48,6 +48,20 @@ Optional states:
 - `VERIFY_ACCOUNT`: only if matching an existing CRM family/case.
 - `WRAPUP`: only after a human handoff or if the caller is routed to a callback queue.
 
+## Intent-first opening and pricing containment
+
+The telephony opening identifies the software as an automated assistant and asks how it can help before requesting a caller name or callback number. Once a death report is identified, the normal minimum-necessary intake flow applies.
+
+`pricing_or_billing` is a separate fail-closed lane. Until a customer- and counsel-approved price source or immediate human-routing procedure is configured, that lane:
+
+- enters `WRAPUP` after the pricing intent is identified;
+- explains that pricing is not enabled in the automated service;
+- states that the caller does not need to provide a name or phone number to request prices;
+- does not run CRM or dispatch tools; and
+- does not gather another speech turn or dial a destination.
+
+This containment is not approval to handle real pricing calls. Automated pricing remains disabled for a real tenant until the legal/privacy review packet's pricing gates are satisfied and the approved disposition passes automated and real-phone verification.
+
 ## Target Facts
 
 The workflow should try to collect these facts, but it must not delay escalation just to complete every field:
@@ -139,7 +153,7 @@ Voice should be:
 Example:
 
 ```text
-I am assisting the funeral director with gathering call information. I need just a few details, and then I will connect you with our team.
+I am an automated assistant helping the funeral director. How may I help you today?
 ```
 
 ## Scenario Coverage

@@ -1055,4 +1055,15 @@ Remaining external gate: obtain appropriate legal/privacy review before acceptin
 - Research against current FTC Funeral Rule guidance identified a confirmed pricing-lane gap: the current workflow collects a name and callback number and promises office-hours follow-up instead of providing approved telephone price information. A real pricing caller must not be required to provide contact information before receiving required available prices.
 - Keep automated pricing disabled for a real tenant until counsel and the funeral home approve effective-dated price data or a compliant human-routing procedure, and focused automated plus real-phone tests pass.
 
-Next engineering action after counsel review: implement the approved automated-assistant notice and Funeral Rule pricing disposition, then re-run the exact release gate.
+Next engineering action after counsel review: implement the approved automated-assistant notice and final Funeral Rule pricing disposition, then re-run the exact release gate.
+
+## 2026-08-16 fail-closed pricing safeguard
+
+- Replaced the contact-first telephony greeting with an intent-first disclosure: `I am an automated assistant helping the funeral director. How may I help you today?`
+- Added the deterministic `pricing_blocked` step. A `pricing_or_billing` call now enters `WRAPUP` on the first pricing turn, states that automated pricing is unavailable and contact details are not required, and ends without another gather or a dial.
+- The pricing decision has no missing contact fields and no tool names, so it cannot create the prior CRM follow-up or any dispatch request. Volunteering a name does not bypass the guard.
+- Updated the signed scenario-matrix definition and the architecture, readiness, test, and legal-review records. This is conservative engineering containment, not legal approval or a configured real-customer pricing service.
+- TypeScript build passed, and the complete automated suite passed `306/306`, including focused unit, API, and Twilio regressions.
+- The change is prepared locally and has not been pushed or deployed. Production still uses the prior opening and pricing behavior until owner approval for the live behavior change.
+
+Next action: review the caller wording, then commit, push, deploy, run the signed `7/7` matrix against `https://voice.lanternbell.com`, and complete one real-phone pricing guard check while keeping real customer data and automated pricing disabled.

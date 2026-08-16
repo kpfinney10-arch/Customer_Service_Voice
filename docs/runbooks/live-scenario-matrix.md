@@ -35,6 +35,7 @@ Latest permanent-host validation:
 - The post-deployment release run used ID `render-handoff-release-1785681418` on commit `8bb8246`.
 - A signed synthetic acceptance plus connected-result callback persisted the expected screening and dial outcomes without placing a real call.
 - Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
+- The pricing lane was subsequently changed locally to fail closed without contact collection or downstream tools. That change passed the complete automated suite but still requires deployment and a new signed matrix before this permanent-host evidence is rebaselined.
 
 ## Scenario Coverage
 
@@ -45,7 +46,7 @@ Latest permanent-host validation:
 | Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review |
 | Police residence death report | Covered by `police-residence` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review, no authority warning |
 | Family at-home death report | Covered by `family-residence-authority-check` | Passed in prior live tests | Escalate, create CRM only, include authority-verification warning |
-| Pricing inquiry, no death reported | Covered by `pricing-routine` | Passed in latest 2026-07-08 live test | Wrap up for office-hours follow-up, create CRM only |
+| Pricing inquiry, no death reported | Covered by `pricing-routine`; local fail-closed regression passed | Prior live behavior is superseded; post-deployment recheck required | State that automated pricing is unavailable and contact details are not required; hang up with no CRM, dispatch, gather, or dial |
 | Existing-family office-hours question | Covered by `family-office-hours` | Passed in latest 2026-07-08 live test; routine request cleanup pinned | Wrap up for office-hours follow-up, create CRM only |
 
 ## Manual Live-Test Targets
@@ -76,6 +77,7 @@ Before a monitored pilot, the matrix should show:
 - Twilio public readiness passing with signed webhooks.
 - At least one clean and one noisy real-audio pass for each high-value lane.
 - No known issue that causes dispatch creation without an authorized source.
+- Pricing remains fail-closed unless approved price data or an approved immediate human route is configured and tested.
 - No known issue that loses caller phone, decedent name, pickup location, or ME case number after the caller provides it clearly.
 - Human handoff failure behavior documented and tested.
 

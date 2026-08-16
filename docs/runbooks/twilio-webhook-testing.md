@@ -74,7 +74,7 @@ Run the broader funeral-home scenario matrix:
 npm run smoke:twilio-scenarios
 ```
 
-This runs hospice, medical examiner, hospital, police, family-at-home, pricing, and office-hours scenarios through the Twilio webhook and verifies replay facts plus CRM/dispatch outcomes.
+This runs hospice, medical examiner, hospital, police, family-at-home, pricing, and office-hours scenarios through the Twilio webhook and verifies replay facts plus each lane's allowed CRM/dispatch outcome. Pricing must fail closed with no downstream tool.
 
 To require signed-webhook mode:
 

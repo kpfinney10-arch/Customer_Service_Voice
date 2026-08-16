@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decideFirstCallNextStep, firstCallPromptForStep } from "../src/index.js";
+import {
+  decideFirstCallNextStep,
+  decidePricingInquiryNextStep,
+  firstCallPromptForStep,
+} from "../src/index.js";
+
+test("pricing inquiries fail closed without collecting contact details or running tools", () => {
+  const decision = decidePricingInquiryNextStep();
+
+  assert.equal(decision.step, "pricing_blocked");
+  assert.equal(decision.nextState, "WRAPUP");
+  assert.deepEqual(decision.missingTargetFacts, []);
+  assert.deepEqual(decision.toolNames, []);
+  assert.match(firstCallPromptForStep(decision.step), /do not need to provide your name or phone number/i);
+});
 
 test("first-call flow starts by collecting caller identity and callback", () => {
   const decision = decideFirstCallNextStep({ urgency: "urgent", death_reported: true });
