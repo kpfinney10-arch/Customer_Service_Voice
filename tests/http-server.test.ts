@@ -3005,6 +3005,15 @@ test("Twilio webhook route harvests stream-of-thought medical examiner facts bef
 });
 
 test("Twilio webhook route fails closed on the live know-one pricing ASR homophone", async () => {
+  const twilioReadiness: TwilioReadiness = {
+    provider: "twilio",
+    mode: "signed_webhook",
+    handoffMode: "simulate",
+    readyForLocalTesting: true,
+    readyForPublicTraffic: true,
+    checks: [],
+  };
+
   await fetchText(
     "POST",
     "/v1/tenants/fh-demo/telephony/twilio/webhook",
@@ -3019,6 +3028,7 @@ test("Twilio webhook route fails closed on the live know-one pricing ASR homopho
       extraHeaders: {
         "content-type": "application/x-www-form-urlencoded",
       },
+      twilioReadiness,
     },
   );
 
@@ -3036,12 +3046,15 @@ test("Twilio webhook route fails closed on the live know-one pricing ASR homopho
       extraHeaders: {
         "content-type": "application/x-www-form-urlencoded",
       },
+      twilioReadiness,
     },
   );
 
   assert.equal(opening.status, 200);
-  assert.match(opening.body, /Pricing is not enabled in this automated service/);
-  assert.match(opening.body, /do not need to provide your name or phone number/i);
+  assert.match(opening.body, /I cannot provide pricing/);
+  assert.match(opening.body, /In a live funeral home setup, I would connect you with a staff member who can help/);
+  assert.match(opening.body, /This demo does not have a staff transfer line configured, so the call will end here/);
+  assert.match(opening.body, /do not need to leave your name or phone number/i);
   assert.match(opening.body, /<Hangup\/>/);
   assert.doesNotMatch(opening.body, /<Gather /);
   assert.doesNotMatch(opening.body, /<Dial/);

@@ -46,6 +46,8 @@ export type TwilioHandoffMode = "live" | "simulate";
 export const DEFAULT_TWILIO_SPEECH_TIMEOUT_SECONDS = 2;
 export const DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE =
   "This demo has recorded that a funeral home team member should follow up. No live transfer will be placed.";
+export const DEFAULT_TWILIO_SIMULATED_PRICING_MESSAGE =
+  "I cannot provide pricing. In a live funeral home setup, I would connect you with a staff member who can help. This demo does not have a staff transfer line configured, so the call will end here. You do not need to leave your name or phone number.";
 export const DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE =
   "I am sorry, no team member was available to take the transfer. Your information has been recorded for urgent follow-up. If you need immediate emergency assistance, please call 911.";
 

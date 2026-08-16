@@ -54,13 +54,14 @@ import {
   createTwilioHandoffResultTwiMl,
   createTwilioHandoffScreeningTwiMl,
   createTwilioTwiMl,
+  DEFAULT_TWILIO_SIMULATED_PRICING_MESSAGE,
   translateTwilioHandoffDialResult,
   translateTwilioHandoffScreeningDecision,
   translateTwilioWebhook,
   TwilioWebhookError,
 } from "../providers/telephony/twilio-adapter.js";
 import type { TwilioHandoffMode } from "../providers/telephony/twilio-adapter.js";
-import { createListenVoiceResponse } from "../providers/telephony/voice-response.js";
+import { createClosingVoiceResponse, createListenVoiceResponse } from "../providers/telephony/voice-response.js";
 import { NoopTelnyxCallControlClient } from "../providers/telephony/telnyx-client.js";
 import type { TelnyxCallControlClient, TelnyxCommandResult } from "../providers/telephony/telnyx-client.js";
 import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-readiness.js";
@@ -1519,8 +1520,12 @@ async function handleTwilioWebhook(
 
   if (translated.kind === "speech_turn") {
     const output = await handleTelephonySpeechTurn(service, translated.input);
+    const voiceResponse =
+      handoffMode === "simulate" && output.decision.step === "pricing_blocked"
+        ? createClosingVoiceResponse(DEFAULT_TWILIO_SIMULATED_PRICING_MESSAGE, "pricing_blocked")
+        : output.voiceResponse;
     return createTwilioTwiMl({
-      voiceResponse: output.voiceResponse,
+      voiceResponse,
       options: { actionUrl, handoffScreeningUrl, handoffResultUrl, handoffMode },
     });
   }
