@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { createBuildInfoFromEnv } from "../src/config/build-info.js";
 
 test("build info uses safe local defaults", () => {
-  const build = createBuildInfoFromEnv({});
+  const build = createBuildInfoFromEnv({}, {});
 
   assert.deepEqual(build, {
     serviceName: "voice-ai-platform",
@@ -19,9 +19,30 @@ test("build info loads deployment metadata from environment", () => {
     SERVICE_VERSION: "1.2.3",
     SERVICE_COMMIT: "abc123",
     SERVICE_BUILD_TIME: "2026-06-06T12:00:00.000Z",
-  });
+  }, {});
 
   assert.equal(build.version, "1.2.3");
   assert.equal(build.commit, "abc123");
   assert.equal(build.buildTime, "2026-06-06T12:00:00.000Z");
+});
+
+test("build info uses Render commit and generated build timestamp", () => {
+  const build = createBuildInfoFromEnv(
+    {
+      SERVICE_NAME: "lanternbell-voice",
+      SERVICE_VERSION: "0.1.0",
+      RENDER_GIT_COMMIT: "render-commit-123",
+    },
+    {
+      commit: "artifact-commit-ignored",
+      buildTime: "2026-08-16T14:30:00.000Z",
+    },
+  );
+
+  assert.deepEqual(build, {
+    serviceName: "lanternbell-voice",
+    version: "0.1.0",
+    commit: "render-commit-123",
+    buildTime: "2026-08-16T14:30:00.000Z",
+  });
 });

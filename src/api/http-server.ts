@@ -1526,6 +1526,12 @@ async function handleTwilioWebhook(
   }
 
   if (translated.kind === "empty_speech") {
+    await service.recordPromptRepeat({
+      tenantId,
+      sessionId: translated.providerCallId,
+      reason: "empty_speech",
+      correlationId: translated.correlationId,
+    });
     return createTwilioTwiMl({
       voiceResponse: createListenVoiceResponse("I am sorry, I did not catch that. Please say that again."),
       options: { actionUrl, handoffMode },

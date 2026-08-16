@@ -35,6 +35,8 @@ test("server environment loads validated startup dependencies", async () => {
     TELEPHONY_WEBHOOK_SECRETS: "generic:secret-1",
     TELNYX_EXECUTE_COMMANDS: "false",
     CALL_ALERT_WINDOW_SECONDS: "900",
+    CALL_ALERT_LONG_TURN_MS: "2500",
+    CALL_ALERT_REPEATED_PROMPT_COUNT: "4",
   });
 
   assert.equal(environment.port, 4000);
@@ -123,5 +125,21 @@ test("server environment rejects an invalid call alert window", () => {
         CALL_ALERT_WINDOW_SECONDS: "299",
       }),
     /CALL_ALERT_WINDOW_SECONDS/,
+  );
+  assert.throws(
+    () =>
+      loadServerEnvironment({
+        TENANT_API_KEYS: "fh-demo:demo-api-key",
+        CALL_ALERT_LONG_TURN_MS: "499",
+      }),
+    /CALL_ALERT_LONG_TURN_MS/,
+  );
+  assert.throws(
+    () =>
+      loadServerEnvironment({
+        TENANT_API_KEYS: "fh-demo:demo-api-key",
+        CALL_ALERT_REPEATED_PROMPT_COUNT: "1",
+      }),
+    /CALL_ALERT_REPEATED_PROMPT_COUNT/,
   );
 });

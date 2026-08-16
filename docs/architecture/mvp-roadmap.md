@@ -79,7 +79,7 @@
 - Tenant-aware auth and permissions.
 - Prompt and rule versioning.
 - Audit log UI with redacted activity and per-call timeline views behind named, role-based production access.
-- Latency metrics.
+- Persisted orchestration-turn latency and repeated-prompt health classification for the controlled pilot; deeper provider/STT/TTS metrics remain future work.
 - Replayable call timeline (initial redacted operator timeline complete; engineering replay remains available).
 - Signed Twilio screening and final handoff outcome callbacks with caller-safe failure fallback and aggregate alerting.
 - Load and scenario testing.

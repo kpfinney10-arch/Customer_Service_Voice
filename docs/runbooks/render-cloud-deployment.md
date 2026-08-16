@@ -27,6 +27,8 @@ Prepare these locally. Do not commit them or paste them into support messages:
 - `TELEPHONY_WEBHOOK_SECRETS`: `twilio:<the-current-Twilio-Auth-Token>`
 - `TENANT_CONFIGS_JSON`: the tenant's routing configuration as one-line JSON
 
+Render supplies `RENDER_GIT_COMMIT` automatically at build and runtime. The build command writes a non-secret `dist/build-metadata.json` timestamp, allowing `/version` to report the exact commit and build time without a manually maintained environment value. See [Render's default environment variables](https://render.com/docs/environment-variables).
+
 The Blueprint sets `TWILIO_HANDOFF_MODE=simulate` for demo testing. In that mode the workflow still records escalation, CRM, dispatch, and audit events, but the Twilio response announces the simulated handoff and hangs up without dialing either configured destination.
 
 The tenant configuration can retain reserved `+1555...` placeholders while simulation mode is active. Before enabling `TWILIO_HANDOFF_MODE=live` or accepting customer traffic, replace them with real handoff phone numbers. Shape:
@@ -177,5 +179,14 @@ The endpoint checks persisted call events across all tenants and returns:
 - Only aggregate fields: status, window length, failure count, failure categories, and the last failure time. It never returns tenant, call, session, correlation, provider, tool, or caller data.
 
 The default alert window is 1,800 seconds. Set `CALL_ALERT_WINDOW_SECONDS` only when a different window between 300 and 86,400 seconds is operationally justified. Normal completed calls and caller-canceled/disconnected calls do not make the endpoint unhealthy.
+
+The controlled-pilot call-quality defaults are:
+
+- `CALL_ALERT_LONG_TURN_MS=1500`: classify a persisted orchestration turn at or above 1.5 seconds as `long_turn_latency`.
+- `CALL_ALERT_REPEATED_PROMPT_COUNT=3`: classify three consecutive no-progress prompt decisions, or three consecutive empty-speech reprompts, as `repeated_prompt`.
+
+Turn duration is stored only as an integer on the safe state/escalation event. Empty-speech repetitions store only the reason category and consecutive count. The public response never includes tenant, session, prompt text, transcript, caller data, or raw payloads.
+
+Follow [the pilot incident-response runbook](pilot-incident-response.md) whenever the monitor reports unhealthy.
 
 The initial external monitor uses UptimeRobot's free five-minute checks. Configure down and recovery email notifications, and leave Render's own failure-only notifications enabled. This creates two independent paths: Render detects deployment and platform health failures, while UptimeRobot detects an unreachable service or a persisted call-processing failure.

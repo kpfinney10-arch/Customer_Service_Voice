@@ -594,6 +594,26 @@ test("first-call API starts a session and handles transcript turn", async () => 
   assert.equal(replay.body.snapshot.handoff.caller.name, "Sarah Miller");
 });
 
+test("first-call API persists aggregate turn duration on the decision event", async () => {
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId: "session-turn-duration-1",
+  });
+  const times = [1_000, 2_600];
+  const turn = await fetchJson(
+    "POST",
+    "/v1/tenants/fh-demo/first-call/sessions/session-turn-duration-1/transcript",
+    { transcript: "My name is Sarah Miller and my phone is 555-212-3434." },
+    { nowMs: () => times.shift() ?? 2_600 },
+  );
+
+  const decisionEvent = turn.body.events.find(
+    (event: { eventType: string }) =>
+      event.eventType === "STATE_TRANSITIONED" || event.eventType === "ESCALATION_TRIGGERED",
+  );
+  assert.equal(decisionEvent.payload.turnDurationMs, 1_600);
+  assert.equal("transcript" in decisionEvent.payload, false);
+});
+
 test("telephony inbound-call route starts first-call session", async () => {
   const inbound = await fetchJson("POST", "/v1/tenants/fh-demo/telephony/generic/inbound-call", {
     providerCallId: "provider-call-1",
@@ -1037,8 +1057,12 @@ test("Twilio webhook route reprompts on empty speech callbacks", async () => {
   assert.match(response.body, /<Gather /);
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-empty-1/replay");
-  assert.equal(replay.body.snapshot.eventCount, 1);
-  assert.equal(replay.body.snapshot.latestEventType, "CALL_STARTED");
+  assert.equal(replay.body.snapshot.eventCount, 2);
+  assert.equal(replay.body.snapshot.latestEventType, "PROMPT_REPEATED");
+  assert.deepEqual(replay.body.events.at(-1).payload, {
+    reason: "empty_speech",
+    repeatCount: 1,
+  });
 });
 
 test("Twilio webhook route advances speech callbacks through first-call workflow", async () => {
@@ -5934,6 +5958,7 @@ async function fetchJson(
     extractor?: FirstCallExtractor;
     callHealthProbe?: CallHealthProbe;
     operatorAuthService?: OperatorAuthService;
+    nowMs?: () => number;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -5954,6 +5979,7 @@ async function fetchJson(
     tenantConfigStore: sharedTenantConfigStore,
   };
   if (options.extractor) Object.assign(serviceOptions, { extractor: options.extractor });
+  if (options.nowMs) Object.assign(serviceOptions, { nowMs: options.nowMs });
   const service = createFirstCallService(serviceOptions);
   const response = await handleApiRequest(
     service,

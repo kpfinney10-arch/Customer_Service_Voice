@@ -45,6 +45,7 @@ export type FirstCallService = {
   endSession: (input: EndFirstCallSessionInput) => Promise<EndFirstCallSessionOutput>;
   recordProviderCommands: (input: RecordProviderCommandsInput) => Promise<RecordProviderCommandsOutput>;
   recordHandoffOutcome: (input: RecordHandoffOutcomeInput) => Promise<RecordHandoffOutcomeOutput>;
+  recordPromptRepeat: (input: RecordPromptRepeatInput) => Promise<RecordPromptRepeatOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
   listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
@@ -148,6 +149,18 @@ export type RecordHandoffOutcomeOutput = {
   duplicate: boolean;
 };
 
+export type RecordPromptRepeatInput = {
+  tenantId: string;
+  sessionId: string;
+  reason: "empty_speech";
+  correlationId?: string;
+};
+
+export type RecordPromptRepeatOutput = {
+  event: CallEvent;
+  repeatCount: number;
+};
+
 export type ListFirstCallEventsInput = {
   tenantId: string;
   sessionId: string;
@@ -214,12 +227,14 @@ export type CreateFirstCallServiceOptions = {
   extractor?: FirstCallExtractor;
   registry?: ToolRegistry;
   tenantConfigStore?: TenantConfigStore;
+  nowMs?: () => number;
 };
 
 export function createFirstCallService(options: CreateFirstCallServiceOptions): FirstCallService {
   const idFactory = options.idFactory ?? randomId;
   const extractor = options.extractor ?? deterministicFirstCallExtractor;
   const registry = options.registry ?? createDefaultRegistry();
+  const nowMs = options.nowMs ?? Date.now;
 
   const replaySession = async (input: ReplayFirstCallSessionInput): Promise<ReplayFirstCallSessionOutput> => {
     const existingSession = await options.store.get(input.tenantId, input.sessionId);
@@ -291,6 +306,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
     },
 
     async handleTranscript(input) {
+      const startedAt = nowMs();
       const existingSession = await options.store.get(input.tenantId, input.sessionId);
       if (!existingSession) {
         throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
@@ -352,50 +368,50 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         escalationScore: decision.escalationReason ? 1 : existingSession.escalationScore,
       });
       const correlationId = input.correlationId ?? idFactory();
-      const decisionEvents = [
-        createCallEvent({
-          eventId: idFactory(),
-          eventType: "TRANSCRIPT_RECEIVED",
-          callId: session.callId,
-          sessionId: session.sessionId,
-          tenantId: session.tenantId,
-          correlationId,
-          redactionStatus: redacted.redacted ? "redacted" : "not_required",
-          payload: {
-            transcript: redacted.value,
-            redactionCategories: redacted.categories,
-          },
-        }),
-        createCallEvent({
-          eventId: idFactory(),
-          eventType: "INTENT_DETECTED",
-          callId: session.callId,
-          sessionId: session.sessionId,
-          tenantId: session.tenantId,
-          correlationId,
-          payload: {
-            intent: extraction.intent,
-            confidence: extraction.confidence,
-            factConfidence: extraction.factConfidence,
-            warnings: extraction.warnings,
-          },
-        }),
-        createCallEvent({
-          eventId: idFactory(),
-          eventType: decision.escalationReason ? "ESCALATION_TRIGGERED" : "STATE_TRANSITIONED",
-          callId: session.callId,
-          sessionId: session.sessionId,
-          tenantId: session.tenantId,
-          correlationId,
-          payload: {
-            from: existingSession.currentState,
-            to: session.currentState,
-            step: decision.step,
-            missingTargetFacts: decision.missingTargetFacts,
-            escalationReason: decision.escalationReason,
-          },
-        }),
-      ];
+      const transcriptEvent = createCallEvent({
+        eventId: idFactory(),
+        eventType: "TRANSCRIPT_RECEIVED",
+        callId: session.callId,
+        sessionId: session.sessionId,
+        tenantId: session.tenantId,
+        correlationId,
+        redactionStatus: redacted.redacted ? "redacted" : "not_required",
+        payload: {
+          transcript: redacted.value,
+          redactionCategories: redacted.categories,
+        },
+      });
+      const intentEvent = createCallEvent({
+        eventId: idFactory(),
+        eventType: "INTENT_DETECTED",
+        callId: session.callId,
+        sessionId: session.sessionId,
+        tenantId: session.tenantId,
+        correlationId,
+        payload: {
+          intent: extraction.intent,
+          confidence: extraction.confidence,
+          factConfidence: extraction.factConfidence,
+          warnings: extraction.warnings,
+        },
+      });
+      const transitionEvent = createCallEvent({
+        eventId: idFactory(),
+        eventType: decision.escalationReason ? "ESCALATION_TRIGGERED" : "STATE_TRANSITIONED",
+        callId: session.callId,
+        sessionId: session.sessionId,
+        tenantId: session.tenantId,
+        correlationId,
+        payload: {
+          from: existingSession.currentState,
+          to: session.currentState,
+          step: decision.step,
+          missingTargetFacts: decision.missingTargetFacts,
+          escalationReason: decision.escalationReason,
+          turnDurationMs: 0,
+        },
+      });
+      const decisionEvents = [transcriptEvent, intentEvent, transitionEvent];
       const toolInput = {
         eventIdFactory: idFactory,
         toolCallIdFactory: idFactory,
@@ -413,6 +429,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       addIfPresent(toolInput, "enabledToolNames", enabledToolNamesForTenant(tenantConfig));
       const toolOutput = await executeFirstCallTools(toolInput);
       await options.store.save(session);
+      transitionEvent.payload.turnDurationMs = Math.max(0, nowMs() - startedAt);
       const events = [...decisionEvents, ...toolOutput.events];
       await options.eventStore?.append(events);
       const handoff = createFirstCallHandoffSummary({
@@ -566,6 +583,30 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       return { event, duplicate: false };
     },
 
+    async recordPromptRepeat(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const existingEvents =
+        (await options.eventStore?.listBySession(existingSession.tenantId, existingSession.sessionId)) ?? [];
+      const repeatCount = nextPromptRepeatCount(existingEvents, input.reason);
+      const event = createCallEvent({
+        eventId: idFactory(),
+        eventType: "PROMPT_REPEATED",
+        callId: existingSession.callId,
+        sessionId: existingSession.sessionId,
+        tenantId: existingSession.tenantId,
+        correlationId: input.correlationId ?? idFactory(),
+        payload: {
+          reason: input.reason,
+          repeatCount,
+        },
+      });
+      await options.eventStore?.append([event]);
+      return { event, repeatCount };
+    },
+
     async listEvents(input) {
       const existingSession = await options.store.get(input.tenantId, input.sessionId);
       if (!existingSession) {
@@ -594,6 +635,24 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       return createTenantCallDetail(await replaySession(input));
     },
   };
+}
+
+function nextPromptRepeatCount(events: CallEvent[], reason: RecordPromptRepeatInput["reason"]): number {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (!event) continue;
+    if (event.eventType === "TRANSCRIPT_RECEIVED" || event.eventType === "CALL_STARTED" || event.eventType === "CALL_ENDED") {
+      return 1;
+    }
+    if (event.eventType === "PROMPT_REPEATED") {
+      if (event.payload.reason !== reason) return 1;
+      const previousCount = event.payload.repeatCount;
+      return typeof previousCount === "number" && Number.isInteger(previousCount) && previousCount > 0
+        ? previousCount + 1
+        : 1;
+    }
+  }
+  return 1;
 }
 
 function summarizeSession(session: CallSession): TenantActivitySessionSummary {

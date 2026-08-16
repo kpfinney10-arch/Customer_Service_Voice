@@ -26,6 +26,10 @@ services:
         value: "120"
       - key: RATE_LIMIT_WINDOW_MS
         value: "60000"
+      - key: CALL_ALERT_LONG_TURN_MS
+        value: "1500"
+      - key: CALL_ALERT_REPEATED_PROMPT_COUNT
+        value: "3"
       - key: SERVICE_NAME
         value: lanternbell-voice
       - key: SERVICE_VERSION

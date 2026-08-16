@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/write-build-metadata.mjs",
     "migrate:postgres": "node dist/src/persistence/migrate-main.js",
     "validate:postgres-recovery": "node dist/src/persistence/validate-recovery-main.js",
     "deploy:macos-local": "npm run build && node scripts/deploy-macos-runtime.mjs",

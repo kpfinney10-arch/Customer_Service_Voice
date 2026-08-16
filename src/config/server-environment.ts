@@ -13,6 +13,8 @@ import type { EventStore } from "../events/in-memory-event-store.js";
 import {
   callAlertWindowSecondsFromEnv,
   EventStoreCallHealthProbe,
+  longTurnAlertMsFromEnv,
+  repeatedPromptAlertCountFromEnv,
 } from "../observability/call-health.js";
 import type { CallHealthProbe } from "../observability/call-health.js";
 import type { IdempotencyStore } from "../security/idempotency.js";
@@ -96,6 +98,10 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     eventStore: persistence.eventStore,
     callHealthProbe: new EventStoreCallHealthProbe(persistence.eventStore, {
       windowSeconds: callAlertWindowSecondsFromEnv(env.CALL_ALERT_WINDOW_SECONDS),
+      longTurnThresholdMs: longTurnAlertMsFromEnv(env.CALL_ALERT_LONG_TURN_MS),
+      repeatedPromptThreshold: repeatedPromptAlertCountFromEnv(
+        env.CALL_ALERT_REPEATED_PROMPT_COUNT,
+      ),
     }),
     idempotencyStore: persistence.idempotencyStore,
     webhookSignatureVerifier: createWebhookSignatureVerifierFromEnv(env),
