@@ -66,7 +66,9 @@ export function hasNegatedDeathReport(transcript: string): boolean {
     .replace(/[,.!?;:]+/g, " ")
     .replace(/\bno\s+1\b/g, "no one")
     .replace(/\s+/g, " ");
+  const hasBillingContext = billingTerms.some((term) => text.includes(term));
   return /\b(?:no one|nobody|no-one)\s+(?:has\s+)?(?:passed away|died)\b/.test(text) ||
+    (hasBillingContext && /\bknow\s+(?:one|1)\s+(?:has\s+)?(?:passed away|died)\b/.test(text)) ||
     /\b(?:no|not)\s+(?:death|deaths)\b/.test(text) ||
     /\bnot\s+(?:a\s+)?(?:new\s+)?death\s+call(?:er)?\b/.test(text) ||
     /\b(?:hasn'?t|has not|didn'?t|did not)\s+(?:passed away|pass away|died|die)\b/.test(text);

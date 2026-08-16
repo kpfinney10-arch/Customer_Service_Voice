@@ -181,6 +181,24 @@ test("first-call extractor recognizes pricing wording without price or cost", ()
   assert.equal(extraction.facts.urgency, "routine");
 });
 
+test("first-call extractor treats billing-context know one as a no-one ASR homophone", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "I'm calling about, cremation pricing know, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
+  );
+
+  assert.equal(extraction.intent, "pricing_or_billing");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.urgency, "routine");
+  assert.equal(extraction.facts.decedent_name, undefined);
+});
+
+test("first-call extractor does not treat know one as negation without billing context", () => {
+  const extraction = extractFirstCallFactsDeterministic("I know one has passed away at home.");
+
+  assert.equal(extraction.intent, "first_call_intake");
+  assert.equal(extraction.facts.death_reported, true);
+});
+
 test("first-call extractor captures pricing caller name before calling phrase", () => {
   const extraction = extractFirstCallFactsDeterministic(
     "Hi. My name is Kyle Smith calling to ask about direct. Cremation pricing. No 1 has passed away right now. I'm just trying to understand your basic costs and what is included?",

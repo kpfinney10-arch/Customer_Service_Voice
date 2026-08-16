@@ -3004,7 +3004,7 @@ test("Twilio webhook route harvests stream-of-thought medical examiner facts bef
   ]);
 });
 
-test("Twilio webhook route fails closed on pricing without collecting contact details", async () => {
+test("Twilio webhook route fails closed on the live know-one pricing ASR homophone", async () => {
   await fetchText(
     "POST",
     "/v1/tenants/fh-demo/telephony/twilio/webhook",
@@ -3028,7 +3028,7 @@ test("Twilio webhook route fails closed on pricing without collecting contact de
     new URLSearchParams({
       CallSid: "twilio-call-http-pricing-1",
       SpeechResult:
-        "I am calling to ask about cremation pricing. No, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
+        "I'm calling about, cremation pricing know, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
       Confidence: "0.92",
     }),
     {
