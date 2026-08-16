@@ -160,7 +160,7 @@ test("first-call extractor strips courtesy titles from decedent name answers", (
 
 test("first-call extractor treats negated death pricing calls as routine inquiries", () => {
   const extraction = extractFirstCallFactsDeterministic(
-    "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+    "I am calling to ask about cremation pricing. No, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
   );
 
   assert.equal(extraction.intent, "pricing_or_billing");
@@ -169,6 +169,16 @@ test("first-call extractor treats negated death pricing calls as routine inquiri
   assert.equal(extraction.facts.decedent_name, undefined);
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
   assert.equal(extraction.warnings.includes("pickup_context_not_found"), false);
+});
+
+test("first-call extractor recognizes pricing wording without price or cost", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "No 1 has passed away. I just want cremation pricing.",
+  );
+
+  assert.equal(extraction.intent, "pricing_or_billing");
+  assert.equal(extraction.facts.death_reported, false);
+  assert.equal(extraction.facts.urgency, "routine");
 });
 
 test("first-call extractor captures pricing caller name before calling phrase", () => {

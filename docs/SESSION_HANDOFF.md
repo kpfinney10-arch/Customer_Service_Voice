@@ -1064,6 +1064,15 @@ Next engineering action after counsel review: implement the approved automated-a
 - The pricing decision has no missing contact fields and no tool names, so it cannot create the prior CRM follow-up or any dispatch request. Volunteering a name does not bypass the guard.
 - Updated the signed scenario-matrix definition and the architecture, readiness, test, and legal-review records. This is conservative engineering containment, not legal approval or a configured real-customer pricing service.
 - TypeScript build passed, and the complete automated suite passed `306/306`, including focused unit, API, and Twilio regressions.
-- The change is prepared locally and has not been pushed or deployed. Production still uses the prior opening and pricing behavior until owner approval for the live behavior change.
+- Commit `88c2780` was pushed and deployed through Render deployment `dep-da147ou7bikc738an650`. Production `/version` reported the exact commit and build time `2026-08-16T23:12:44.085Z`; `/health` and `/health/calls` were green with zero failures.
 
-Next action: review the caller wording, then commit, push, deploy, run the signed `7/7` matrix against `https://voice.lanternbell.com`, and complete one real-phone pricing guard check while keeping real customer data and automated pricing disabled.
+## 2026-08-16 failed live pricing check and corrective patch
+
+- The first real-phone guard check failed on call `CA8a6b86cb4905008eadf5fff4ca8f10e8`. The call lasted 62 seconds, asked for caller contact, requested spelling, and then asked for a decedent name instead of ending on the first pricing turn.
+- Twilio's request inspector showed the high-confidence first callback punctuated the intended negation as `No, 1 has passed away.` The negation normalizer converted `no 1` before removing punctuation, so this live variant remained unrecognized and `passed away` selected `first_call_intake`.
+- The later correction used `cremation pricing` without `price` or `cost`. The billing vocabulary did not include the standalone word `pricing`, so the already-selected death path remained active.
+- The corrective patch now removes speech punctuation before normalizing `no 1` to `no one`, recognizes `pricing` and `prices`, adds `no one`, `cremation`, `pricing`, `price`, and `cost` to the Twilio speech hints, pins the exact first live callback, and proves that a later explicit pricing correction can leave an already-selected death path.
+- The signed scenario-matrix pricing transcript now uses the exact `No, 1` live punctuation. TypeScript build and the full automated suite pass `309/309`.
+- The corrective patch is local only. Production remains on the failed `88c2780` behavior until the patch is committed, pushed, and deployed.
+
+Next action: commit, push, and deploy the corrective patch, run the signed matrix, and repeat the real-phone pricing check. Keep real customer data and automated pricing disabled.

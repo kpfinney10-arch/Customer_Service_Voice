@@ -176,7 +176,7 @@ const scenarios = [
     turns: [
       {
         speech:
-          "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+          "I am calling to ask about cremation pricing. No, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
         includes: [
           "Pricing is not enabled in this automated service",
           "do not need to provide your name or phone number",

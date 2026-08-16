@@ -21,6 +21,13 @@ import {
   createListenVoiceResponse,
 } from "../src/providers/telephony/voice-response.js";
 
+test("Twilio speech hints include pricing and no-death language", () => {
+  assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("no one"), true);
+  assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("cremation"), true);
+  assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("pricing"), true);
+  assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("cost"), true);
+});
+
 test("Twilio adapter translates initial voice webhook fields into inbound call input", () => {
   const translated = translateTwilioWebhook({
     tenantId: "fh-demo",

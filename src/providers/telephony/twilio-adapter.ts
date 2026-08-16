@@ -65,6 +65,7 @@ export type TwilioHandoffDialResult = {
 export const DEFAULT_TWILIO_SPEECH_HINTS = [
   "caller name",
   "decedent name",
+  "no one",
   "passed away",
   "died",
   "death",
@@ -85,6 +86,10 @@ export const DEFAULT_TWILIO_SPEECH_HINTS = [
   "hospice",
   "nursing home",
   "funeral home",
+  "cremation",
+  "pricing",
+  "price",
+  "cost",
 ];
 
 export class TwilioWebhookError extends Error {

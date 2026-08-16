@@ -41,7 +41,7 @@ const existingFamilyRoutineTerms = [
   "not a new death call",
   "not an emergency",
 ];
-const billingTerms = ["price", "cost", "bill", "invoice", "payment", "insurance"];
+const billingTerms = ["price", "prices", "pricing", "cost", "bill", "invoice", "payment", "insurance"];
 const dispatchTerms = ["driver", "pickup", "arrival", "transport", "where are they"];
 
 export function classifyFuneralHomeIntent(transcript: string): CallIntent {
@@ -63,8 +63,8 @@ export function classifyFuneralHomeIntent(transcript: string): CallIntent {
 export function hasNegatedDeathReport(transcript: string): boolean {
   const text = transcript
     .toLowerCase()
-    .replace(/\bno\s+1\b/g, "no one")
     .replace(/[,.!?;:]+/g, " ")
+    .replace(/\bno\s+1\b/g, "no one")
     .replace(/\s+/g, " ");
   return /\b(?:no one|nobody|no-one)\s+(?:has\s+)?(?:passed away|died)\b/.test(text) ||
     /\b(?:no|not)\s+(?:death|deaths)\b/.test(text) ||

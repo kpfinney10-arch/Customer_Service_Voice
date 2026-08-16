@@ -35,7 +35,7 @@ Latest permanent-host validation:
 - The post-deployment release run used ID `render-handoff-release-1785681418` on commit `8bb8246`.
 - A signed synthetic acceptance plus connected-result callback persisted the expected screening and dial outcomes without placing a real call.
 - Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
-- The pricing lane was subsequently changed locally to fail closed without contact collection or downstream tools. That change passed the complete automated suite but still requires deployment and a new signed matrix before this permanent-host evidence is rebaselined.
+- Fail-closed pricing commit `88c2780` was deployed on 2026-08-16, but its first real-phone check failed when Twilio punctuated `No, 1 has passed away.` A corrective punctuation/vocabulary patch passes locally and still requires deployment, a new signed matrix, and a real-phone recheck before this permanent-host evidence is rebaselined.
 
 ## Scenario Coverage
 
@@ -46,7 +46,7 @@ Latest permanent-host validation:
 | Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review |
 | Police residence death report | Covered by `police-residence` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review, no authority warning |
 | Family at-home death report | Covered by `family-residence-authority-check` | Passed in prior live tests | Escalate, create CRM only, include authority-verification warning |
-| Pricing inquiry, no death reported | Covered by `pricing-routine`; local fail-closed regression passed | Prior live behavior is superseded; post-deployment recheck required | State that automated pricing is unavailable and contact details are not required; hang up with no CRM, dispatch, gather, or dial |
+| Pricing inquiry, no death reported | Covered by `pricing-routine` using the exact failed live punctuation; corrective regression passed locally | Failed on 2026-08-16 against `88c2780`; corrective deployment and recheck required | State that automated pricing is unavailable and contact details are not required; hang up with no CRM, dispatch, gather, or dial |
 | Existing-family office-hours question | Covered by `family-office-hours` | Passed in latest 2026-07-08 live test; routine request cleanup pinned | Wrap up for office-hours follow-up, create CRM only |
 
 ## Manual Live-Test Targets

@@ -3028,7 +3028,7 @@ test("Twilio webhook route fails closed on pricing without collecting contact de
     new URLSearchParams({
       CallSid: "twilio-call-http-pricing-1",
       SpeechResult:
-        "Hi, I'm calling to ask about cremation pricing. No one has passed away right now. I'm just trying to understand your basic direct cremation cost and what is included.",
+        "I am calling to ask about cremation pricing. No, 1 has passed away. I just want to understand the basic direct cremation cost and what is included?",
       Confidence: "0.92",
     }),
     {
@@ -3054,6 +3054,74 @@ test("Twilio webhook route fails closed on pricing without collecting contact de
   assert.equal(replay.body.session.facts.reasonForCall, "pricing_or_billing");
   assert.equal(replay.body.session.facts.death_reported, false);
   assert.equal(replay.body.session.facts.decedent_name, undefined);
+  assert.deepEqual(replay.body.snapshot.completedToolNames, []);
+});
+
+test("Twilio webhook route lets an explicit pricing correction leave a mistaken death path", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-correction-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const mistakenDeath = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-correction-1",
+      SpeechResult: "A person has passed away.",
+      Confidence: "0.92",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(mistakenDeath.status, 200);
+  assert.match(mistakenDeath.body, /May I have your name/);
+
+  const correction = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-pricing-correction-1",
+      SpeechResult: "No 1 has passed away. I just want cremation pricing.",
+      Confidence: "0.88",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(correction.status, 200);
+  assert.match(correction.body, /Pricing is not enabled in this automated service/);
+  assert.match(correction.body, /<Hangup\/>/);
+  assert.doesNotMatch(correction.body, /<Gather |<Dial|May I have your name|person who passed away/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-pricing-correction-1/replay",
+  );
+  assert.equal(replay.body.session.currentState, "WRAPUP");
+  assert.equal(replay.body.session.intent, "pricing_or_billing");
+  assert.equal(replay.body.session.facts.death_reported, false);
   assert.deepEqual(replay.body.snapshot.completedToolNames, []);
 });
 
