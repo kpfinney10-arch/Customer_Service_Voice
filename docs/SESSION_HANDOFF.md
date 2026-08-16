@@ -1047,3 +1047,12 @@ Activation follow-up completed on 2026-08-16:
 4. Kyle Finney was assigned as the manual daily retention execution owner for any real-data pilot, with production shell access verified by the dry-run.
 
 Remaining external gate: obtain appropriate legal/privacy review before accepting real customer data.
+
+## 2026-08-16 legal/privacy review preparation
+
+- Added `docs/legal/pilot-legal-privacy-review-packet.md` as a factual handoff for qualified counsel. It records the current data flow, retention, vendors, safeguards, requested decisions, response checklist, and official-source links.
+- The review packet does not claim legal approval. Real customer data remains blocked until counsel records a bounded Go/Conditional Go and required engineering changes pass verification.
+- Research against current FTC Funeral Rule guidance identified a confirmed pricing-lane gap: the current workflow collects a name and callback number and promises office-hours follow-up instead of providing approved telephone price information. A real pricing caller must not be required to provide contact information before receiving required available prices.
+- Keep automated pricing disabled for a real tenant until counsel and the funeral home approve effective-dated price data or a compliant human-routing procedure, and focused automated plus real-phone tests pass.
+
+Next engineering action after counsel review: implement the approved automated-assistant notice and Funeral Rule pricing disposition, then re-run the exact release gate.

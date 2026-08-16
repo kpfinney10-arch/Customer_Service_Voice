@@ -40,7 +40,7 @@ Acceptance criteria:
 
 - [x] Inventory the stored session facts, transcript events, tool outcomes, operator access audits, request logs, idempotency records, provider records, and backups.
 - [x] Record owner-approved retention periods, disabled recording, no durable transcript text, access boundaries, and deletion handling in `pilot-data-handling-policy.md`.
-- [ ] Obtain appropriate legal/privacy review for the selected policy; this engineering checklist does not make that legal determination.
+- [ ] Obtain appropriate legal/privacy review for the selected policy using `docs/legal/pilot-legal-privacy-review-packet.md`; this engineering checklist does not make that legal determination. The packet identifies automated telephone pricing as a confirmed pre-pilot engineering/legal gap.
 - [x] Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
 - [x] Implement fixed retention cleanup and a Twilio call-resource deletion boundary.
 - [x] Document how expired/deleted data is reconciled after a restore and how managed-backup retention differs from active-database retention.
