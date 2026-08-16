@@ -1009,9 +1009,8 @@ Next action:
 - Direct health recovered naturally to HTTP 200 with zero failures after the synthetic event aged out. The monitor returned to Up and remained attached to the configured owner notification contact.
 - Restored `CALL_ALERT_WINDOW_SECONDS=1800`. Final restoration deployment `dep-da0v6iou01pc7395gea0` reached production on commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` with build time `2026-08-16T17:28:50.285Z`.
 - Final `/health` and `/health/calls` returned HTTP 200; call health reported the normal 1,800-second window, zero failures, and no failure categories.
-- UptimeRobot dashboard evidence proves down and recovery detection. Owner confirmation of receipt of the corresponding down and recovery emails is still pending.
+- UptimeRobot dashboard evidence proves down and recovery detection. The owner confirmed receipt of both the corresponding down and recovery emails on 2026-08-16.
 
 Next action:
 
-1. Confirm receipt of both UptimeRobot emails to close the notification-delivery evidence.
-2. Begin gate 1 by making the pilot data-retention, deletion, recording, access, and backup policy decisions before accepting real customer data.
+1. Begin gate 1 by making the pilot data-retention, deletion, recording, access, and backup policy decisions before accepting real customer data.

@@ -21,7 +21,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
 | Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
 | Durable persistence and recovery | Pass | Managed PostgreSQL is active. A point-in-time restore to an isolated database, aggregate integrity validation, access-rule removal, and temporary-database deletion were completed on 2026-08-01. |
-| Availability and failure alerting | Pass; latest email receipt confirmation pending | UptimeRobot checks `/health/calls`. Incident `347421514523615151` recorded the controlled `repeated_prompt` HTTP 503 and automatic recovery over 5 minutes 5 seconds on 2026-08-16; the configured notification contact remained attached. Owner confirmation of the two latest emails is pending. |
+| Availability and failure alerting | Pass | UptimeRobot checks `/health/calls`. Incident `347421514523615151` recorded the controlled `repeated_prompt` HTTP 503 and automatic recovery over 5 minutes 5 seconds on 2026-08-16; the configured notification contact remained attached, and the owner confirmed receipt of both the down and recovery emails. |
 | Named staff access | Pass | Production login, tenant-scoped activity, redacted call detail, secure cookie handling, and durable access-audit writes were verified on 2026-08-02. |
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
 | Release identification | Pass | Production `/version` reports exact Render commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` and final restored build time `2026-08-16T17:28:50.285Z`. |
@@ -48,7 +48,7 @@ Acceptance criteria:
 
 This is the next engineering increment that can proceed without another phone or customer account.
 
-Status: implementation and controlled external alert drill completed on 2026-08-16; owner confirmation of the two latest notification emails is pending.
+Status: complete. Implementation, controlled external alerting, automatic recovery, and delivery of both owner notifications were verified on 2026-08-16.
 
 Acceptance criteria:
 
@@ -56,7 +56,7 @@ Acceptance criteria:
 - [x] Extend persisted call health to classify excessive webhook latency and repeated-prompt/retry exhaustion using documented thresholds that avoid caller or tenant data in the public response.
 - [x] Add focused unit, HTTP, PostgreSQL, privacy, and environment tests.
 - [x] Create a short pilot incident runbook covering alert receipt, triage, traffic stop, rollback, database recovery, customer communication ownership, and incident closure.
-- [x] Repeat the external down/recovery drill because the health contract now includes two additional failure categories.
+- [x] Repeat the external down/recovery drill because the health contract now includes two additional failure categories, and confirm delivery of both owner notifications.
 
 ### 3. Complete the real handoff drill
 

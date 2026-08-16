@@ -149,5 +149,5 @@ For any suspected privacy, legal, or contractual incident, obtain appropriate co
 - Availability: UptimeRobot down/recovery drill completed 2026-08-01.
 - Database: isolated point-in-time restore and aggregate validation completed 2026-08-01.
 - Access: named login, authorization, redacted detail, and access-audit persistence completed 2026-08-02.
-- Call-quality health: controlled signed `repeated_prompt` down/recovery drill completed 2026-08-16 as UptimeRobot incident `347421514523615151`; owner confirmation of the down and recovery emails is pending.
+- Call-quality health: controlled signed `repeated_prompt` down/recovery drill completed 2026-08-16 as UptimeRobot incident `347421514523615151`; the owner confirmed receipt of both the down and recovery emails.
 - Traffic stop: rehearse with the first non-demo tenant configuration before accepting customer data.
