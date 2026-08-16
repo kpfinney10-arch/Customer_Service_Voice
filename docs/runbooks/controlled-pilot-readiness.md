@@ -21,11 +21,11 @@ The service is technically stable enough for continued controlled testing. The n
 | Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
 | Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
 | Durable persistence and recovery | Pass | Managed PostgreSQL is active. A point-in-time restore to an isolated database, aggregate integrity validation, access-rule removal, and temporary-database deletion were completed on 2026-08-01. |
-| Availability and failure alerting | Pass with call-quality drill pending | UptimeRobot checks `/health/calls`; the prior controlled down/recovery drill delivered both emails. Existing failure classes are validated, while an external drill for the new latency or repeated-prompt category remains. |
+| Availability and failure alerting | Pass; latest email receipt confirmation pending | UptimeRobot checks `/health/calls`. Incident `347421514523615151` recorded the controlled `repeated_prompt` HTTP 503 and automatic recovery over 5 minutes 5 seconds on 2026-08-16; the configured notification contact remained attached. Owner confirmation of the two latest emails is pending. |
 | Named staff access | Pass | Production login, tenant-scoped activity, redacted call detail, secure cookie handling, and durable access-audit writes were verified on 2026-08-02. |
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
-| Release identification | Pass | Production `/version` reports exact Render commit `0f626c6f5ad09dd0f47d6c2ac52e6988bcaf4112` and build time `2026-08-16T16:38:08.498Z`. |
-| Long-latency and repeated-prompt alerting | Pass with external drill pending | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed; the controlled external alert drill remains. |
+| Release identification | Pass | Production `/version` reports exact Render commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` and final restored build time `2026-08-16T17:28:50.285Z`. |
+| Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
 | Data retention and deletion | Blocked | PostgreSQL stores structured facts and redacted transcript events, but no approved retention schedule or tenant-scoped purge process exists. Current transcript redaction masks phone, email, and SSN patterns but does not comprehensively remove names, addresses, or death-care context. |
 | First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
@@ -48,7 +48,7 @@ Acceptance criteria:
 
 This is the next engineering increment that can proceed without another phone or customer account.
 
-Status: implementation deployed on 2026-08-16; controlled external alert drill pending.
+Status: implementation and controlled external alert drill completed on 2026-08-16; owner confirmation of the two latest notification emails is pending.
 
 Acceptance criteria:
 
@@ -56,7 +56,7 @@ Acceptance criteria:
 - [x] Extend persisted call health to classify excessive webhook latency and repeated-prompt/retry exhaustion using documented thresholds that avoid caller or tenant data in the public response.
 - [x] Add focused unit, HTTP, PostgreSQL, privacy, and environment tests.
 - [x] Create a short pilot incident runbook covering alert receipt, triage, traffic stop, rollback, database recovery, customer communication ownership, and incident closure.
-- [ ] Repeat the external down/recovery drill because the health contract now includes two additional failure categories.
+- [x] Repeat the external down/recovery drill because the health contract now includes two additional failure categories.
 
 ### 3. Complete the real handoff drill
 

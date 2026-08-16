@@ -999,3 +999,19 @@ Next action:
 
 1. Run a controlled external alert drill for the new `long_turn_latency` or `repeated_prompt` health category, then confirm both UptimeRobot down and recovery notifications.
 2. Keep real customer data blocked until gate 1's retention, deletion, recording, and privacy decisions are approved and enforced.
+
+## 2026-08-16 repeated-prompt external alert drill
+
+- Temporarily set the production call-health lookback to its validated five-minute minimum so the controlled failure could expire naturally; no monitor URL, customer configuration, handoff mode, phone destination, or live-call behavior changed.
+- Created one signed synthetic Twilio session using reserved test numbers and submitted three empty-speech callbacks. No phone call or transfer occurred, and no caller, decedent, transcript, address, or customer data was used.
+- Production `/health/calls` returned HTTP 503 with a 300-second window, one failure, and only `repeated_prompt`. The persisted drill signal contained the safe reason category and repetition count.
+- Render logs confirmed UptimeRobot's scheduled GET received HTTP 503. UptimeRobot opened incident `347421514523615151` with root cause `503 Service Unavailable`, then automatically recovered after 5 minutes 5 seconds.
+- Direct health recovered naturally to HTTP 200 with zero failures after the synthetic event aged out. The monitor returned to Up and remained attached to the configured owner notification contact.
+- Restored `CALL_ALERT_WINDOW_SECONDS=1800`. Final restoration deployment `dep-da0v6iou01pc7395gea0` reached production on commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` with build time `2026-08-16T17:28:50.285Z`.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported the normal 1,800-second window, zero failures, and no failure categories.
+- UptimeRobot dashboard evidence proves down and recovery detection. Owner confirmation of receipt of the corresponding down and recovery emails is still pending.
+
+Next action:
+
+1. Confirm receipt of both UptimeRobot emails to close the notification-delivery evidence.
+2. Begin gate 1 by making the pilot data-retention, deletion, recording, access, and backup policy decisions before accepting real customer data.
