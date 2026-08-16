@@ -26,7 +26,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
 | Release identification | Pass | Production `/version` reports exact Render commit `b5a05258027749bc02b838a83e1ad4cd8fc5f6b8` and protected-environment activation build time `2026-08-16T22:27:56.830Z`. |
 | Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
-| Data retention and deletion | Engineering activation passed; governance blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. The `fh-demo` purge preview found 45 sessions, 521 events, and 2 Twilio call references; normal retention found zero expired records. A daily execution owner or reviewed scheduler and appropriate legal/privacy review remain required. |
+| Data retention and deletion | Engineering and owner activation passed; legal review blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. Kyle Finney is assigned as the manual daily retention owner during any real-data pilot; the successful production dry-run verified access. Appropriate legal/privacy review remains required. |
 | First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
@@ -34,7 +34,7 @@ The service is technically stable enough for continued controlled testing. The n
 
 ### 1. Approve and enforce the pilot data-handling policy
 
-Status: policy approved, implementation deployed, protected variables configured, and safe production dry-runs completed on 2026-08-16. Appropriate legal/privacy review and daily retention ownership remain required before real customer data is accepted.
+Status: policy approved, implementation deployed, protected variables configured, safe production dry-runs completed, and the manual daily retention owner assigned and access-verified on 2026-08-16. Appropriate legal/privacy review remains required before real customer data is accepted.
 
 Acceptance criteria:
 
@@ -45,7 +45,7 @@ Acceptance criteria:
 - [x] Implement fixed retention cleanup and a Twilio call-resource deletion boundary.
 - [x] Document how expired/deleted data is reconciled after a restore and how managed-backup retention differs from active-database retention.
 - [x] Deploy migration `004`, configure protected lifecycle secrets, and record safe production dry-run evidence.
-- [ ] Assign and verify the daily retention execution owner or approve a reviewed scheduler.
+- [x] Assign and verify the daily retention execution owner or approve a reviewed scheduler. Kyle Finney is the primary manual owner for the owner-operated pilot; production dry-run access was verified on 2026-08-16.
 
 ### 2. Close the operational observability gaps
 

@@ -37,7 +37,8 @@ Recent known-good test count: `305/305` passing.
 - Production tenant-purge dry-run for `fh-demo` reported 45 call sessions, 521 call events, 2 Twilio call references, 1 operator session, 6 operator access audits, and 1 operator user. Nothing was deleted.
 - Production retention dry-run reported zero records beyond their retention cutoffs. Nothing was deleted.
 - Post-deploy `/health` and `/health/calls` both returned healthy, with zero call-health failures in the 1,800-second window.
-- Gate 1 remains closed to real customer data until appropriate legal/privacy review is complete and a daily retention execution owner or reviewed scheduler is assigned.
+- Kyle Finney is assigned as the manual daily retention owner during any real-data pilot. The successful production dry-run verifies Render shell access; missed-day handling is to stop real-data traffic until retention is current.
+- Gate 1 remains closed to real customer data only until appropriate legal/privacy review is complete.
 
 Latest parser hardening commit from this session:
 
@@ -1038,9 +1039,11 @@ Next action:
 - Added `docs/security/pilot-data-handling-policy.md` and `docs/runbooks/data-lifecycle-operations.md`, including backup/restore reconciliation and the requirement to retain purge receipts outside the recoverable application database.
 - No production purge or retention deletion was run.
 
-Next action:
+Activation follow-up completed on 2026-08-16:
 
-1. Deploy and verify migration `004` in production.
-2. Configure the protected lifecycle environment values without exposing their contents.
-3. Run safe production dry-runs only and record aggregate evidence.
-4. Assign the daily retention execution owner and obtain appropriate legal/privacy review before accepting real customer data.
+1. Migration `004` was deployed and verified in production.
+2. The protected lifecycle environment values were configured without recording their contents.
+3. Safe production dry-runs were completed and aggregate evidence was recorded; no deletion occurred.
+4. Kyle Finney was assigned as the manual daily retention execution owner for any real-data pilot, with production shell access verified by the dry-run.
+
+Remaining external gate: obtain appropriate legal/privacy review before accepting real customer data.

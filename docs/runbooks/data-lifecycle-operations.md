@@ -68,7 +68,9 @@ npm run data:retention -- \
   --run-id UNIQUE_RUN_ID
 ```
 
-Save the content-free receipt. Repeating the same run ID must return `duplicate: true`. Until a reviewed scheduler is activated, the pilot owner is responsible for the daily cadence. Adding a paid Render cron service requires separate cost approval.
+Save the content-free receipt. Repeating the same run ID must return `duplicate: true`.
+
+During any real-data pilot, Kyle Finney is the assigned primary execution owner. Run the preview and reviewed execution once per calendar day, targeted for 9:00 AM `America/Chicago`. If the owner cannot complete the run by the end of that day, stop real-data traffic until retention is current. The 2026-08-16 production dry-run verified the owner's Render shell access and command path. A reviewed scheduler may replace this manual cadence later; adding a paid Render cron service requires separate cost approval and failed-run alerting.
 
 ## Restore Reconciliation
 

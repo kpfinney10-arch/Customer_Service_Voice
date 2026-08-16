@@ -63,6 +63,14 @@ Active-database deletion does not selectively rewrite historical recovery points
 - A restored database must not receive production traffic until externally retained purge receipts are replayed, the retention command is executed, aggregate validation passes, and the restored environment is rechecked.
 - The content-free purge receipt must be stored in the approved operational record outside the restored database so a restore cannot erase the deletion history.
 
+## Operational Ownership
+
+- Kyle Finney, acting as the LanternBell owner/operator, is the primary retention execution owner during any real-data pilot.
+- The owner runs the retention preview and reviewed execution once per calendar day, targeted for 9:00 AM `America/Chicago`, and stores the content-free receipt in the approved operational record.
+- The production dry-run completed on 2026-08-16 verifies that the owner can access the Render service shell and run the lifecycle command without exposing customer data or secrets.
+- No backup operator is assigned during the owner-operated pilot. If the owner cannot complete the daily run by the end of the calendar day, real-data traffic must be stopped until retention is current.
+- A reviewed automated scheduler may replace this manual responsibility later. Any paid Render cron service requires separate cost approval and an alert for failed executions.
+
 ## Application Logs
 
 Application logs contain request paths, response codes, durations, tenant/call/session correlation identifiers, event names, and safe failure categories. They exclude request bodies, transcript text, structured fact values, phone numbers, and addresses. Render documents log retention by workspace plan: seven days for Hobby, 14 days for Pro, and 30 days for Scale/Enterprise: <https://render.com/docs/logging>.
