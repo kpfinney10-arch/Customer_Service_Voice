@@ -72,7 +72,7 @@ export function createSessionReplaySnapshot(input: {
     failedToolNames,
     completedToolNames,
     redactedTranscriptCount: input.events.filter(
-      (event) => event.eventType === "TRANSCRIPT_RECEIVED" && event.redactionStatus === "redacted",
+      (event) => event.eventType === "TRANSCRIPT_RECEIVED",
     ).length,
     interruptionCount: input.events.filter((event) => event.eventType === "CALL_INTERRUPTED").length,
   };

@@ -1014,3 +1014,21 @@ Next action:
 Next action:
 
 1. Begin gate 1 by making the pilot data-retention, deletion, recording, access, and backup policy decisions before accepting real customer data.
+
+## 2026-08-16 pilot data lifecycle implementation
+
+- The owner approved the conservative pilot data-handling baseline: recordings disabled; no durable transcript text; 30-day call/session/event and Twilio call-resource retention; 7-day idempotency retention; 30-day expired/revoked operator-session retention; 365-day access-audit retention; and 30-day inactive-user retention.
+- Added migration `004_pilot_data_lifecycle`. It removes transcript text from legacy `TRANSCRIPT_RECEIVED` payloads and creates content-free purge and retention receipt tables.
+- New transcript events store only `transcriptRetained: false` and redaction-category metadata. Structured facts remain available for the approved 30-day operational window.
+- Added TypeScript dry-run-first data lifecycle commands. Tenant purge requires exact tenant confirmation, a unique request ID, an opaque actor ID, an approved reason, an HMAC audit secret, and Twilio record deletion before transactional database deletion.
+- Added fixed retention cleanup for call data, Twilio call resources, idempotency records, expired/revoked operator sessions, inactive operator users, and access audits.
+- Added focused tests for tenant isolation, dry-run non-mutation, exact confirmation, request idempotency, cross-tenant request rejection, retention boundaries, Twilio identifier validation, and absence of transcript text in durable events.
+- Added `docs/security/pilot-data-handling-policy.md` and `docs/runbooks/data-lifecycle-operations.md`, including backup/restore reconciliation and the requirement to retain purge receipts outside the recoverable application database.
+- No production purge or retention deletion was run.
+
+Next action:
+
+1. Deploy and verify migration `004` in production.
+2. Configure the protected lifecycle environment values without exposing their contents.
+3. Run safe production dry-runs only and record aggregate evidence.
+4. Assign the daily retention execution owner and obtain appropriate legal/privacy review before accepting real customer data.

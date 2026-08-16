@@ -33,9 +33,9 @@ export function handleTranscriptTurn(input: OrchestratorTurnInput): Orchestrator
     sessionId: input.session.sessionId,
     tenantId: input.session.tenantId,
     correlationId: input.correlationId,
-    redactionStatus: redacted.redacted ? "redacted" : "not_required",
+    redactionStatus: "not_required",
     payload: {
-      transcript: redacted.value,
+      transcriptRetained: false,
       redactionCategories: redacted.categories,
     },
   });

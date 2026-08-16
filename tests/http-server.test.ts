@@ -580,6 +580,15 @@ test("first-call API starts a session and handles transcript turn", async () => 
       "TOOL_EXECUTED",
     ],
   );
+  const persistedTranscriptEvent = timeline.body.events.find(
+    (event: { eventType: string }) => event.eventType === "TRANSCRIPT_RECEIVED",
+  );
+  assert.deepEqual(persistedTranscriptEvent.payload, {
+    transcriptRetained: false,
+    redactionCategories: ["phone"],
+  });
+  assert.equal(JSON.stringify(timeline.body).includes("Sarah Miller"), false);
+  assert.equal(JSON.stringify(timeline.body).includes("123 Maple Street"), false);
 
   const replay = await fetchJson("GET", "/v1/tenants/fh-demo/first-call/sessions/session-api-1/replay");
 

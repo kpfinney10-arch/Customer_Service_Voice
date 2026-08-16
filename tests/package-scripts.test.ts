@@ -10,6 +10,8 @@ test("package exposes local human-testing smoke script", async () => {
   assert.equal(pkg.scripts?.["start:twilio-local"], "node scripts/start-twilio-local.mjs");
   assert.equal(pkg.scripts?.["start:twilio-tunnel"], "node scripts/start-twilio-tunnel.mjs");
   assert.equal(pkg.scripts?.build, "tsc -p tsconfig.json && node scripts/write-build-metadata.mjs");
+  assert.equal(pkg.scripts?.["data:purge"], "node dist/src/persistence/data-lifecycle-main.js tenant-purge");
+  assert.equal(pkg.scripts?.["data:retention"], "node dist/src/persistence/data-lifecycle-main.js retention");
   assert.equal(pkg.scripts?.["smoke:extraction"], "node scripts/first-call-extraction-smoke.mjs");
   assert.equal(pkg.scripts?.["smoke:human-test"], "node scripts/human-testing-smoke.mjs");
   assert.equal(pkg.scripts?.["smoke:telnyx"], "node scripts/telnyx-webhook-smoke.mjs");

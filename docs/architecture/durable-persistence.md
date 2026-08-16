@@ -41,12 +41,23 @@ The initial production schema includes:
 - Tenant isolation in every query.
 - Idempotency support for webhook retries and tool execution.
 - Migration-managed schema changes.
+- Content-free purge and retention receipts that survive active tenant-row deletion.
+
+## Pilot Data Lifecycle
+
+The owner-approved pilot policy is `docs/security/pilot-data-handling-policy.md`; operating commands are in `docs/runbooks/data-lifecycle-operations.md`.
+
+- Transcript text is processed transiently and is not stored in durable events. Migration `004_pilot_data_lifecycle` scrubs transcript text from existing event payloads.
+- `npm run data:purge` defaults to a tenant-scoped dry-run and requires exact confirmation, an idempotent request ID, an audit secret, and provider deletion before transactional execution.
+- `npm run data:retention` defaults to dry-run and enforces the approved fixed pilot periods when explicitly executed.
+- Twilio Call SIDs are kept internal to the deletion boundary and never included in command receipts.
+- A restore must replay externally retained purge receipts and run current retention before it can receive production traffic.
 
 Render deployment is defined in `render.yaml`; operational steps are in `docs/runbooks/render-cloud-deployment.md`.
 
 ## Remaining Production Requirement
 
-Confirm and rehearse the managed database backup and restore process before accepting real customer data. A database being managed does not replace an application-specific restore drill.
+The managed backup/restore drill is complete. Before accepting real customer data, deploy migration `004_pilot_data_lifecycle`, configure the protected lifecycle secrets, verify the production dry-runs, establish the daily retention execution owner, and obtain appropriate legal/privacy review.
 
 ## Operating Rule
 

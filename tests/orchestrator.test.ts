@@ -22,5 +22,10 @@ test("first-call funeral home transcript escalates to a human", () => {
   assert.equal(output.session.intent, "first_call_intake");
   assert.equal(output.session.currentState, "ESCALATE");
   assert.equal(output.events.at(-1)?.eventType, "ESCALATION_TRIGGERED");
+  const transcriptEvent = output.events.find((event) => event.eventType === "TRANSCRIPT_RECEIVED");
+  assert.deepEqual(transcriptEvent?.payload, {
+    transcriptRetained: false,
+    redactionCategories: [],
+  });
+  assert.equal(JSON.stringify(transcriptEvent).includes("My father"), false);
 });
-

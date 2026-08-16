@@ -26,7 +26,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
 | Release identification | Pass | Production `/version` reports exact Render commit `959f18f83c65ac6b2ac39fa9621c51cf3796ccd5` and final restored build time `2026-08-16T17:28:50.285Z`. |
 | Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
-| Data retention and deletion | Blocked | PostgreSQL stores structured facts and redacted transcript events, but no approved retention schedule or tenant-scoped purge process exists. Current transcript redaction masks phone, email, and SSN patterns but does not comprehensively remove names, addresses, or death-care context. |
+| Data retention and deletion | Implementation complete; activation blocked | The owner approved the pilot policy on 2026-08-16. The repository now omits durable transcript text, scrubs legacy transcript payloads in migration `004`, and includes dry-run-first, tenant-isolated, idempotent purge and fixed retention commands with Twilio deletion. Production deployment, protected secrets, dry-run evidence, a daily execution owner, and appropriate legal/privacy review remain required. |
 | First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
@@ -34,15 +34,18 @@ The service is technically stable enough for continued controlled testing. The n
 
 ### 1. Approve and enforce the pilot data-handling policy
 
-Owner decision required before real customer data is accepted.
+Status: policy approved and implementation completed locally on 2026-08-16. Activation evidence and appropriate legal/privacy review remain required before real customer data is accepted.
 
 Acceptance criteria:
 
-- Inventory the stored session facts, transcript events, tool outcomes, operator access audits, request logs, idempotency records, and backups.
-- Record approved retention periods for each category, whether recordings are disabled or retained, who may access each category, and how customer deletion requests are handled.
-- Obtain appropriate legal/privacy review for the selected policy; this engineering checklist does not make that legal determination.
-- Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
-- Document how expired/deleted data is handled after a database restore and how managed-backup retention differs from active-database retention.
+- [x] Inventory the stored session facts, transcript events, tool outcomes, operator access audits, request logs, idempotency records, provider records, and backups.
+- [x] Record owner-approved retention periods, disabled recording, no durable transcript text, access boundaries, and deletion handling in `pilot-data-handling-policy.md`.
+- [ ] Obtain appropriate legal/privacy review for the selected policy; this engineering checklist does not make that legal determination.
+- [x] Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
+- [x] Implement fixed retention cleanup and a Twilio call-resource deletion boundary.
+- [x] Document how expired/deleted data is reconciled after a restore and how managed-backup retention differs from active-database retention.
+- [ ] Deploy migration `004`, configure protected lifecycle secrets, and record safe production dry-run evidence.
+- [ ] Assign and verify the daily retention execution owner or approve a reviewed scheduler.
 
 ### 2. Close the operational observability gaps
 

@@ -13,7 +13,7 @@ export async function migratePostgres(database: PostgresDatabase): Promise<void>
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-    for (const migration of MIGRATIONS) {
+    for (const migration of POSTGRES_MIGRATIONS) {
       const existing = await connection.query<{ version: string }>(
         "SELECT version FROM schema_migrations WHERE version = $1",
         [migration.version],
@@ -81,7 +81,7 @@ const INITIAL_SCHEMA_SQL = `
     ON idempotency_records (tenant_id, created_at DESC);
 `;
 
-const MIGRATIONS = [
+export const POSTGRES_MIGRATIONS = [
   {
     version: "001_initial_voice_persistence",
     sql: INITIAL_SCHEMA_SQL,
@@ -146,6 +146,37 @@ const MIGRATIONS = [
 
       CREATE INDEX operator_access_audit_tenant_occurred_idx
         ON operator_access_audit (tenant_id, occurred_at DESC);
+    `,
+  },
+  {
+    version: "004_pilot_data_lifecycle",
+    sql: `
+      UPDATE call_events
+      SET payload = '{"transcriptRetained":false,"redactionCategories":[]}'::jsonb,
+          redaction_status = 'not_required'
+      WHERE event_type = 'TRANSCRIPT_RECEIVED';
+
+      CREATE TABLE data_purge_audit (
+        purge_id text PRIMARY KEY,
+        request_id text NOT NULL UNIQUE,
+        tenant_fingerprint text NOT NULL,
+        requested_by text NOT NULL,
+        reason text NOT NULL CHECK (reason IN ('customer_request', 'tenant_offboarding', 'test_data_cleanup')),
+        executed_at timestamptz NOT NULL,
+        deleted_counts jsonb NOT NULL,
+        provider_counts jsonb NOT NULL
+      );
+
+      CREATE INDEX data_purge_audit_tenant_executed_idx
+        ON data_purge_audit (tenant_fingerprint, executed_at DESC);
+
+      CREATE TABLE data_retention_runs (
+        run_id text PRIMARY KEY,
+        executed_at timestamptz NOT NULL,
+        cutoffs jsonb NOT NULL,
+        deleted_counts jsonb NOT NULL,
+        provider_counts jsonb NOT NULL
+      );
     `,
   },
 ] as const;

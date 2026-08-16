@@ -3,6 +3,8 @@ import type { PostgresQueryable } from "./postgres-client.js";
 const EXPECTED_MIGRATIONS = [
   "001_initial_voice_persistence",
   "002_stable_event_sequence",
+  "003_operator_identity_and_access",
+  "004_pilot_data_lifecycle",
 ] as const;
 
 export type PostgresRecoveryValidation = {

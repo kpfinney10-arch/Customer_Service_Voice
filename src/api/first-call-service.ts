@@ -375,9 +375,9 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         sessionId: session.sessionId,
         tenantId: session.tenantId,
         correlationId,
-        redactionStatus: redacted.redacted ? "redacted" : "not_required",
+        redactionStatus: "not_required",
         payload: {
-          transcript: redacted.value,
+          transcriptRetained: false,
           redactionCategories: redacted.categories,
         },
       });

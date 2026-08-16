@@ -52,6 +52,12 @@ services:
         sync: false
       - key: TELEPHONY_WEBHOOK_SECRETS
         sync: false
+      - key: DATA_PURGE_AUDIT_SECRET
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
 
 databases:
   - name: lanternbell-voice-db

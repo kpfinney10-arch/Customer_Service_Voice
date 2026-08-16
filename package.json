@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.json && node scripts/write-build-metadata.mjs",
     "migrate:postgres": "node dist/src/persistence/migrate-main.js",
     "validate:postgres-recovery": "node dist/src/persistence/validate-recovery-main.js",
+    "data:purge": "node dist/src/persistence/data-lifecycle-main.js tenant-purge",
+    "data:retention": "node dist/src/persistence/data-lifecycle-main.js retention",
     "deploy:macos-local": "npm run build && node scripts/deploy-macos-runtime.mjs",
     "test": "node --test dist/tests/*.test.js",
     "start": "node dist/src/api/main.js",

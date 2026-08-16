@@ -26,6 +26,11 @@ Prepare these locally. Do not commit them or paste them into support messages:
 - `TENANT_API_KEYS`: `fh-demo:<a-new-long-random-api-key>`
 - `TELEPHONY_WEBHOOK_SECRETS`: `twilio:<the-current-Twilio-Auth-Token>`
 - `TENANT_CONFIGS_JSON`: the tenant's routing configuration as one-line JSON
+- `DATA_PURGE_AUDIT_SECRET`: a separate random value of at least 32 characters
+- `TWILIO_ACCOUNT_SID`: the account identifier used only by lifecycle maintenance
+- `TWILIO_AUTH_TOKEN`: the protected token used by lifecycle maintenance to delete expired/offboarded Twilio Call resources
+
+The three lifecycle values are required before an executing purge or retention run can encounter Twilio calls. They are not printed by the commands and must never be placed directly on a command line.
 
 Render supplies `RENDER_GIT_COMMIT` automatically at build and runtime. The build command writes a non-secret `dist/build-metadata.json` timestamp, allowing `/version` to report the exact commit and build time without a manually maintained environment value. See [Render's default environment variables](https://render.com/docs/environment-variables).
 
@@ -46,7 +51,7 @@ The initial cloud deployment keeps `FIRST_CALL_EXTRACTOR=deterministic`, so it d
 3. Connect `kpfinney10-arch/Customer_Service_Voice`.
 4. Render detects `render.yaml`.
 5. Review the Starter web service and Basic PostgreSQL costs before applying.
-6. Enter the three secret values when prompted.
+6. Enter the required secret values when prompted. Lifecycle secrets may remain unset only while the environment is restricted to demo data and no executing lifecycle command is run.
 7. Apply the Blueprint and wait for both resources to report healthy.
 
 Do not stop the Mac LaunchAgents or alter Cloudflare DNS yet.
@@ -150,6 +155,8 @@ If cloud validation fails after DNS cutover:
 - Perform and document a restore drill. Completed 2026-08-01: isolated restore reached Available in approximately six minutes, aggregate validation passed, the temporary IP rule was removed, and the temporary database was deleted.
 - Activate an independent monitor for the aggregate call-health endpoint described below.
 - Rotate any secret that was exposed during setup.
+- Deploy migration `004_pilot_data_lifecycle`, configure lifecycle secrets, and record aggregate dry-run evidence using `data-lifecycle-operations.md`.
+- Assign the daily retention execution owner and obtain appropriate legal/privacy review before accepting real customer data.
 
 ## PostgreSQL recovery validation
 
@@ -160,7 +167,7 @@ npm run build
 npm run validate:postgres-recovery
 ```
 
-The validator emits only migration versions, aggregate counts, and integrity totals. It does not emit session payloads, events, transcripts, caller names, phone numbers, or addresses. A passing result requires both current migrations, no missing or duplicate event sequence values, and no events without a matching session.
+The validator emits only migration versions, aggregate counts, and integrity totals. It does not emit session payloads, events, transcripts, caller names, phone numbers, or addresses. A passing result requires all four current migrations, no missing or duplicate event sequence values, and no events without a matching session.
 
 The 2026-08-01 drill restored point `2026-08-01 09:10:59 CDT` to temporary database `dpg-d9n0ijrncjis7397hhtg-a`. Validation passed with 29 sessions and 331 events. External access was limited to one temporary `/32` rule, removed after validation, and the recovered database was deleted at approximately `2026-08-01 11:46 CDT`.
 

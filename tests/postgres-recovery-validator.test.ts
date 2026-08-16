@@ -5,7 +5,12 @@ import { validatePostgresRecovery } from "../src/persistence/postgres-recovery-v
 
 test("PostgreSQL recovery validator reports aggregate health without returning record data", async () => {
   const database = createValidationDatabase({
-    migrations: ["001_initial_voice_persistence", "002_stable_event_sequence"],
+    migrations: [
+      "001_initial_voice_persistence",
+      "002_stable_event_sequence",
+      "003_operator_identity_and_access",
+      "004_pilot_data_lifecycle",
+    ],
     tenants: 1,
     sessions: 12,
     events: 87,
@@ -17,6 +22,8 @@ test("PostgreSQL recovery validator reports aggregate health without returning r
     migrationVersions: [
       "001_initial_voice_persistence",
       "002_stable_event_sequence",
+      "003_operator_identity_and_access",
+      "004_pilot_data_lifecycle",
     ],
     counts: {
       tenants: 1,
