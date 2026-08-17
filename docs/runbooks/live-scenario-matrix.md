@@ -35,7 +35,9 @@ Latest permanent-host validation:
 - The post-deployment release run used ID `render-handoff-release-1785681418` on commit `8bb8246`.
 - A signed synthetic acceptance plus connected-result callback persisted the expected screening and dial outcomes without placing a real call.
 - Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
-- Fail-closed pricing commit `88c2780` was deployed on 2026-08-16, but its first real-phone check failed when Twilio punctuated `No, 1 has passed away.` A corrective punctuation/vocabulary patch passes locally and still requires deployment, a new signed matrix, and a real-phone recheck before this permanent-host evidence is rebaselined.
+- The pricing guard was hardened through commits `764047b` and `d3ad851` for the live `No, 1` and `know, 1` recognition variants. Demo-closure wording was clarified in deployed commit `f34e848`.
+- Final real-phone pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed on 2026-08-16 against `f34e848`: Twilio returned the difficult `No 1 has passed away` variant, the application gave the demo-only pricing closure, and the final TwiML contained a hangup with no gather or dial. The owner accepted the revised caller wording.
+- Production `/version` reported commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`; health checks remained green. The full signed `7/7` matrix still needs to be rerun to rebaseline this exact release.
 
 ## Scenario Coverage
 
@@ -46,7 +48,7 @@ Latest permanent-host validation:
 | Hospital release with dotted punctuation | Covered by `hospital-dotted-release` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review |
 | Police residence death report | Covered by `police-residence` | Passed in latest 2026-07-08 live test; cleanup pinned | Escalate, create CRM, create dispatch review, no authority warning |
 | Family at-home death report | Covered by `family-residence-authority-check` | Passed in prior live tests | Escalate, create CRM only, include authority-verification warning |
-| Pricing inquiry, no death reported | Covered by `pricing-routine` using the exact failed live punctuation; corrective regression passed locally | Failed on 2026-08-16 against `88c2780`; corrective deployment and recheck required | State that automated pricing is unavailable and contact details are not required; hang up with no CRM, dispatch, gather, or dial |
+| Pricing inquiry, no death reported | Covered by `pricing-routine` using the exact final live speech result; punctuation and `know one/know 1` regressions are also pinned | Passed on 2026-08-16 against `f34e848` in final call `CAb263deda9817bf9960c6720c11cce0d8` | In simulation, explain that pricing and a staff transfer are unavailable, state that contact details are not required, and hang up with no CRM, dispatch, gather, or dial |
 | Existing-family office-hours question | Covered by `family-office-hours` | Passed in latest 2026-07-08 live test; routine request cleanup pinned | Wrap up for office-hours follow-up, create CRM only |
 
 ## Manual Live-Test Targets

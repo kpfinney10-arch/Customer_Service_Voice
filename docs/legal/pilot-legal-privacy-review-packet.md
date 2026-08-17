@@ -20,7 +20,7 @@ Current launch decision: **no real customer data** until the open legal/privacy 
 - The production service runs on Render with managed PostgreSQL. Twilio and Render process or host personal data; Cloudflare is currently DNS-only for the Voice hostname.
 - The OpenAI extraction fallback is disabled in production; the approved pilot uses the deterministic TypeScript extractor.
 - Handoffs remain simulated, and `fh-demo` is not a real customer tenant.
-- The pricing lane is designed to fail closed without requesting contact information or running downstream tools, but its first real-phone check exposed a Twilio punctuation/vocabulary gap. The exact corrective regression passes locally and awaits deployment/recheck. This is containment, not an approved real-customer pricing procedure; automated pricing remains a launch blocker.
+- The pricing lane now has deployed automated and real-phone evidence that it fails closed without requesting contact information or running downstream tools. The final demo call ended after explaining that pricing and a staff transfer were unavailable, with no further gather or dial. This is containment, not an approved real-customer pricing procedure; automated pricing remains a launch blocker.
 
 ## Current data flow
 
@@ -70,19 +70,19 @@ Deletion/restore procedure: [`data-lifecycle-operations.md`](../runbooks/data-li
 - Redacted public health, operator, and incident evidence.
 - Production health monitoring with down and recovery notifications.
 - Real handoffs disabled until a separate controlled-phone drill and customer configuration are complete.
-- Intent-first automated-assistant opening and a fail-closed pricing design. Its first live verification failed; the corrective patch must be deployed and pass signed plus real-phone revalidation before this safeguard is treated as verified.
+- Intent-first automated-assistant opening and a fail-closed pricing design. The initial live recognition failures are pinned in automated regressions, and the corrected guard passed a final signed real-phone call against deployed commit `f34e848` with no contact prompt, gather, dial, CRM, or dispatch action.
 
 ## Confirmed operating constraint: telephone pricing
 
 The FTC's current Funeral Rule guidance says a funeral provider must provide accurate available price information to telephone callers who ask about offerings or prices and may not require the caller's name, address, or phone number before providing it.
 
-The intended LanternBell containment ends after identifying pricing intent, says pricing is not enabled, states that contact information is not required, and creates no CRM or dispatch work. The first real-phone check did not select that path because of speech punctuation and vocabulary gaps; a focused patch is pending deployment and recheck. Even after that verification, the containment will not provide approved price-list information or a live human route, so it is not a final real-customer pricing procedure.
+The LanternBell containment ends after identifying pricing intent, says that the automated assistant cannot provide pricing, states that contact information is not required, and creates no CRM or dispatch work. The initial real-phone checks exposed punctuation, vocabulary, and `know one/know 1` recognition gaps; those variants are now pinned in automated regressions. Final real-phone call `CAb263deda9817bf9960c6720c11cce0d8` passed against deployed commit `f34e848`, returning the simulation-only closure and a hangup with no follow-up gather or dial. The containment still does not provide approved price-list information or a live human route, so it is not a final real-customer pricing procedure.
 
 Required pre-pilot disposition:
 
 - [ ] Counsel confirms how the Funeral Rule and any stricter pilot-state rules apply to the funeral home and LanternBell workflow.
 - [ ] The pilot funeral home supplies controlled, effective-dated General Price List, Casket Price List, and Outer Burial Container Price List data or approves an immediate human-routing procedure.
-- [ ] Signed and real-phone evidence confirms the corrected containment path does not require a name, address, or telephone number and does not create a CRM lead.
+- [x] Signed and real-phone evidence confirms the corrected containment path does not require a name, address, or telephone number and does not create a CRM lead.
 - [ ] A real pricing caller can obtain required available price information through the counsel- and customer-approved procedure.
 - [ ] The workflow does not invent, estimate, summarize incorrectly, or make unauthorized pricing promises.
 - [ ] Complex questions route according to a counsel- and customer-approved business-hours/after-hours procedure.
