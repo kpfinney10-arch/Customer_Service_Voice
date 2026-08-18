@@ -9,6 +9,15 @@ const handoffModeExpected = env("TWILIO_EXPECT_HANDOFF_MODE", "live").toLowerCas
 const runId = env("TWILIO_SCENARIO_RUN_ID", `twilio-scenario-${Date.now()}`);
 const fromNumber = env("TWILIO_SCENARIO_FROM", "+16037315845");
 const toNumber = env("TWILIO_SCENARIO_TO", "+15559870000");
+const scenarioConcurrency = parsePositiveInteger(
+  env("TWILIO_SCENARIO_CONCURRENCY", "1"),
+  "TWILIO_SCENARIO_CONCURRENCY",
+);
+const maxResponseMs = parsePositiveInteger(
+  env("TWILIO_SCENARIO_MAX_RESPONSE_MS", "5000"),
+  "TWILIO_SCENARIO_MAX_RESPONSE_MS",
+);
+const twilioResponseDurationsMs = [];
 
 const scenarios = [
   {
@@ -228,11 +237,15 @@ await main();
 async function main() {
   console.log(`Twilio scenario matrix smoke against ${baseUrl}`);
   console.log(`Run id: ${runId}`);
+  console.log(`Maximum concurrent scenarios: ${scenarioConcurrency}`);
   if (signedExpected && !authToken) {
     throw new Error("TWILIO_EXPECT_SIGNED_WEBHOOK=true requires TWILIO_AUTH_TOKEN.");
   }
   if (!["live", "simulate"].includes(handoffModeExpected)) {
     throw new Error("TWILIO_EXPECT_HANDOFF_MODE must be either live or simulate.");
+  }
+  if (scenarioConcurrency > scenarios.length) {
+    throw new Error(`TWILIO_SCENARIO_CONCURRENCY cannot exceed ${scenarios.length}.`);
   }
 
   const readiness = await expectTenantJson("GET", `/v1/tenants/${tenantId}/telephony/twilio/readiness`, undefined, 200);
@@ -242,10 +255,18 @@ async function main() {
     assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
   }
 
-  for (const scenario of scenarios) {
-    await runScenario(scenario);
+  for (let index = 0; index < scenarios.length; index += scenarioConcurrency) {
+    await Promise.all(scenarios.slice(index, index + scenarioConcurrency).map(runScenario));
   }
 
+  const maximumObservedResponseMs = Math.max(...twilioResponseDurationsMs);
+  if (maximumObservedResponseMs > maxResponseMs) {
+    throw new Error(
+      `Maximum Twilio webhook response ${maximumObservedResponseMs}ms exceeded ${maxResponseMs}ms.`,
+    );
+  }
+
+  console.log(`Maximum Twilio webhook response: ${maximumObservedResponseMs}ms`);
   console.log(`Twilio scenario matrix smoke passed: ${scenarios.length}/${scenarios.length} scenarios.`);
 }
 
@@ -343,11 +364,13 @@ async function postTwilioForm(pathSuffix, fields) {
       rawBody,
     });
   }
+  const requestStartedAt = Date.now();
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers,
     body,
   });
+  twilioResponseDurationsMs.push(Date.now() - requestStartedAt);
   const text = await response.text();
   if (response.status !== 200) {
     throw new Error(`POST ${path} expected 200, got ${response.status}: ${text}`);
@@ -423,4 +446,15 @@ function assertNotInArray(actual, unexpected, label) {
 
 function env(name, fallback) {
   return process.env[name]?.trim() || fallback;
+}
+
+function parsePositiveInteger(rawValue, name) {
+  if (!/^\d+$/.test(rawValue)) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  const value = Number.parseInt(rawValue, 10);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return value;
 }

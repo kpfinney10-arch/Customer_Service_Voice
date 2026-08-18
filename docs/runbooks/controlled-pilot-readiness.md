@@ -18,6 +18,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Production availability | Pass | `https://voice.lanternbell.com/health/calls` returned HTTP 200 with zero failures in the 1,800-second window on 2026-08-16. |
 | Signed call scenarios | Pass | The full deployed signed Twilio matrix passed `7/7` on 2026-08-18 under run ID `render-pricing-rebaseline-1787066802` against exact production release `f34e848`, including the final live pricing transcript. |
 | Core real-audio lanes | Pass for demo containment; real-customer pricing remains blocked | The scenario matrix records prior real-phone passes across hospice, ME, hospital, police, family residence, pricing, and existing-family lanes. Final pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed against `f34e848`: the difficult `No 1 has passed away` speech result selected the pricing guard, gave the clarified simulation-only closure, and ended with no further gather or dial. |
+| Bounded concurrency | Pass | Run `render-concurrency-3-1787067168` passed all `7/7` signed production scenarios with at most three active conversations, independent session/fact/tool replay assertions, a maximum observed Twilio webhook response of 217 milliseconds, and zero post-run call-health failures. |
 | Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
 | Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
 | Durable persistence and recovery | Pass | Managed PostgreSQL is active. A point-in-time restore to an isolated database, aggregate integrity validation, access-rule removal, and temporary-database deletion were completed on 2026-08-01. |
@@ -90,7 +91,7 @@ Acceptance criteria:
 - Typecheck, build, and run the complete automated suite on the exact candidate commit.
 - Pass the signed production scenario matrix `7/7` after all launch-gate changes.
 - Complete one clean and one noisy real-audio pass for each high-value pilot lane, or explicitly document why a lane is excluded from the pilot.
-- Run a bounded concurrency check sized to the agreed pilot call limit; a broad scale test is not required for a single low-volume monitored pilot.
+- Run a bounded concurrency check sized to the agreed pilot call limit; a broad scale test is not required for a single low-volume monitored pilot. Complete for the current engineering assumption of three simultaneous calls under run ID `render-concurrency-3-1787067168`; revise and repeat if the first pilot agreement permits a higher concurrent-call limit.
 - Confirm health, alerts, operator access, audit persistence, backup/recovery status, data policy, handoff mode, and tenant configuration.
 - Record an explicit **Go**, **Conditional Go**, or **No-go** decision with the owner and evidence links in `docs/SESSION_HANDOFF.md`.
 

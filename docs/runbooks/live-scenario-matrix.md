@@ -18,6 +18,14 @@ To run the same matrix through a public tunnel:
 API_BASE_URL=https://<current-cloudflare-subdomain>.trycloudflare.com npm run smoke:twilio-scenarios
 ```
 
+To run a bounded concurrency check, set the maximum number of active scenario conversations. Each conversation still advances its own turns in order, while batches run in parallel:
+
+```sh
+TWILIO_SCENARIO_CONCURRENCY=3 TWILIO_SCENARIO_MAX_RESPONSE_MS=5000 npm run smoke:twilio-scenarios
+```
+
+The concurrency value defaults to `1` and cannot exceed the seven defined scenarios. The response ceiling applies to each Twilio webhook POST and defaults to 5,000 milliseconds. Production runs should also confirm `/health/calls` remains green because its stricter persisted latency threshold is evaluated independently.
+
 The script validates:
 
 - Twilio readiness.
@@ -28,6 +36,8 @@ The script validates:
 - CRM and dispatch tool completion.
 - Safety warnings for family residence calls.
 - Routine-call wrapup without dispatch.
+- Tenant-session isolation under bounded concurrency.
+- A maximum Twilio webhook response-time ceiling.
 
 Latest permanent-host validation:
 
@@ -38,6 +48,7 @@ Latest permanent-host validation:
 - The pricing guard was hardened through commits `764047b` and `d3ad851` for the live `No, 1` and `know, 1` recognition variants. Demo-closure wording was clarified in deployed commit `f34e848`.
 - Final real-phone pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed on 2026-08-16 against `f34e848`: Twilio returned the difficult `No 1 has passed away` variant, the application gave the demo-only pricing closure, and the final TwiML contained a hangup with no gather or dial. The owner accepted the revised caller wording.
 - Production `/version` reported commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`. On 2026-08-18, the full signed production matrix passed `7/7` against that exact release under run ID `render-pricing-rebaseline-1787066802`, using reserved test numbers and simulated handoffs. Post-run call health remained HTTP 200 with zero failures.
+- The bounded production concurrency run then passed all `7/7` lanes under run ID `render-concurrency-3-1787067168`, with at most three active conversations, independent replay assertions for every session, a maximum observed Twilio webhook response of 217 milliseconds, and post-run call health still green with zero failures.
 
 ## Scenario Coverage
 

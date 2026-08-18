@@ -1091,3 +1091,12 @@ Next action: retain the legal and real-human-routing gate, keep real customer da
 - All seven lanes passed under run ID `render-pricing-rebaseline-1787066802`: hospice residence, medical examiner, hospital release, police residence, family residence authority check, pricing containment using the exact final live speech result, and existing-family office-hours.
 - Post-run `/health/calls` returned HTTP 200 with zero failures in the 1,800-second window.
 - Demo pricing containment and exact-release rebaselining are complete. Real-customer pricing still requires approved effective-dated price data or an approved immediate human-routing procedure, and the broader legal/privacy gate remains open.
+
+## 2026-08-18 bounded production concurrency check
+
+- Extended the existing signed scenario-matrix smoke tool with configurable `TWILIO_SCENARIO_CONCURRENCY` and `TWILIO_SCENARIO_MAX_RESPONSE_MS` controls rather than creating a duplicate load-test implementation. Sequential behavior remains the default.
+- The tool now runs scenario conversations in bounded parallel batches, preserves ordered turns inside each conversation, verifies each persisted replay independently, measures every Twilio webhook POST, and fails if the configured response ceiling is exceeded.
+- TypeScript build and the complete automated suite passed `311/311` after the tooling change.
+- Ran all seven signed scenarios digitally against production release `f34e848` with reserved test numbers, simulated handoffs, a concurrency limit of three, and a 5,000-millisecond per-webhook safety ceiling. No phones rang and no real transfers were attempted.
+- Run `render-concurrency-3-1787067168` passed `7/7`. The maximum observed Twilio webhook response was 217 milliseconds, all session/fact/tool assertions remained isolated, and `/health/calls` stayed HTTP 200 with zero failures.
+- This completes the bounded concurrency acceptance item for an initial engineering assumption of no more than three simultaneous pilot calls. Repeat the test if the first customer agreement sets a higher limit.
