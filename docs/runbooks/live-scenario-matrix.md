@@ -37,7 +37,7 @@ Latest permanent-host validation:
 - Post-run `/health/calls` remained HTTP 200 with zero failures in the active 1,800-second window.
 - The pricing guard was hardened through commits `764047b` and `d3ad851` for the live `No, 1` and `know, 1` recognition variants. Demo-closure wording was clarified in deployed commit `f34e848`.
 - Final real-phone pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed on 2026-08-16 against `f34e848`: Twilio returned the difficult `No 1 has passed away` variant, the application gave the demo-only pricing closure, and the final TwiML contained a hangup with no gather or dial. The owner accepted the revised caller wording.
-- Production `/version` reported commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`; health checks remained green. The full signed `7/7` matrix still needs to be rerun to rebaseline this exact release.
+- Production `/version` reported commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`. On 2026-08-18, the full signed production matrix passed `7/7` against that exact release under run ID `render-pricing-rebaseline-1787066802`, using reserved test numbers and simulated handoffs. Post-run call health remained HTTP 200 with zero failures.
 
 ## Scenario Coverage
 

@@ -1081,4 +1081,13 @@ Next engineering action after counsel review: implement the approved automated-a
 - Twilio's request inspector showed only the initial gather and one speech callback. The callback returned the clarified demo message plus `<Hangup/>`, with no `<Gather>` or `<Dial>` and no prompts for caller name, phone number, or decedent. The owner confirmed that the wording sounded better.
 - The pricing lane is now verified for demo containment. It remains unavailable for real-customer use until the funeral home and counsel approve effective-dated price data or a compliant live-human routing procedure.
 
-Next action: run the full signed `7/7` production scenario matrix against exact release `f34e848`, retain the legal and real-human-routing gate, and keep real customer data and automated pricing disabled.
+Next action: retain the legal and real-human-routing gate, keep real customer data and automated pricing disabled, and move to the next launch gate that does not require a second approved phone or first-customer configuration.
+
+## 2026-08-18 exact pricing-release rebaseline
+
+- Pushed verification-record commit `fa40f22` to GitHub. Render is configured for manual deployment, so production correctly remained on voice release `f34e848046f4e91a71ed55c123f5674dfa0ad894`; the documentation-only commit was not deployed.
+- Production `/version` confirmed `f34e848` with build time `2026-08-16T23:38:23.985Z` before and after the acceptance run.
+- Ran the full signed Twilio production scenario matrix with reserved test numbers and `TWILIO_HANDOFF_MODE=simulate`. No real phone calls or transfers were placed.
+- All seven lanes passed under run ID `render-pricing-rebaseline-1787066802`: hospice residence, medical examiner, hospital release, police residence, family residence authority check, pricing containment using the exact final live speech result, and existing-family office-hours.
+- Post-run `/health/calls` returned HTTP 200 with zero failures in the 1,800-second window.
+- Demo pricing containment and exact-release rebaselining are complete. Real-customer pricing still requires approved effective-dated price data or an approved immediate human-routing procedure, and the broader legal/privacy gate remains open.

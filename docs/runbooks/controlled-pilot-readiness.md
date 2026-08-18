@@ -16,7 +16,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Area | Status | Evidence |
 | --- | --- | --- |
 | Production availability | Pass | `https://voice.lanternbell.com/health/calls` returned HTTP 200 with zero failures in the 1,800-second window on 2026-08-16. |
-| Signed call scenarios | Pass | The deployed signed Twilio matrix passed `7/7` under run ID `render-handoff-release-1785681418`. |
+| Signed call scenarios | Pass | The full deployed signed Twilio matrix passed `7/7` on 2026-08-18 under run ID `render-pricing-rebaseline-1787066802` against exact production release `f34e848`, including the final live pricing transcript. |
 | Core real-audio lanes | Pass for demo containment; real-customer pricing remains blocked | The scenario matrix records prior real-phone passes across hospice, ME, hospital, police, family residence, pricing, and existing-family lanes. Final pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed against `f34e848`: the difficult `No 1 has passed away` speech result selected the pricing guard, gave the clarified simulation-only closure, and ended with no further gather or dial. |
 | Dispatch safety | Pass | Family-residence calls remain CRM/human-only; official-source lanes require their minimum facts before dispatch review. Scenario and regression coverage pin both paths. |
 | Handoff outcomes | Conditional | Signed acceptance and terminal outcome callbacks, persistence, redaction, caller fallback, and alert classification are automated and production-tested. Render remains intentionally set to `TWILIO_HANDOFF_MODE=simulate`. |
