@@ -38,6 +38,10 @@ services:
         value: deterministic
       - key: TWILIO_HANDOFF_MODE
         value: simulate
+      - key: TWILIO_VOICE_MODE
+        value: gather
+      - key: TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL
+        value: wss://voice.lanternbell.com
       - key: TENANT_API_KEYS
         sync: false
       - key: OPERATOR_USERS_JSON

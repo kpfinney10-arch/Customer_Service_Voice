@@ -1100,3 +1100,24 @@ Next action: retain the legal and real-human-routing gate, keep real customer da
 - Ran all seven signed scenarios digitally against production release `f34e848` with reserved test numbers, simulated handoffs, a concurrency limit of three, and a 5,000-millisecond per-webhook safety ceiling. No phones rang and no real transfers were attempted.
 - Run `render-concurrency-3-1787067168` passed `7/7`. The maximum observed Twilio webhook response was 217 milliseconds, all session/fact/tool assertions remained isolated, and `/health/calls` stayed HTTP 200 with zero failures.
 - This completes the bounded concurrency acceptance item for an initial engineering assumption of no more than three simultaneous pilot calls. Repeat the test if the first customer agreement sets a higher limit.
+
+## 2026-08-18 staged ConversationRelay transport foundation
+
+- Began the realistic voice-agent migration without changing the working production number or its current Gather/Say behavior.
+- Added `TWILIO_VOICE_MODE=gather|conversation_relay`; the Render Blueprint explicitly remains on `gather`.
+- Added a tenant-scoped ConversationRelay TwiML path using ElevenLabs TTS, Deepgram transcription, speech interruption, and medium interruption sensitivity as environment-configurable starting defaults.
+- Added a signed `wss://` WebSocket boundary with a 16 KiB message limit, bounded active connections, serialized per-call processing, strict setup/tenant validation, and no raw message logging.
+- Final caller prompts reuse the existing deterministic TypeScript orchestrator. The LLM does not yet generate caller wording on this path and still cannot control state, pricing policy, tools, or handoffs.
+- Added explicit interruption handling, empty-prompt monitoring, and allowlisted terminal reason codes. `handoffData` contains no caller data, transcript, structured facts, or freeform summary.
+- ConversationRelay activation is temporarily prohibited with live handoffs. Terminal callbacks return safe TwiML and cannot emit `<Dial>`.
+- Added a signed end-to-end digital test covering inbound TwiML, WebSocket setup, pricing containment, transcript non-retention, and the terminal callback.
+- Recorded the staged decision and activation gates in `docs/adr/0002-staged-conversation-relay-adoption.md`.
+- The official OpenAI documentation connector was installed for subsequent current-model/API work; this transport slice does not add an OpenAI runtime request.
+- TypeScript typecheck, production build, and the complete automated suite passed `317/317`.
+
+Next action:
+
+1. Push the disabled-by-default transport foundation only after owner approval.
+2. Deploy with `TWILIO_VOICE_MODE=gather` and verify that the existing production call path is unchanged.
+3. Complete Twilio ConversationRelay onboarding/AI terms, then schedule a separate controlled switch to `conversation_relay` for a simulated-handoff voice test.
+4. After transport acceptance, add and meter the constrained OpenAI streaming language layer.

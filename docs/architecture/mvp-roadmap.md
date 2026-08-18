@@ -57,10 +57,12 @@
 - Telnyx AI gather speech-turn event translation.
 - Telnyx `gather_using_speak` command strategy for live caller speech collection.
 - Telephony streaming interface for live audio sessions.
+- Signed Twilio ConversationRelay WebSocket transport behind a disabled production feature switch, initially reusing deterministic orchestration and simulated handoffs.
 - STT adapter contract and fake adapter.
 - TTS adapter contract and fake adapter.
 - Barge-in and cancellation model.
 - LLM structured-output adapter contract and fake fallback extractor.
+- Constrained streaming caller-language generation after ConversationRelay transport acceptance; state, rules, tools, pricing policy, and handoffs remain deterministic.
 
 ## Phase 3: Funeral Home Workflow
 

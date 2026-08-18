@@ -27,11 +27,13 @@
   "devDependencies": {
     "@types/node": "^22.16.5",
     "@types/pg": "^8.20.0",
+    "@types/ws": "^8.18.1",
     "cloudflared": "^0.7.1",
     "pg-mem": "^3.0.14",
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "ws": "^8.21.3"
   }
 }

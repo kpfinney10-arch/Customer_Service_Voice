@@ -49,6 +49,8 @@ import {
   translateTelnyxWebhook,
 } from "../providers/telephony/telnyx-adapter.js";
 import {
+  createTwilioConversationRelayCompletionTwiMl,
+  createTwilioConversationRelayTwiMl,
   createTwilioHandoffAcceptedTwiMl,
   createTwilioHandoffRejectedTwiMl,
   createTwilioHandoffResultTwiMl,
@@ -68,6 +70,13 @@ import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-re
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
 import { evaluateTwilioReadinessFromEnv } from "../providers/telephony/twilio-readiness.js";
 import type { TwilioReadiness } from "../providers/telephony/twilio-readiness.js";
+import { attachTwilioConversationRelayServer } from "../providers/telephony/twilio-conversation-relay.js";
+import {
+  createTwilioConversationRelayConfigFromEnv,
+  twilioConversationRelayCompletePath,
+  twilioConversationRelaySocketUrl,
+} from "../providers/telephony/twilio-conversation-relay-config.js";
+import type { TwilioConversationRelayConfig } from "../providers/telephony/twilio-conversation-relay-config.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 import { OperatorAuthenticationError, OperatorAuthService } from "../security/operator-auth.js";
@@ -88,6 +97,7 @@ export type ApiServerOptions = {
   twilioReadiness?: TwilioReadiness;
   callHealthProbe?: CallHealthProbe;
   operatorAuthService?: OperatorAuthService;
+  twilioConversationRelayConfig?: TwilioConversationRelayConfig;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -111,8 +121,10 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const twilioReadiness = options.twilioReadiness ?? evaluateTwilioReadinessFromEnv();
   const callHealthProbe = options.callHealthProbe ?? createHealthyCallHealthProbe();
   const operatorAuthService = options.operatorAuthService ?? new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false });
+  const twilioConversationRelayConfig =
+    options.twilioConversationRelayConfig ?? createTwilioConversationRelayConfigFromEnv();
 
-  return http.createServer(async (request, response) => {
+  const server = http.createServer(async (request, response) => {
     const startedAt = Date.now();
     const method = request.method ?? "GET";
     const path = request.url ? new URL(request.url, "http://localhost").pathname : "/";
@@ -141,6 +153,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         twilioReadiness,
         callHealthProbe,
         operatorAuthService,
+        twilioConversationRelayConfig,
         request,
         response,
       );
@@ -202,6 +215,14 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
       );
     }
   });
+  attachTwilioConversationRelayServer({
+    server,
+    service,
+    config: twilioConversationRelayConfig,
+    webhookSignatureVerifier,
+    logger,
+  });
+  return server;
 }
 
 export async function listen(server: http.Server, port: number, host = "127.0.0.1"): Promise<string> {
@@ -229,6 +250,7 @@ export async function handleApiRequest(
   twilioReadiness: TwilioReadiness = evaluateTwilioReadinessFromEnv(),
   callHealthProbe: CallHealthProbe = createHealthyCallHealthProbe(),
   operatorAuthService: OperatorAuthService = new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false }),
+  twilioConversationRelayConfig: TwilioConversationRelayConfig = createTwilioConversationRelayConfigFromEnv(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -491,8 +513,34 @@ export async function handleApiRequest(
         headers: request.headers,
       });
       response = twimlResponse(
-        await handleTwilioWebhook(service, tenantId, body, url.pathname, twilioReadiness.handoffMode),
+        await handleTwilioWebhook(
+          service,
+          tenantId,
+          body,
+          url.pathname,
+          twilioReadiness.handoffMode,
+          twilioConversationRelayConfig,
+        ),
       );
+      response.headers.set("x-request-id", requestId);
+      return response;
+    }
+
+    const twilioConversationRelayCompleteMatch = url.pathname.match(
+      /^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/conversation-relay\/complete$/,
+    );
+    if (request.method === "POST" && twilioConversationRelayCompleteMatch?.[1]) {
+      const tenantId = decodeURIComponent(twilioConversationRelayCompleteMatch[1]);
+      const { body, rawBody } = await readWebFormPayload(request);
+      await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+        provider: "twilio",
+        method: request.method,
+        path: url.pathname,
+        url: request.url,
+        rawBody,
+        headers: request.headers,
+      });
+      response = twimlResponse(handleTwilioConversationRelayComplete(body));
       response.headers.set("x-request-id", requestId);
       return response;
     }
@@ -877,6 +925,7 @@ async function routeRequest(
   twilioReadiness: TwilioReadiness,
   callHealthProbe: CallHealthProbe,
   operatorAuthService: OperatorAuthService,
+  twilioConversationRelayConfig: TwilioConversationRelayConfig,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -1102,8 +1151,33 @@ async function routeRequest(
     sendTwiml(
       response,
       200,
-      await handleTwilioWebhook(service, tenantId, body, url.pathname, twilioReadiness.handoffMode),
+      await handleTwilioWebhook(
+        service,
+        tenantId,
+        body,
+        url.pathname,
+        twilioReadiness.handoffMode,
+        twilioConversationRelayConfig,
+      ),
     );
+    return;
+  }
+
+  const twilioConversationRelayCompleteMatch = url.pathname.match(
+    /^\/v1\/tenants\/([^/]+)\/telephony\/twilio\/conversation-relay\/complete$/,
+  );
+  if (method === "POST" && twilioConversationRelayCompleteMatch?.[1]) {
+    const tenantId = decodeURIComponent(twilioConversationRelayCompleteMatch[1]);
+    const { body, rawBody } = await readFormPayload(request);
+    await verifyTelephonyWebhookSignature(webhookSignatureVerifier, {
+      provider: "twilio",
+      method,
+      path: url.pathname,
+      url: publicRequestUrlFromIncomingMessage(request),
+      rawBody,
+      headers: headersFromIncomingMessage(request),
+    });
+    sendTwiml(response, 200, handleTwilioConversationRelayComplete(body));
     return;
   }
 
@@ -1501,6 +1575,7 @@ async function handleTwilioWebhook(
   body: Record<string, string>,
   path: string,
   handoffMode: TwilioHandoffMode = "live",
+  conversationRelayConfig: TwilioConversationRelayConfig = createTwilioConversationRelayConfigFromEnv(),
 ): Promise<string> {
   const translated = translateTwilioWebhook({
     tenantId,
@@ -1512,6 +1587,15 @@ async function handleTwilioWebhook(
 
   if (translated.kind === "inbound_call") {
     const output = await handleInboundTelephonyCall(service, translated.input);
+    if (conversationRelayConfig.mode === "conversation_relay") {
+      return createTwilioConversationRelayTwiMl({
+        websocketUrl: twilioConversationRelaySocketUrl(conversationRelayConfig, tenantId),
+        actionUrl: twilioConversationRelayCompletePath(tenantId),
+        welcomeGreeting: output.responseText,
+        tenantId,
+        config: conversationRelayConfig,
+      });
+    }
     return createTwilioTwiMl({
       voiceResponse: output.voiceResponse,
       options: { actionUrl, handoffMode },
@@ -1548,6 +1632,36 @@ async function handleTwilioWebhook(
     voiceResponse: output.voiceResponse,
     options: { actionUrl, handoffMode },
   });
+}
+
+function handleTwilioConversationRelayComplete(body: Record<string, string>): string {
+  return createTwilioConversationRelayCompletionTwiMl(
+    conversationRelayEndReason(body.HandoffData),
+  );
+}
+
+function conversationRelayEndReason(value: string | undefined):
+  | "handoff"
+  | "pricing_blocked"
+  | "completed"
+  | "technical_failure" {
+  if (!value) return "technical_failure";
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "technical_failure";
+    const reasonCode = (parsed as Record<string, unknown>).reasonCode;
+    if (
+      reasonCode === "handoff" ||
+      reasonCode === "pricing_blocked" ||
+      reasonCode === "completed" ||
+      reasonCode === "technical_failure"
+    ) {
+      return reasonCode;
+    }
+  } catch {
+    return "technical_failure";
+  }
+  return "technical_failure";
 }
 
 async function handleTwilioHandoffAccept(

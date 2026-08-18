@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createTwilioConversationRelayCompletionTwiMl,
+  createTwilioConversationRelayTwiMl,
   createTwilioHandoffAcceptedTwiMl,
   createTwilioHandoffRejectedTwiMl,
   createTwilioHandoffResultTwiMl,
@@ -26,6 +28,40 @@ test("Twilio speech hints include pricing and no-death language", () => {
   assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("cremation"), true);
   assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("pricing"), true);
   assert.equal(DEFAULT_TWILIO_SPEECH_HINTS.includes("cost"), true);
+});
+
+test("Twilio adapter creates a natural-voice ConversationRelay connection without Gather", () => {
+  const twiml = createTwilioConversationRelayTwiMl({
+    websocketUrl: "wss://voice.lanternbell.com/v1/tenants/fh-demo/telephony/twilio/conversation-relay",
+    actionUrl: "/v1/tenants/fh-demo/telephony/twilio/conversation-relay/complete",
+    welcomeGreeting: "I am an automated assistant helping the funeral director. How may I help you today?",
+    tenantId: "fh-demo",
+    config: {
+      mode: "conversation_relay",
+      publicBaseUrl: "wss://voice.lanternbell.com",
+      language: "en-US",
+      ttsProvider: "ElevenLabs",
+      transcriptionProvider: "Deepgram",
+      interruptSensitivity: "medium",
+    },
+  });
+
+  assert.match(twiml, /<Connect action="[^"]+" method="POST">/);
+  assert.match(twiml, /<ConversationRelay /);
+  assert.match(twiml, /ttsProvider="ElevenLabs"/);
+  assert.match(twiml, /transcriptionProvider="Deepgram"/);
+  assert.match(twiml, /interruptible="speech"/);
+  assert.match(twiml, /<Parameter name="tenantId" value="fh-demo"\/>/);
+  assert.doesNotMatch(twiml, /<Gather|<Dial/);
+});
+
+test("Twilio ConversationRelay completion responses fail closed without dialing", () => {
+  for (const reason of ["handoff", "pricing_blocked", "completed", "technical_failure"] as const) {
+    const twiml = createTwilioConversationRelayCompletionTwiMl(reason);
+    assert.match(twiml, /<Say>/);
+    assert.match(twiml, /<Hangup\/>/);
+    assert.doesNotMatch(twiml, /<Gather|<Dial/);
+  }
 });
 
 test("Twilio adapter translates initial voice webhook fields into inbound call input", () => {

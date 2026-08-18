@@ -27,6 +27,8 @@ import { evaluateTelnyxReadinessFromEnv } from "../providers/telephony/telnyx-re
 import type { TelnyxReadiness } from "../providers/telephony/telnyx-readiness.js";
 import { evaluateTwilioReadinessFromEnv } from "../providers/telephony/twilio-readiness.js";
 import type { TwilioReadiness } from "../providers/telephony/twilio-readiness.js";
+import { createTwilioConversationRelayConfigFromEnv } from "../providers/telephony/twilio-conversation-relay-config.js";
+import type { TwilioConversationRelayConfig } from "../providers/telephony/twilio-conversation-relay-config.js";
 import { createTenantConfigStoreFromEnv } from "../tenants/tenant-config.js";
 import type { TenantConfigStore } from "../tenants/tenant-config.js";
 import { createFirstCallExtractorFromEnv } from "./first-call-extractor-environment.js";
@@ -57,6 +59,7 @@ export type ServerEnvironment = {
   telnyxClient: TelnyxCallControlClient;
   telnyxReadiness: TelnyxReadiness;
   twilioReadiness: TwilioReadiness;
+  twilioConversationRelayConfig: TwilioConversationRelayConfig;
   firstCallExtractor: FirstCallExtractor;
   operatorAuthService: OperatorAuthService;
   operatorAuthStore: OperatorAuthStore;
@@ -108,6 +111,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     telnyxClient: createTelnyxCallControlClientFromEnv(env),
     telnyxReadiness: evaluateTelnyxReadinessFromEnv(env),
     twilioReadiness: evaluateTwilioReadinessFromEnv(env),
+    twilioConversationRelayConfig: createTwilioConversationRelayConfigFromEnv(env),
     firstCallExtractor: createFirstCallExtractorFromEnv(env),
     operatorAuthService: new OperatorAuthService(persistence.operatorAuthStore, {
       absoluteTtlMs: parseDurationMinutes(env.OPERATOR_SESSION_ABSOLUTE_MINUTES, 480, "OPERATOR_SESSION_ABSOLUTE_MINUTES"),

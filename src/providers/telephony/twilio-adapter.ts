@@ -4,6 +4,7 @@ import type {
   TelephonySpeechTurnInput,
 } from "./inbound-call.js";
 import type { VoiceResponse, VoiceResponseAction } from "./voice-response.js";
+import type { TwilioConversationRelayConfig } from "./twilio-conversation-relay-config.js";
 
 export type TwilioWebhookFields = Record<string, string>;
 
@@ -50,6 +51,8 @@ export const DEFAULT_TWILIO_SIMULATED_PRICING_MESSAGE =
   "I cannot provide pricing. In a live funeral home setup, I would connect you with a staff member who can help. This demo does not have a staff transfer line configured, so the call will end here. You do not need to leave your name or phone number.";
 export const DEFAULT_TWILIO_HANDOFF_FAILURE_MESSAGE =
   "I am sorry, no team member was available to take the transfer. Your information has been recorded for urgent follow-up. If you need immediate emergency assistance, please call 911.";
+export const DEFAULT_TWILIO_CONVERSATION_RELAY_FAILURE_MESSAGE =
+  "I am sorry, the automated assistant is temporarily unavailable. Please call the funeral home again. If you need immediate emergency assistance, please call 911.";
 
 export type TwilioHandoffScreeningDecision = {
   sessionId: string;
@@ -242,6 +245,49 @@ export function createTwilioTwiMl(input: {
 
   if (pendingSay) body.push(sayElement(pendingSay, input.options));
   return xmlResponse(body.join(""));
+}
+
+export function createTwilioConversationRelayTwiMl(input: {
+  websocketUrl: string;
+  actionUrl: string;
+  welcomeGreeting: string;
+  tenantId: string;
+  config: TwilioConversationRelayConfig;
+}): string {
+  const connectAttributes = {
+    action: input.actionUrl,
+    method: "POST",
+  };
+  const relayAttributes = {
+    url: input.websocketUrl,
+    welcomeGreeting: input.welcomeGreeting,
+    welcomeGreetingInterruptible: "speech",
+    language: input.config.language,
+    ttsProvider: input.config.ttsProvider,
+    transcriptionProvider: input.config.transcriptionProvider,
+    interruptible: "speech",
+    interruptSensitivity: input.config.interruptSensitivity,
+  };
+  return xmlResponse(
+    `<Connect${xmlAttributes(connectAttributes)}>` +
+      `<ConversationRelay${xmlAttributes(relayAttributes)}>` +
+      `<Parameter name="tenantId" value="${escapeXml(input.tenantId)}"/>` +
+      `</ConversationRelay></Connect>`,
+  );
+}
+
+export function createTwilioConversationRelayCompletionTwiMl(
+  reasonCode: "handoff" | "pricing_blocked" | "completed" | "technical_failure",
+): string {
+  const options = { actionUrl: "" };
+  const text = reasonCode === "handoff"
+    ? DEFAULT_TWILIO_SIMULATED_HANDOFF_MESSAGE
+    : reasonCode === "pricing_blocked"
+      ? DEFAULT_TWILIO_SIMULATED_PRICING_MESSAGE
+      : reasonCode === "technical_failure"
+        ? DEFAULT_TWILIO_CONVERSATION_RELAY_FAILURE_MESSAGE
+        : "Thank you for calling. Goodbye.";
+  return xmlResponse(sayElement(text, options) + hangupElement());
 }
 
 function gatherElement(prompt: string, options: TwilioTwiMlOptions): string {
