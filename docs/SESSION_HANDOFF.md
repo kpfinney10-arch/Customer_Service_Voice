@@ -1121,3 +1121,21 @@ Next action:
 2. Deploy with `TWILIO_VOICE_MODE=gather` and verify that the existing production call path is unchanged.
 3. Complete Twilio ConversationRelay onboarding/AI terms, then schedule a separate controlled switch to `conversation_relay` for a simulated-handoff voice test.
 4. After transport acceptance, add and meter the constrained OpenAI streaming language layer.
+
+Deployment and regression update:
+
+- Owner approved the push and safe Gather-mode deployment.
+- Commit `67896655a2147980a393ad70eacac072a3ed671b` was deployed through Render deployment `dep-da28f6on74is73fni5b0` on 2026-08-18.
+- Render checked out the exact commit, completed the PostgreSQL pre-deploy migration, started the TypeScript service, passed health checks, and marked the release Live.
+- Production `/version` reported the exact commit with build time `2026-08-18T16:26:12.924Z`.
+- `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the 1,800-second window.
+- The signed production scenario matrix ran with three-way bounded concurrency, reserved test numbers, simulated handoffs, and a 5,000-millisecond webhook ceiling. No real phones or transfers were used.
+- Run `conversation-relay-foundation-1787066850` passed `7/7`; the maximum observed webhook response was 554 milliseconds.
+- Every initial webhook still returned `<Gather>`, proving the production call path remained on Gather/Say. Twilio readiness remained `signed_webhook`, public-ready, and `handoffMode: simulate`.
+
+Next action:
+
+1. Complete Twilio ConversationRelay onboarding and the required AI terms/addendum.
+2. After account approval, schedule a separately approved controlled switch to `TWILIO_VOICE_MODE=conversation_relay` with simulated handoffs only.
+3. Run the digital acceptance path first, then one controlled real-phone natural-voice call; revert to Gather immediately if any activation check fails.
+4. Add and meter the constrained OpenAI streaming language layer only after the transport is accepted.
