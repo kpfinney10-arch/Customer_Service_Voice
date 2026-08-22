@@ -1139,3 +1139,21 @@ Next action:
 2. After account approval, schedule a separately approved controlled switch to `TWILIO_VOICE_MODE=conversation_relay` with simulated handoffs only.
 3. Run the digital acceptance path first, then one controlled real-phone natural-voice call; revert to Gather immediately if any activation check fails.
 4. Add and meter the constrained OpenAI streaming language layer only after the transport is accepted.
+
+## 2026-08-22 ConversationRelay activation preparation
+
+- The owner confirmed acceptance of Twilio's Predictive and Generative AI/ML Features Addendum.
+- Added `npm run smoke:twilio-conversation-relay` as a production-targetable, phone-free acceptance command.
+- The smoke verifies public readiness and simulated handoffs, signed inbound TwiML, ElevenLabs TTS, Deepgram transcription, speech interruption, the signed tenant WebSocket, deterministic pricing containment, the terminal callback, no `<Gather>` or `<Dial>`, structured replay state, and raw-transcript non-retention.
+- Added `docs/runbooks/conversation-relay-activation.md` with preconditions, exact activation order, digital and real-phone acceptance checks, and immediate Gather rollback steps.
+- The smoke supports a separate local socket connection URL while signing the configured public `wss://` URL, allowing a faithful local protocol check without weakening production URL validation.
+- TypeScript typecheck, production build, and the complete automated suite passed `317/317`.
+- Local end-to-end smoke `local-preflight-20260822` passed with simulated handoffs and no retained raw transcript.
+- Production remains on `TWILIO_VOICE_MODE=gather`; no voice-mode environment change or deployment occurred during this preparation.
+
+Next action:
+
+1. When the owner is available to place the controlled call, change only `TWILIO_VOICE_MODE` to `conversation_relay` and deploy the approved release.
+2. Run the new digital production smoke before placing the phone call.
+3. If the smoke passes, complete one non-sensitive inbound natural-voice call and inspect call health and the redacted operator replay.
+4. Roll back immediately to `gather` if any check fails.
