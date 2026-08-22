@@ -28,6 +28,7 @@ Adopt ConversationRelay in stages:
 
 - TTS provider: ElevenLabs through ConversationRelay.
 - Transcription provider: Deepgram through ConversationRelay.
+- Speech model: Deepgram Flux, with an end-of-turn threshold of `0.85` to reduce premature mid-sentence cutoffs while preserving responsive barge-in.
 - Language: `en-US`.
 - Caller speech may interrupt synthesized speech.
 - Interruption sensitivity starts at `medium` and must be tuned from controlled calls.

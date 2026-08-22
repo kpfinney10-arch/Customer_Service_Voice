@@ -42,6 +42,8 @@ test("Twilio adapter creates a natural-voice ConversationRelay connection withou
       language: "en-US",
       ttsProvider: "ElevenLabs",
       transcriptionProvider: "Deepgram",
+      speechModel: "flux",
+      eotThreshold: "0.85",
       interruptSensitivity: "medium",
     },
   });
@@ -50,6 +52,8 @@ test("Twilio adapter creates a natural-voice ConversationRelay connection withou
   assert.match(twiml, /<ConversationRelay /);
   assert.match(twiml, /ttsProvider="ElevenLabs"/);
   assert.match(twiml, /transcriptionProvider="Deepgram"/);
+  assert.match(twiml, /speechModel="flux"/);
+  assert.match(twiml, /eotThreshold="0.85"/);
   assert.match(twiml, /interruptible="speech"/);
   assert.match(twiml, /<Parameter name="tenantId" value="fh-demo"\/>/);
   assert.doesNotMatch(twiml, /<Gather|<Dial/);

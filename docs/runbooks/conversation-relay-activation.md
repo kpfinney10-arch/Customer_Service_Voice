@@ -7,6 +7,7 @@ Use this runbook only after the account owner accepts Twilio's Predictive and Ge
 - Production is green on the exact approved release while `TWILIO_VOICE_MODE=gather`.
 - `TWILIO_HANDOFF_MODE=simulate` remains set. Application startup rejects any other handoff mode while ConversationRelay is enabled.
 - `TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL=wss://voice.lanternbell.com` is configured.
+- `TWILIO_CONVERSATION_RELAY_SPEECH_MODEL=flux` and `TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD=0.85` are configured.
 - The Twilio Auth Token and tenant API key remain in approved secret stores and are never pasted into logs or source control.
 - The owner is available to place one controlled inbound call after the digital smoke passes.
 
@@ -31,7 +32,7 @@ npm run smoke:twilio-conversation-relay
 
 The smoke does not place a phone call. It must prove:
 
-- The signed inbound webhook emits `<ConversationRelay>` with ElevenLabs, Deepgram, and interruption enabled.
+- The signed inbound webhook emits `<ConversationRelay>` with ElevenLabs, Deepgram Flux, an end-of-turn threshold of `0.85`, and interruption enabled.
 - The signed public WebSocket accepts a tenant-scoped setup message.
 - A pricing prompt fails closed through the deterministic TypeScript workflow.
 - The completion callback hangs up without `<Gather>` or `<Dial>`.

@@ -43,6 +43,8 @@ async function main() {
   assertIncludes(openingTwiml, "<ConversationRelay", "ConversationRelay opening TwiML");
   assertIncludes(openingTwiml, 'ttsProvider="ElevenLabs"', "ElevenLabs TTS configuration");
   assertIncludes(openingTwiml, 'transcriptionProvider="Deepgram"', "Deepgram transcription configuration");
+  assertIncludes(openingTwiml, 'speechModel="flux"', "Deepgram Flux speech model");
+  assertIncludes(openingTwiml, 'eotThreshold="0.85"', "patient end-of-turn threshold");
   assertIncludes(openingTwiml, 'interruptible="speech"', "speech interruption configuration");
   assertExcludes(openingTwiml, "<Gather", "ConversationRelay opening gather");
   assertExcludes(openingTwiml, "<Dial", "ConversationRelay opening dial");

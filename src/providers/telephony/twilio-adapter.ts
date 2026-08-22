@@ -258,7 +258,7 @@ export function createTwilioConversationRelayTwiMl(input: {
     action: input.actionUrl,
     method: "POST",
   };
-  const relayAttributes = {
+  const relayAttributes: Record<string, string | undefined> = {
     url: input.websocketUrl,
     welcomeGreeting: input.welcomeGreeting,
     welcomeGreetingInterruptible: "speech",
@@ -268,6 +268,8 @@ export function createTwilioConversationRelayTwiMl(input: {
     interruptible: "speech",
     interruptSensitivity: input.config.interruptSensitivity,
   };
+  addIfPresent(relayAttributes, "speechModel", input.config.speechModel);
+  addIfPresent(relayAttributes, "eotThreshold", input.config.eotThreshold);
   return xmlResponse(
     `<Connect${xmlAttributes(connectAttributes)}>` +
       `<ConversationRelay${xmlAttributes(relayAttributes)}>` +

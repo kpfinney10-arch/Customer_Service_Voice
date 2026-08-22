@@ -6,6 +6,8 @@ export type TwilioConversationRelayConfig = {
   language: string;
   ttsProvider: "Google" | "Amazon" | "ElevenLabs";
   transcriptionProvider: "Google" | "Deepgram";
+  speechModel?: "flux";
+  eotThreshold?: string;
   interruptSensitivity: "high" | "medium" | "low";
 };
 
@@ -20,17 +22,30 @@ export function createTwilioConversationRelayConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): TwilioConversationRelayConfig {
   const mode = parseVoiceMode(env.TWILIO_VOICE_MODE);
+  const transcriptionProvider = parseTranscriptionProvider(
+    env.TWILIO_CONVERSATION_RELAY_TRANSCRIPTION_PROVIDER,
+  );
   const config: TwilioConversationRelayConfig = {
     mode,
     language: env.TWILIO_CONVERSATION_RELAY_LANGUAGE?.trim() || "en-US",
     ttsProvider: parseTtsProvider(env.TWILIO_CONVERSATION_RELAY_TTS_PROVIDER),
-    transcriptionProvider: parseTranscriptionProvider(
-      env.TWILIO_CONVERSATION_RELAY_TRANSCRIPTION_PROVIDER,
-    ),
+    transcriptionProvider,
     interruptSensitivity: parseInterruptSensitivity(
       env.TWILIO_CONVERSATION_RELAY_INTERRUPT_SENSITIVITY,
     ),
   };
+
+  if (transcriptionProvider === "Deepgram") {
+    config.speechModel = parseSpeechModel(env.TWILIO_CONVERSATION_RELAY_SPEECH_MODEL);
+    config.eotThreshold = parseEotThreshold(env.TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD);
+  } else if (
+    env.TWILIO_CONVERSATION_RELAY_SPEECH_MODEL?.trim() ||
+    env.TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD?.trim()
+  ) {
+    throw new TwilioConversationRelayConfigError(
+      "ConversationRelay speechModel and eotThreshold tuning requires the Deepgram transcription provider.",
+    );
+  }
 
   const publicBaseUrl = optionalPublicBaseUrl(env.TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL);
   if (publicBaseUrl) config.publicBaseUrl = publicBaseUrl;
@@ -127,6 +142,25 @@ function parseInterruptSensitivity(
   throw new TwilioConversationRelayConfigError(
     "TWILIO_CONVERSATION_RELAY_INTERRUPT_SENSITIVITY must be high, medium, or low.",
   );
+}
+
+function parseSpeechModel(value: string | undefined): "flux" {
+  const normalized = value?.trim().toLowerCase() || "flux";
+  if (normalized === "flux") return normalized;
+  throw new TwilioConversationRelayConfigError(
+    "TWILIO_CONVERSATION_RELAY_SPEECH_MODEL must be flux.",
+  );
+}
+
+function parseEotThreshold(value: string | undefined): string {
+  const normalized = value?.trim() || "0.85";
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0.5 || parsed > 0.9) {
+    throw new TwilioConversationRelayConfigError(
+      "TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD must be a number from 0.5 through 0.9.",
+    );
+  }
+  return String(parsed);
 }
 
 function parseHandoffMode(value: string | undefined): "live" | "simulate" {

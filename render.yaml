@@ -42,6 +42,10 @@ services:
         value: gather
       - key: TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL
         value: wss://voice.lanternbell.com
+      - key: TWILIO_CONVERSATION_RELAY_SPEECH_MODEL
+        value: flux
+      - key: TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD
+        value: "0.85"
       - key: TENANT_API_KEYS
         sync: false
       - key: OPERATOR_USERS_JSON

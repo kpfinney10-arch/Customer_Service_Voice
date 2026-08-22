@@ -40,6 +40,8 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
       language: "en-US",
       ttsProvider: "ElevenLabs",
       transcriptionProvider: "Deepgram",
+      speechModel: "flux",
+      eotThreshold: "0.85",
       interruptSensitivity: "medium",
     },
   });
@@ -71,6 +73,8 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
     assert.equal(opening.status, 200);
     assert.match(openingTwiml, /<ConversationRelay /);
     assert.match(openingTwiml, /ttsProvider="ElevenLabs"/);
+    assert.match(openingTwiml, /speechModel="flux"/);
+    assert.match(openingTwiml, /eotThreshold="0.85"/);
     assert.doesNotMatch(openingTwiml, /<Gather|<Dial/);
 
     const relayPath = "/v1/tenants/fh-demo/telephony/twilio/conversation-relay";
