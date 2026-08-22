@@ -200,6 +200,66 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
       durationUntilInterruptMs: 420,
     }));
     await waitForEvent(eventStore, interruptionCallSid, "CALL_INTERRUPTED");
+
+    await closeWebSocket(webSocket);
+    const spokenPhoneCallSid = "CAconversationrelayspokenphone00000001";
+    const spokenPhoneOpeningBody = new URLSearchParams({
+      CallSid: spokenPhoneCallSid,
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
+    const spokenPhoneOpening = await fetch(`${localUrl}${webhookPath}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `${localUrl}${webhookPath}`,
+          rawBody: spokenPhoneOpeningBody.toString(),
+        }),
+      },
+      body: spokenPhoneOpeningBody,
+    });
+    assert.equal(spokenPhoneOpening.status, 200);
+
+    webSocket = new WebSocket(localUrl.replace(/^http/, "ws") + relayPath, {
+      headers: {
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `wss://voice.lanternbell.com${relayPath}`,
+          rawBody: "",
+        }),
+      },
+    });
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: spokenPhoneCallSid,
+      customParameters: { tenantId: "fh-demo" },
+    }));
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt:
+        "My name is Kyle Finney. My phone number is six zero three, seven three one, five eight four five.",
+      lang: "en-US",
+      last: true,
+    }));
+    const spokenPhoneResponse = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+      last: boolean;
+    };
+    assert.equal(spokenPhoneResponse.type, "text");
+    assert.equal(spokenPhoneResponse.last, true);
+    assert.match(spokenPhoneResponse.token, /name of the person who passed away/i);
+    assert.doesNotMatch(spokenPhoneResponse.token, /phone number|callback number/i);
+
+    const spokenPhoneReplay = await service.replaySession({
+      tenantId: "fh-demo",
+      sessionId: spokenPhoneCallSid,
+    });
+    assert.equal(spokenPhoneReplay.session.facts.caller_phone, "603-731-5845");
   } finally {
     webSocket?.close();
     await closeServer(server);

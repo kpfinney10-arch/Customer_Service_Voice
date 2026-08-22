@@ -3636,6 +3636,53 @@ test("Twilio webhook route accepts dotted spaced caller phone answers", async ()
   assert.equal(replay.body.session.facts.caller_phone, "214-623-5918");
 });
 
+test("Twilio webhook route accepts a Deepgram-style spoken-digit callback", async () => {
+  await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-spoken-digit-phone-1",
+      From: "+16037315845",
+      To: "+15559870000",
+      CallStatus: "in-progress",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  const response = await fetchText(
+    "POST",
+    "/v1/tenants/fh-demo/telephony/twilio/webhook",
+    new URLSearchParams({
+      CallSid: "twilio-call-http-spoken-digit-phone-1",
+      SpeechResult:
+        "My name is Kyle Finney. My phone number is six oh three, seven three one, five eight four five.",
+      Confidence: "0.91",
+    }),
+    {
+      apiKey: null,
+      extraHeaders: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.body, /May I have the name of the person who passed away\?/);
+  assert.doesNotMatch(response.body, /best phone number|callback number/i);
+
+  const replay = await fetchJson(
+    "GET",
+    "/v1/tenants/fh-demo/first-call/sessions/twilio-call-http-spoken-digit-phone-1/replay",
+  );
+  assert.equal(replay.body.session.facts.caller_name, "Kyle Finney");
+  assert.equal(replay.body.session.facts.caller_phone, "603-731-5845");
+});
+
 test("Twilio webhook route asks for digit-by-digit confirmation on near phone answers", async () => {
   await fetchText(
     "POST",

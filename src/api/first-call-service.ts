@@ -34,6 +34,10 @@ import type { FirstCallFacts } from "../verticals/funeral-home/first-call-facts.
 import { requiresMedicalExaminerCaseReference } from "../verticals/funeral-home/first-call-facts.js";
 import { executeFirstCallTools } from "../verticals/funeral-home/first-call-tools.js";
 import { routeFirstCallHandoff } from "../verticals/funeral-home/handoff-routing.js";
+import {
+  extractSpokenDigitSequence,
+  extractSpokenPhoneNumber,
+} from "../verticals/funeral-home/spoken-phone.js";
 import type { HandoffRoutingDecision } from "../verticals/funeral-home/handoff-routing.js";
 import { createFuneralHomeToolDefinitions } from "../verticals/funeral-home/tools.js";
 
@@ -1211,7 +1215,7 @@ function fullerContextualName(
 
 function extractContextualPhone(transcript: string): string | undefined {
   const raw = transcript.match(contextualPhonePattern)?.[0];
-  if (!raw) return undefined;
+  if (!raw) return extractSpokenPhoneNumber(transcript);
   const digits = raw.replace(/\D/g, "");
   const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
   if (tenDigits.length !== 10) return raw.trim();
@@ -1223,7 +1227,7 @@ function repairPhoneFromProviderCallerId(
   providerCallerPhone: string | undefined,
 ): string | undefined {
   if (!providerCallerPhone || (!phoneCuePattern.test(transcript) && !isBareRepairablePhoneAnswer(transcript))) return undefined;
-  const transcriptDigits = transcript.replace(/\D/g, "");
+  const transcriptDigits = extractSpokenDigitSequence(transcript) ?? transcript.replace(/\D/g, "");
   if (transcriptDigits.length !== 9) return undefined;
   const providerDigits = normalizedTenDigitPhone(providerCallerPhone);
   if (!providerDigits || !isSubsequence(transcriptDigits, providerDigits)) return undefined;
@@ -1299,7 +1303,7 @@ function firstCallResponseText(
 
 function hasNearPhoneNumber(transcript: string): boolean {
   if (!phoneCuePattern.test(transcript)) return false;
-  const digits = transcript.replace(/\D/g, "");
+  const digits = extractSpokenDigitSequence(transcript) ?? transcript.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) return false;
   return digits.length >= 9 && digits.length <= 12;
 }

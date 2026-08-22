@@ -1,6 +1,7 @@
 import type { CallIntent, Sentiment } from "../../domain/call-types.js";
 import { classifyFuneralHomeIntent, hasNegatedDeathReport } from "./intents.js";
 import type { FirstCallFacts, FirstCallUrgency, PlaceOfDeathType } from "./first-call-facts.js";
+import { extractSpokenPhoneNumber } from "./spoken-phone.js";
 
 export type FirstCallExtraction = {
   intent: CallIntent;
@@ -100,7 +101,7 @@ export function extractFirstCallFactsDeterministic(transcript: string): FirstCal
     factConfidence.caller_name = 0.86;
   }
 
-  const phone = text.match(phonePattern)?.[0];
+  const phone = text.match(phonePattern)?.[0] ?? extractSpokenPhoneNumber(text);
   if (phone) {
     facts.caller_phone = phone;
     facts.preferred_callback_number = phone;

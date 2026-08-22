@@ -55,6 +55,17 @@ test("first-call extractor handles Twilio speech callback phrasing for a father 
   assert.equal(extraction.warnings.includes("decedent_name_not_found"), false);
 });
 
+test("first-call extractor normalizes a callback spoken one digit at a time", () => {
+  const extraction = extractFirstCallFactsDeterministic(
+    "My name is Kyle Finney. My phone number is six zero three, seven three one, five eight four five.",
+  );
+
+  assert.equal(extraction.facts.caller_name, "Kyle Finney");
+  assert.equal(extraction.facts.caller_phone, "603-731-5845");
+  assert.equal(extraction.facts.preferred_callback_number, "603-731-5845");
+  assert.equal(extraction.warnings.includes("caller_phone_not_found"), false);
+});
+
 test("first-call extractor treats pronoun name answers as decedent names", () => {
   const extraction = extractFirstCallFactsDeterministic("His name is John.");
 
