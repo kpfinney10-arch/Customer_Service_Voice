@@ -15,7 +15,10 @@ const apiKey = env("TENANT_API_KEY", "replace-with-local-dev-key");
 const authToken = requiredEnv("TWILIO_AUTH_TOKEN");
 const runId = env("TWILIO_CONVERSATION_RELAY_RUN_ID", `conversation-relay-${Date.now()}`);
 const callSid = `${runId}-pricing`;
+const languageCallSid = `${runId}-language`;
 const pricingPrompt = "No one has passed away. I need cremation pricing.";
+const languagePrompt = "My father passed away at home.";
+const expectedLanguageStatus = env("CALLER_LANGUAGE_EXPECT_STATUS", "deterministic");
 const timeoutMs = positiveInteger(env("TWILIO_CONVERSATION_RELAY_TIMEOUT_MS", "5000"));
 
 await main();
@@ -112,10 +115,93 @@ async function main() {
   assertEqual(JSON.stringify(transcriptEvent?.payload?.redactionCategories), "[]", "transcript redactions");
   assertExcludes(JSON.stringify(replay), pricingPrompt, "durable replay raw prompt");
 
+  const languageOpeningTwiml = await postTwilioForm(webhookPath, {
+    CallSid: languageCallSid,
+    From: "+15551230001",
+    To: "+15559870000",
+    CallStatus: "ringing",
+  });
+  assertIncludes(languageOpeningTwiml, "<ConversationRelay", "language opening TwiML");
+
+  const languageSocket = new WebSocket(relayConnectUrl, {
+    headers: {
+      "x-twilio-signature": createTwilioSignature({
+        authToken,
+        url: relayUrl,
+        rawBody: "",
+      }),
+    },
+  });
+  try {
+    await onceOpen(languageSocket);
+    languageSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: languageCallSid,
+      customParameters: { tenantId },
+    }));
+    languageSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: languagePrompt,
+      lang: "en-US",
+      last: true,
+    }));
+    const languageMessage = JSON.parse(await onceMessage(languageSocket));
+    assertEqual(languageMessage.type, "text", "caller-language message type");
+    assertEqual(languageMessage.last, true, "caller-language final flag");
+    if (typeof languageMessage.token !== "string" || !languageMessage.token.trim()) {
+      throw new Error("caller-language text token must be non-empty.");
+    }
+
+    const languageEvent = await waitForLanguageEvent(languageCallSid);
+    assertEqual(
+      languageEvent.payload?.languageStatus,
+      expectedLanguageStatus,
+      "caller-language generation status",
+    );
+    assertEqual(
+      languageEvent.payload?.canonicalTextRetained,
+      false,
+      "canonical language retention",
+    );
+    assertEqual(
+      languageEvent.payload?.generatedTextRetained,
+      false,
+      "generated language retention",
+    );
+    if (expectedLanguageStatus === "generated") {
+      assertEqual(languageEvent.payload?.languageMode, "openai", "caller-language mode");
+      if (!(languageEvent.payload?.totalTokens > 0)) {
+        throw new Error("generated caller language must include positive token usage.");
+      }
+    }
+  } finally {
+    await closeWebSocket(languageSocket);
+  }
+
   console.log("Twilio ConversationRelay smoke passed.");
   console.log(`Call SID: ${callSid}`);
+  console.log(`Language Call SID: ${languageCallSid}`);
+  console.log(`Caller-language status: ${expectedLanguageStatus}`);
   console.log("Handoff mode: simulate");
   console.log("Raw transcript retained: no");
+}
+
+async function waitForLanguageEvent(sessionId) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const replay = await expectTenantJson(
+      "GET",
+      `/v1/tenants/${tenantId}/first-call/sessions/${encodeURIComponent(sessionId)}/replay`,
+      undefined,
+      200,
+    );
+    const event = replay.events?.find((candidate) => candidate.eventType === "TTS_STARTED");
+    if (event) {
+      assertExcludes(JSON.stringify(event.payload), languagePrompt, "durable caller-language prompt");
+      return event;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("caller-language metering event was not recorded before timeout.");
 }
 
 async function postTwilioForm(path, fields) {

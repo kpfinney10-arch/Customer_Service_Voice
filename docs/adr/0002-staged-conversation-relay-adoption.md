@@ -22,7 +22,9 @@ Adopt ConversationRelay in stages:
 5. Do not store raw prompt text in durable events. Existing structured-fact retention and redacted transcript-event rules remain unchanged.
 6. Treat interruptions as explicit orchestrator events and serialize prompts per connection.
 7. Fail terminal, invalid, or provider-error paths closed through a small allowlisted `reasonCode`; never place caller data, transcript text, or structured facts in `handoffData`.
-8. Add a constrained OpenAI response-generation layer only after the transport passes digital and real-phone tests. The LLM may draft or stream approved caller-facing language, but it may not choose state transitions, invoke integrations directly, bypass pricing policy, or authorize handoffs.
+8. Add a constrained OpenAI response-generation layer only after the transport passes digital and real-phone tests. The first release buffers one short structured response before speaking it, so the application can validate the complete wording. The LLM may rewrite only exact allowlisted generic prompts; it may not receive caller transcripts or collected facts, choose state transitions, invoke integrations directly, bypass pricing policy, or authorize handoffs. Dynamic prompts containing a recognized name or address remain deterministic.
+9. Keep caller-language generation behind `CALLER_LANGUAGE_MODE=deterministic|openai`, default it to `deterministic`, and fall back to the canonical TypeScript prompt on timeout, provider error, schema failure, semantic-anchor failure, extra questions, or prohibited content.
+10. Record latency, token usage, and model-rate cost estimates in a content-free `TTS_STARTED` event. Do not retain the canonical or generated wording in that event.
 
 ## Initial Voice Configuration
 
@@ -46,6 +48,7 @@ ConversationRelay may not be enabled on the production number until all of the f
 - Call health and operator replay remain green and free of transcript text.
 - Rollback to `gather` is timed and verified.
 - The measured ConversationRelay and model usage is added to the pricing model.
+- The OpenAI caller-language path passes a phone-free production smoke with `languageStatus=generated`; its timeout/fallback path is also verified before a controlled call.
 
 Live handoffs and real customer data retain their existing separate approval gates.
 
@@ -53,6 +56,7 @@ Live handoffs and real customer data retain their existing separate approval gat
 
 - The first ConversationRelay release improves the speech transport and barge-in behavior without changing business decisions.
 - Natural generative wording is a separate, measurable release rather than a hidden part of the transport migration.
+- The initial language release favors complete-output validation over direct token streaming. Streaming may be evaluated later only if measured latency requires it and equivalent safeguards remain enforceable.
 - The application adds a WebSocket dependency and must account for long-lived connections during shutdown and capacity testing.
 - The safe rollback is a single environment change to `TWILIO_VOICE_MODE=gather` followed by deployment.
 

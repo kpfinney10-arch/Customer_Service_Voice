@@ -51,6 +51,7 @@ test("server environment loads validated startup dependencies", async () => {
   assert.equal(environment.telnyxReadiness.mode, "dry_run");
   assert.equal(environment.telnyxReadiness.readyForLiveTraffic, false);
   assert.equal(typeof environment.firstCallExtractor.extract, "function");
+  assert.equal(environment.callerLanguageRuntime.mode, "deterministic");
   assert.equal((await environment.callHealthProbe.snapshot()).windowSeconds, 900);
   assert.equal(await environment.apiKeyVerifier.verify("fh-demo", "demo-api-key"), true);
   assert.equal((await environment.tenantConfigStore.get("fh-demo"))?.displayName, "Demo Funeral Home");

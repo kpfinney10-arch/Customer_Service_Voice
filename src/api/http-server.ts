@@ -77,6 +77,8 @@ import {
   twilioConversationRelaySocketUrl,
 } from "../providers/telephony/twilio-conversation-relay-config.js";
 import type { TwilioConversationRelayConfig } from "../providers/telephony/twilio-conversation-relay-config.js";
+import { createCallerLanguageRuntimeFromEnv } from "../config/caller-language-environment.js";
+import type { CallerLanguageRuntime } from "../orchestrator/caller-language.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
 import { OperatorAuthenticationError, OperatorAuthService } from "../security/operator-auth.js";
@@ -98,6 +100,7 @@ export type ApiServerOptions = {
   callHealthProbe?: CallHealthProbe;
   operatorAuthService?: OperatorAuthService;
   twilioConversationRelayConfig?: TwilioConversationRelayConfig;
+  callerLanguageRuntime?: CallerLanguageRuntime;
 };
 
 export function createApiServer(options: ApiServerOptions = {}): http.Server {
@@ -123,6 +126,8 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
   const operatorAuthService = options.operatorAuthService ?? new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false });
   const twilioConversationRelayConfig =
     options.twilioConversationRelayConfig ?? createTwilioConversationRelayConfigFromEnv();
+  const callerLanguageRuntime =
+    options.callerLanguageRuntime ?? createCallerLanguageRuntimeFromEnv();
 
   const server = http.createServer(async (request, response) => {
     const startedAt = Date.now();
@@ -219,6 +224,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
     server,
     service,
     config: twilioConversationRelayConfig,
+    callerLanguageRuntime,
     webhookSignatureVerifier,
     logger,
   });

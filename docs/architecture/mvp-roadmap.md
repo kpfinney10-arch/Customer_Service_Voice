@@ -62,7 +62,7 @@
 - TTS adapter contract and fake adapter.
 - Barge-in and cancellation model.
 - LLM structured-output adapter contract and fake fallback extractor.
-- Constrained streaming caller-language generation after ConversationRelay transport acceptance; state, rules, tools, pricing policy, and handoffs remain deterministic.
+- Constrained caller-language generation after ConversationRelay transport acceptance: the buffered, structured, allowlisted foundation is complete behind a default-off switch with deterministic fallback and content-free usage/cost metering. Direct token streaming remains a later latency optimization; state, rules, tools, pricing policy, and handoffs remain deterministic.
 
 ## Phase 3: Funeral Home Workflow
 

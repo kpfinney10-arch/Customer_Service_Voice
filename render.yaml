@@ -36,6 +36,22 @@ services:
         value: 0.1.0
       - key: FIRST_CALL_EXTRACTOR
         value: deterministic
+      - key: CALLER_LANGUAGE_MODE
+        value: deterministic
+      - key: CALLER_LANGUAGE_OPENAI_MODEL
+        value: gpt-5.6-luna
+      - key: CALLER_LANGUAGE_OPENAI_TIMEOUT_MS
+        value: "1200"
+      - key: CALLER_LANGUAGE_OPENAI_INPUT_USD_PER_MILLION
+        value: "0.20"
+      - key: CALLER_LANGUAGE_OPENAI_CACHED_INPUT_USD_PER_MILLION
+        value: "0.02"
+      - key: CALLER_LANGUAGE_OPENAI_CACHE_WRITE_USD_PER_MILLION
+        value: "0.25"
+      - key: CALLER_LANGUAGE_OPENAI_OUTPUT_USD_PER_MILLION
+        value: "1.20"
+      - key: CALLER_LANGUAGE_OPENAI_PRICING_VERSION
+        value: openai-public-2026-07-30
       - key: TWILIO_HANDOFF_MODE
         value: simulate
       - key: TWILIO_VOICE_MODE

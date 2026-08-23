@@ -415,6 +415,225 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
   }
 });
 
+test("ConversationRelay speaks constrained generated language and stores only metering metadata", async () => {
+  const tenantConfigStore = createDefaultTenantConfigStore();
+  const eventStore = new InMemoryEventStore();
+  const service = createFirstCallService({
+    store: new InMemorySessionStore(),
+    eventStore,
+    tenantConfigStore,
+  });
+  const authToken = "conversation-relay-language-auth-token";
+  const clock = [1_000, 1_042];
+  let generationAttempt = 0;
+  const server = createApiServer({
+    service,
+    tenantConfigStore,
+    webhookSignatureVerifier: new HmacWebhookSignatureVerifier({ twilio: authToken }),
+    logger: createNoopLogger(),
+    twilioReadiness: {
+      provider: "twilio",
+      mode: "signed_webhook",
+      handoffMode: "simulate",
+      readyForLocalTesting: true,
+      readyForPublicTraffic: true,
+      checks: [],
+    },
+    twilioConversationRelayConfig: {
+      mode: "conversation_relay",
+      publicBaseUrl: "wss://voice.lanternbell.com",
+      language: "en-US",
+      ttsProvider: "ElevenLabs",
+      transcriptionProvider: "Deepgram",
+      speechModel: "flux",
+      eotThreshold: "0.85",
+      interruptSensitivity: "medium",
+    },
+    callerLanguageRuntime: {
+      mode: "openai",
+      generator: {
+        async generate(request) {
+          generationAttempt += 1;
+          if (generationAttempt === 2) throw new Error("simulated provider failure");
+          assert.equal(request.purpose, "collect_caller");
+          assert.doesNotMatch(JSON.stringify(request), /My father|passed away at home/);
+          return {
+            text: "May I have your name and best callback phone number in case we get disconnected?",
+            purpose: request.purpose,
+            provider: "openai",
+            model: "gpt-5.6-luna",
+            usage: {
+              inputTokens: 80,
+              cachedInputTokens: 0,
+              cacheWriteTokens: 0,
+              outputTokens: 16,
+              totalTokens: 96,
+            },
+          };
+        },
+      },
+      pricing: {
+        inputUsdPerMillion: 0.2,
+        cachedInputUsdPerMillion: 0.02,
+        cacheWriteUsdPerMillion: 0.25,
+        outputUsdPerMillion: 1.2,
+        version: "test-pricing",
+      },
+      nowMs: () => clock.shift() ?? 1_042,
+    },
+  });
+  const localUrl = await listen(server, 0);
+  const callSid = "CAconversationrelaylanguage000000001";
+  let webSocket: WebSocket | undefined;
+
+  try {
+    const webhookPath = "/v1/tenants/fh-demo/telephony/twilio/webhook";
+    const openingBody = new URLSearchParams({
+      CallSid: callSid,
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
+    const opening = await fetch(`${localUrl}${webhookPath}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `${localUrl}${webhookPath}`,
+          rawBody: openingBody.toString(),
+        }),
+      },
+      body: openingBody,
+    });
+    assert.equal(opening.status, 200);
+
+    const relayPath = "/v1/tenants/fh-demo/telephony/twilio/conversation-relay";
+    webSocket = new WebSocket(localUrl.replace(/^http/, "ws") + relayPath, {
+      headers: {
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `wss://voice.lanternbell.com${relayPath}`,
+          rawBody: "",
+        }),
+      },
+    });
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid,
+      customParameters: { tenantId: "fh-demo" },
+    }));
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "My father passed away at home.",
+      lang: "en-US",
+      last: true,
+    }));
+
+    const spoken = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+      last: boolean;
+    };
+    assert.equal(spoken.type, "text");
+    assert.equal(spoken.last, true);
+    assert.equal(
+      spoken.token,
+      "May I have your name and best callback phone number in case we get disconnected?",
+    );
+
+    await waitForEvent(eventStore, callSid, "TTS_STARTED");
+    const events = await eventStore.listBySession("fh-demo", callSid);
+    const languageEvent = events.find((event) => event.eventType === "TTS_STARTED");
+    assert.deepEqual(languageEvent?.payload, {
+      provider: "twilio_conversation_relay",
+      languageMode: "openai",
+      languageStatus: "generated",
+      languageProvider: "openai",
+      latencyMs: 42,
+      inputTokens: 80,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 16,
+      totalTokens: 96,
+      estimatedCostMicrousd: 35,
+      canonicalTextRetained: false,
+      generatedTextRetained: false,
+      purpose: "collect_caller",
+      model: "gpt-5.6-luna",
+      pricingVersion: "test-pricing",
+    });
+    assert.doesNotMatch(JSON.stringify(languageEvent?.payload), /My father|callback phone number/);
+
+    await closeWebSocket(webSocket);
+    webSocket = undefined;
+    const fallbackCallSid = "CAconversationrelaylanguagefallback0001";
+    const fallbackOpeningBody = new URLSearchParams({
+      CallSid: fallbackCallSid,
+      From: "+15551230002",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
+    const fallbackOpening = await fetch(`${localUrl}${webhookPath}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `${localUrl}${webhookPath}`,
+          rawBody: fallbackOpeningBody.toString(),
+        }),
+      },
+      body: fallbackOpeningBody,
+    });
+    assert.equal(fallbackOpening.status, 200);
+
+    webSocket = new WebSocket(localUrl.replace(/^http/, "ws") + relayPath, {
+      headers: {
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `wss://voice.lanternbell.com${relayPath}`,
+          rawBody: "",
+        }),
+      },
+    });
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: fallbackCallSid,
+      customParameters: { tenantId: "fh-demo" },
+    }));
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "My father passed away at home.",
+      lang: "en-US",
+      last: true,
+    }));
+    const fallbackSpoken = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(fallbackSpoken.type, "text");
+    assert.equal(
+      fallbackSpoken.token,
+      "May I have your name and the best phone number in case we are disconnected?",
+    );
+    await waitForEvent(eventStore, fallbackCallSid, "TTS_STARTED");
+    const fallbackEvents = await eventStore.listBySession("fh-demo", fallbackCallSid);
+    const fallbackEvent = fallbackEvents.find((event) => event.eventType === "TTS_STARTED");
+    assert.equal(fallbackEvent?.payload.languageMode, "openai");
+    assert.equal(fallbackEvent?.payload.languageStatus, "fallback");
+    assert.equal(fallbackEvent?.payload.languageProvider, "deterministic");
+    assert.equal(fallbackEvent?.payload.fallbackReason, "provider_error");
+    assert.equal(fallbackEvent?.payload.totalTokens, 0);
+    assert.equal(fallbackEvent?.payload.estimatedCostMicrousd, 0);
+  } finally {
+    webSocket?.close();
+    await closeServer(server);
+  }
+});
+
 function onceOpen(webSocket: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
     webSocket.once("open", resolve);

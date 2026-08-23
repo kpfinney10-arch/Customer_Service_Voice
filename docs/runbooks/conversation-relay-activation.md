@@ -1,6 +1,6 @@
 # Controlled ConversationRelay Activation
 
-Use this runbook only after the account owner accepts Twilio's Predictive and Generative AI/ML Features Addendum. The first activation changes only the speech transport. It does not enable live transfers, real customer data, automated pricing, or generative caller-facing wording.
+Use this runbook only after the account owner accepts Twilio's Predictive and Generative AI/ML Features Addendum. The first activation changes only the speech transport. Generative caller-facing wording is a later, separate switch. Neither activation enables live transfers, real customer data, or automated pricing.
 
 ## Preconditions
 
@@ -53,6 +53,40 @@ After the digital smoke passes, place one inbound call from the owner's phone. U
 
 Record the Twilio Call SID, Render release, test script, outcome, and any speech-quality observations.
 
+## Constrained Caller-Language Activation
+
+Use this stage only after the transport-only controlled call passes. The deterministic TypeScript orchestrator continues to choose the state, required fact, tools, pricing outcome, handoff, and canonical response. OpenAI receives only an exact allowlisted generic canonical prompt; it does not receive the caller transcript or collected facts. Dynamic prompts containing a recognized name or address bypass OpenAI.
+
+Preconditions:
+
+- The exact release passes typecheck, build, and the complete automated suite with `CALLER_LANGUAGE_MODE=deterministic`.
+- `OPENAI_API_KEY` is stored only as a Render secret.
+- `CALLER_LANGUAGE_OPENAI_MODEL=gpt-5.6-luna` and the reviewed pricing-rate variables match the approved model price sheet.
+- `CALLER_LANGUAGE_OPENAI_TIMEOUT_MS=1200` is the initial hard deadline.
+- The owner approves a phone-free OpenAI request and a later non-sensitive controlled call. Real-customer data retains its separate legal/privacy gate.
+
+Activation:
+
+1. Change only `CALLER_LANGUAGE_MODE` from `deterministic` to `openai`.
+2. Deploy the exact approved commit and verify `/version`, `/health`, and `/health/calls`.
+3. Run the phone-free smoke with the generated-language acceptance flag:
+
+```sh
+export CALLER_LANGUAGE_EXPECT_STATUS=generated
+npm run smoke:twilio-conversation-relay
+```
+
+4. Inspect the smoke session's `TTS_STARTED` event. It must report `languageMode=openai`, `languageStatus=generated`, positive token usage, bounded latency, an estimated micro-USD cost, and both text-retention flags as `false`.
+5. Run a provider-failure drill in a non-production environment and confirm the caller receives the exact canonical TypeScript prompt with `languageStatus=fallback`.
+6. Only after those checks pass, place one non-sensitive controlled call. Confirm the generated questions remain short, ask only for the expected field, and never add pricing, promises, transfers, or other requests.
+
+Immediate language rollback:
+
+1. Set `CALLER_LANGUAGE_MODE=deterministic`.
+2. Redeploy the same code commit.
+3. Run the smoke with `CALLER_LANGUAGE_EXPECT_STATUS=deterministic`.
+4. Confirm call health is green. `TWILIO_VOICE_MODE=conversation_relay` may remain active if the issue is limited to OpenAI wording.
+
 ## Immediate Rollback
 
 If startup, digital smoke, phone audio, replay, or health checks fail:
@@ -62,4 +96,4 @@ If startup, digital smoke, phone audio, replay, or health checks fail:
 3. Confirm the signed Twilio scenario matrix again returns `<Gather>` and passes `7/7`.
 4. Confirm `/health/calls` is green before ending the drill.
 
-Do not enable the OpenAI streaming language layer or live handoffs during this transport-only activation.
+Do not enable live handoffs during either activation. Do not combine a speech-transport change and a caller-language-mode change in the same release drill.

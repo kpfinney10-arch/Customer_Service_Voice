@@ -10,6 +10,7 @@ import { redactText } from "../security/redaction.js";
 import { createCallSession, updateSession } from "../session/call-session.js";
 import type { CallSession } from "../session/call-session.js";
 import type { SessionStore } from "../session/in-memory-session-store.js";
+import type { CallerLanguageOutcome } from "../orchestrator/caller-language.js";
 import type { TenantConfig, TenantConfigStore } from "../tenants/tenant-config.js";
 import { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolResult } from "../tools/tool-registry.js";
@@ -55,6 +56,9 @@ export type FirstCallService = {
   recordProviderCommands: (input: RecordProviderCommandsInput) => Promise<RecordProviderCommandsOutput>;
   recordHandoffOutcome: (input: RecordHandoffOutcomeInput) => Promise<RecordHandoffOutcomeOutput>;
   recordPromptRepeat: (input: RecordPromptRepeatInput) => Promise<RecordPromptRepeatOutput>;
+  recordCallerLanguageOutput: (
+    input: RecordCallerLanguageOutputInput,
+  ) => Promise<RecordCallerLanguageOutputOutput>;
   listEvents: (input: ListFirstCallEventsInput) => Promise<ListFirstCallEventsOutput>;
   replaySession: (input: ReplayFirstCallSessionInput) => Promise<ReplayFirstCallSessionOutput>;
   listTenantActivity: (input: ListTenantActivityInput) => Promise<ListTenantActivityOutput>;
@@ -168,6 +172,18 @@ export type RecordPromptRepeatInput = {
 export type RecordPromptRepeatOutput = {
   event: CallEvent;
   repeatCount: number;
+};
+
+export type RecordCallerLanguageOutputInput = {
+  tenantId: string;
+  sessionId: string;
+  provider: string;
+  outcome: CallerLanguageOutcome;
+  correlationId?: string;
+};
+
+export type RecordCallerLanguageOutputOutput = {
+  event: CallEvent;
 };
 
 export type ListFirstCallEventsInput = {
@@ -637,6 +653,43 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       });
       await options.eventStore?.append([event]);
       return { event, repeatCount };
+    },
+
+    async recordCallerLanguageOutput(input) {
+      const existingSession = await options.store.get(input.tenantId, input.sessionId);
+      if (!existingSession) {
+        throw new FirstCallServiceError("SESSION_NOT_FOUND", "Call session was not found.");
+      }
+      const payload: Record<string, unknown> = {
+        provider: input.provider,
+        languageMode: input.outcome.mode,
+        languageStatus: input.outcome.status,
+        languageProvider: input.outcome.provider,
+        latencyMs: input.outcome.latencyMs,
+        inputTokens: input.outcome.usage.inputTokens,
+        cachedInputTokens: input.outcome.usage.cachedInputTokens,
+        cacheWriteTokens: input.outcome.usage.cacheWriteTokens,
+        outputTokens: input.outcome.usage.outputTokens,
+        totalTokens: input.outcome.usage.totalTokens,
+        estimatedCostMicrousd: input.outcome.estimatedCostMicrousd,
+        canonicalTextRetained: false,
+        generatedTextRetained: false,
+      };
+      addIfPresent(payload, "purpose", input.outcome.purpose);
+      addIfPresent(payload, "model", input.outcome.model);
+      addIfPresent(payload, "fallbackReason", input.outcome.fallbackReason);
+      addIfPresent(payload, "pricingVersion", input.outcome.pricingVersion);
+      const event = createCallEvent({
+        eventId: idFactory(),
+        eventType: "TTS_STARTED",
+        callId: existingSession.callId,
+        sessionId: existingSession.sessionId,
+        tenantId: existingSession.tenantId,
+        correlationId: input.correlationId ?? idFactory(),
+        payload,
+      });
+      await options.eventStore?.append([event]);
+      return { event };
     },
 
     async listEvents(input) {

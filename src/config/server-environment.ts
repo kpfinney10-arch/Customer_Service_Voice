@@ -37,6 +37,8 @@ import { OperatorAuthService } from "../security/operator-auth.js";
 import type { OperatorUser } from "../security/operator-auth-store.js";
 import { parseOperatorUsers } from "../security/operator-users-config.js";
 import type { OperatorAuthStore } from "../security/operator-auth-store.js";
+import { createCallerLanguageRuntimeFromEnv } from "./caller-language-environment.js";
+import type { CallerLanguageRuntime } from "../orchestrator/caller-language.js";
 
 export type ServerEnvironment = {
   host: string;
@@ -61,6 +63,7 @@ export type ServerEnvironment = {
   twilioReadiness: TwilioReadiness;
   twilioConversationRelayConfig: TwilioConversationRelayConfig;
   firstCallExtractor: FirstCallExtractor;
+  callerLanguageRuntime: CallerLanguageRuntime;
   operatorAuthService: OperatorAuthService;
   operatorAuthStore: OperatorAuthStore;
   operatorUsers: OperatorUser[];
@@ -113,6 +116,7 @@ export function loadServerEnvironment(env: Record<string, string | undefined> = 
     twilioReadiness: evaluateTwilioReadinessFromEnv(env),
     twilioConversationRelayConfig: createTwilioConversationRelayConfigFromEnv(env),
     firstCallExtractor: createFirstCallExtractorFromEnv(env),
+    callerLanguageRuntime: createCallerLanguageRuntimeFromEnv(env),
     operatorAuthService: new OperatorAuthService(persistence.operatorAuthStore, {
       absoluteTtlMs: parseDurationMinutes(env.OPERATOR_SESSION_ABSOLUTE_MINUTES, 480, "OPERATOR_SESSION_ABSOLUTE_MINUTES"),
       idleTtlMs: parseDurationMinutes(env.OPERATOR_SESSION_IDLE_MINUTES, 30, "OPERATOR_SESSION_IDLE_MINUTES"),

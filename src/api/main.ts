@@ -31,6 +31,7 @@ try {
     telnyxReadiness: environment.telnyxReadiness,
     twilioReadiness: environment.twilioReadiness,
     twilioConversationRelayConfig: environment.twilioConversationRelayConfig,
+    callerLanguageRuntime: environment.callerLanguageRuntime,
     callHealthProbe: environment.callHealthProbe,
     operatorAuthService: environment.operatorAuthService,
     logger,

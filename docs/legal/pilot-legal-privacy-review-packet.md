@@ -150,6 +150,7 @@ No HIPAA-regulated real-data pilot should begin unless counsel resolves this sec
 - Confirm Cloudflare's DNS-only role and re-review it if proxying, tunnels, WAF, analytics, or other processing is enabled later.
 - Confirm that UptimeRobot receives only content-free health status and re-review if monitoring scope changes.
 - Keep OpenAI disabled for real call data unless counsel and the customer approve the OpenAI contractual/data-processing path and engineering completes a separate privacy review.
+- The caller-language foundation is narrower than the optional OpenAI extraction path: it sends only an exact allowlisted generic TypeScript prompt with `store=false`, never the caller transcript or collected facts. Prompts containing dynamic recognized names or addresses stay deterministic. It remains disabled by default and still requires the documented controlled activation review before production use.
 
 ### 8. Funeral-home operating rules
 

@@ -2,6 +2,10 @@ import type http from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import type { FirstCallService } from "../../api/first-call-service.js";
 import type { Logger } from "../../observability/logger.js";
+import {
+  generateCallerLanguage,
+} from "../../orchestrator/caller-language.js";
+import type { CallerLanguageRuntime } from "../../orchestrator/caller-language.js";
 import type { WebhookSignatureVerifier } from "../../security/webhook-signature.js";
 import {
   handleTelephonyCallEnd,
@@ -53,6 +57,7 @@ export type TwilioConversationRelayServerOptions = {
   config: TwilioConversationRelayConfig;
   webhookSignatureVerifier: WebhookSignatureVerifier;
   logger: Pick<Logger, "error">;
+  callerLanguageRuntime: CallerLanguageRuntime;
   maxConnections?: number;
 };
 
@@ -127,6 +132,7 @@ async function acceptUpgrade(
       tenantId,
       service: input.service,
       logger: input.logger,
+      callerLanguageRuntime: input.callerLanguageRuntime,
     });
   });
 }
@@ -136,6 +142,7 @@ function handleConnection(input: {
   tenantId: string;
   service: FirstCallService;
   logger: Pick<Logger, "error">;
+  callerLanguageRuntime: CallerLanguageRuntime;
 }): void {
   let callSid: string | undefined;
   let ended = false;
@@ -194,7 +201,23 @@ function handleConnection(input: {
             );
             return;
           }
-          sendText(input.webSocket, output.responseText);
+          const languageOutcome = await generateCallerLanguage(input.callerLanguageRuntime, {
+            tenantId: input.tenantId,
+            callId: callSid,
+            canonicalText: output.responseText,
+          });
+          sendText(input.webSocket, languageOutcome.text);
+          await input.service.recordCallerLanguageOutput({
+            tenantId: input.tenantId,
+            sessionId: callSid,
+            provider: "twilio_conversation_relay",
+            outcome: languageOutcome,
+            correlationId: callSid,
+          }).catch(() => {
+            input.logger.error("ConversationRelay caller-language metering could not be recorded.", {
+              type: "conversation_relay_language_metering_failed",
+            });
+          });
           return;
         }
 

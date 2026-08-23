@@ -1173,3 +1173,23 @@ Next action:
 1. Review, commit, push, and manually deploy the spoken-address/retry release candidate after owner approval.
 2. Verify the exact production version, core health, Twilio readiness, and the phone-free ConversationRelay smoke.
 3. Place one controlled call. Confirm the spoken address is accepted on the first attempt; if it is not, confirm the constrained clarification occurs once and the caller is then routed to the simulated follow-up rather than trapped in a loop.
+
+## 2026-08-23 spoken-address acceptance and constrained caller-language foundation
+
+- Render deployment `dep-da5fhb3m8hqs73ch60pg` reached Live on commit `356d0c2d55a063fb9538bdb0150bd58a45d6a018`. Production version, core health, call health, Twilio readiness, and the phone-free ConversationRelay smoke all passed.
+- Controlled call `CA8ce28df6b9f1bbee1582bac5f1a909d6` accepted the spoken pickup address on the first attempt. Replay showed the callback number, decedent, and pickup address captured with zero retries; CRM and simulated dispatch completed; raw transcript retention remained disabled. The owner confirmed the address behavior sounded correct.
+- Added the next approved milestone behind `CALLER_LANGUAGE_MODE=deterministic|openai`, with `deterministic` as the default and rollback path. Production configuration is not changed by this local implementation.
+- OpenAI can rewrite only exact allowlisted generic canonical prompts. Caller transcripts and collected facts are never included in the request, and dynamic wording containing a recognized name or address bypasses OpenAI.
+- The Responses API request uses strict structured output, `store=false`, no tools, `reasoning.effort=none`, a privacy-preserving hashed safety identifier, a 120-token cap, and an initial 1,200-millisecond deadline. The default model is `gpt-5.6-luna`.
+- The complete generated response is validated before it is spoken. Validation requires the approved purpose and semantic anchors, exactly one question, no numeric digits, no extra fact requests, and no pricing, promises, transfers, medical advice, or legal advice. Timeout, provider, schema, or validation failures return the exact deterministic TypeScript prompt.
+- `TTS_STARTED` now records content-free caller-language mode/status, latency, token usage, pricing version, and estimated cost in micro-USD. Neither canonical nor generated wording is retained in the event.
+- Default Luna estimates use the OpenAI public rates effective 2026-07-30: `$0.20` per million input tokens, `$0.02` cached input, `$0.25` cache writes, and `$1.20` output. A model override requires explicit replacement rates to prevent silent cost misreporting.
+- The phone-free ConversationRelay smoke now includes a nonterminal language turn and can require `CALLER_LANGUAGE_EXPECT_STATUS=deterministic` or `generated`, in addition to the existing pricing-containment checks.
+- TypeScript typecheck, production build, and the complete automated suite pass `343/343`.
+
+Next action:
+
+1. Review, commit, and push the default-off caller-language foundation after owner approval.
+2. Deploy the exact commit while `CALLER_LANGUAGE_MODE=deterministic`; verify version, health, and the smoke with deterministic language status so the working call path is unchanged.
+3. In a separate approved change, store `OPENAI_API_KEY` as a Render secret and set `CALLER_LANGUAGE_MODE=openai`.
+4. Run the phone-free smoke with `CALLER_LANGUAGE_EXPECT_STATUS=generated`, inspect content-free metering, and only then place one non-sensitive controlled call. Roll back only the language mode if wording or latency fails acceptance.
