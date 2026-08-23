@@ -35,6 +35,27 @@ async function main() {
   );
   assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
   assertEqual(readiness.twilioReadiness?.handoffMode, "simulate", "Twilio handoff mode");
+  assertEqual(
+    readiness.callerLanguageReadiness?.mode,
+    expectedLanguageStatus === "generated" ? "openai" : "deterministic",
+    "caller-language readiness mode",
+  );
+  assertEqual(readiness.callerLanguageReadiness?.ready, true, "caller-language readiness");
+  assertEqual(
+    readiness.callerLanguageReadiness?.callerDataSentToModel,
+    false,
+    "caller-language preparation caller-data isolation",
+  );
+  if (expectedLanguageStatus === "generated") {
+    assertEqual(
+      readiness.callerLanguageReadiness?.preparedPromptCount,
+      readiness.callerLanguageReadiness?.approvedPromptCount,
+      "prepared caller-language prompt count",
+    );
+    if (!(readiness.callerLanguageReadiness?.preparationUsage?.totalTokens > 0)) {
+      throw new Error("OpenAI caller-language preparation must include positive one-time token usage.");
+    }
+  }
 
   const webhookPath = `/v1/tenants/${tenantId}/telephony/twilio/webhook`;
   const openingTwiml = await postTwilioForm(webhookPath, {
@@ -170,8 +191,15 @@ async function main() {
     );
     if (expectedLanguageStatus === "generated") {
       assertEqual(languageEvent.payload?.languageMode, "openai", "caller-language mode");
-      if (!(languageEvent.payload?.totalTokens > 0)) {
-        throw new Error("generated caller language must include positive token usage.");
+      assertEqual(languageEvent.payload?.cacheHit, true, "caller-language cache hit");
+      assertEqual(languageEvent.payload?.totalTokens, 0, "per-call caller-language tokens");
+      assertEqual(
+        languageEvent.payload?.estimatedCostMicrousd,
+        0,
+        "per-call caller-language generation cost",
+      );
+      if (!(languageEvent.payload?.latencyMs >= 0 && languageEvent.payload?.latencyMs <= 100)) {
+        throw new Error("cached caller language must be served within 100 milliseconds.");
       }
     }
   } finally {

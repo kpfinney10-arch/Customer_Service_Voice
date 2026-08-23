@@ -11,6 +11,11 @@ import {
 } from "../src/security/webhook-signature.js";
 import { InMemorySessionStore } from "../src/session/in-memory-session-store.js";
 import { createDefaultTenantConfigStore } from "../src/tenants/tenant-config.js";
+import {
+  createCallerLanguageCache,
+  prepareCallerLanguageRuntime,
+} from "../src/orchestrator/caller-language.js";
+import type { CallerLanguageRuntime } from "../src/orchestrator/caller-language.js";
 
 test("ConversationRelay routes a pricing prompt through the deterministic orchestrator and fails closed", async () => {
   const tenantConfigStore = createDefaultTenantConfigStore();
@@ -424,8 +429,53 @@ test("ConversationRelay speaks constrained generated language and stores only me
     tenantConfigStore,
   });
   const authToken = "conversation-relay-language-auth-token";
-  const clock = [1_000, 1_042];
   let generationAttempt = 0;
+  let generationShouldFail = false;
+  const callerLanguageRuntime: CallerLanguageRuntime = {
+    mode: "openai",
+    generator: {
+      async generate(request) {
+        generationAttempt += 1;
+        if (generationShouldFail) throw new Error("simulated provider failure");
+        assert.equal(request.tenantId, "system");
+        assert.match(request.callId, /^caller-language-preparation-/);
+        assert.doesNotMatch(JSON.stringify(request), /My father|passed away at home/);
+        return {
+          text: request.purpose === "collect_caller"
+            ? "May I have your name and best callback phone number in case we get disconnected?"
+            : request.purpose === "collect_name"
+              ? "May I have your name?"
+              : request.purpose === "retry_phone_digits"
+                ? "I heard a phone number, but I want to make sure I have all ten digits correctly. Would you please say the best callback number one digit at a time?"
+                : request.purpose === "retry_address_format"
+                  ? "I am sorry, I still do not have the address clearly. Would you please say only the house number one digit at a time, followed by the street name and city?"
+              : request.canonicalText,
+          purpose: request.purpose,
+          provider: "openai",
+          model: "gpt-5.6-luna",
+          usage: {
+            inputTokens: 80,
+            cachedInputTokens: 0,
+            cacheWriteTokens: 0,
+            outputTokens: 16,
+            totalTokens: 96,
+          },
+        };
+      },
+    },
+    pricing: {
+      inputUsdPerMillion: 0.2,
+      cachedInputUsdPerMillion: 0.02,
+      cacheWriteUsdPerMillion: 0.25,
+      outputUsdPerMillion: 1.2,
+      version: "test-pricing",
+    },
+    cache: createCallerLanguageCache(),
+    nowMs: () => 1_000,
+  };
+  const prepared = await prepareCallerLanguageRuntime(callerLanguageRuntime);
+  assert.equal(prepared.ready, true);
+  assert.equal(generationAttempt, 8);
   const server = createApiServer({
     service,
     tenantConfigStore,
@@ -449,38 +499,7 @@ test("ConversationRelay speaks constrained generated language and stores only me
       eotThreshold: "0.85",
       interruptSensitivity: "medium",
     },
-    callerLanguageRuntime: {
-      mode: "openai",
-      generator: {
-        async generate(request) {
-          generationAttempt += 1;
-          if (generationAttempt === 2) throw new Error("simulated provider failure");
-          assert.equal(request.purpose, "collect_caller");
-          assert.doesNotMatch(JSON.stringify(request), /My father|passed away at home/);
-          return {
-            text: "May I have your name and best callback phone number in case we get disconnected?",
-            purpose: request.purpose,
-            provider: "openai",
-            model: "gpt-5.6-luna",
-            usage: {
-              inputTokens: 80,
-              cachedInputTokens: 0,
-              cacheWriteTokens: 0,
-              outputTokens: 16,
-              totalTokens: 96,
-            },
-          };
-        },
-      },
-      pricing: {
-        inputUsdPerMillion: 0.2,
-        cachedInputUsdPerMillion: 0.02,
-        cacheWriteUsdPerMillion: 0.25,
-        outputUsdPerMillion: 1.2,
-        version: "test-pricing",
-      },
-      nowMs: () => clock.shift() ?? 1_042,
-    },
+    callerLanguageRuntime,
   });
   const localUrl = await listen(server, 0);
   const callSid = "CAconversationrelaylanguage000000001";
@@ -551,23 +570,29 @@ test("ConversationRelay speaks constrained generated language and stores only me
       languageMode: "openai",
       languageStatus: "generated",
       languageProvider: "openai",
-      latencyMs: 42,
-      inputTokens: 80,
+      latencyMs: 0,
+      inputTokens: 0,
       cachedInputTokens: 0,
       cacheWriteTokens: 0,
-      outputTokens: 16,
-      totalTokens: 96,
-      estimatedCostMicrousd: 35,
+      outputTokens: 0,
+      totalTokens: 0,
+      estimatedCostMicrousd: 0,
       canonicalTextRetained: false,
       generatedTextRetained: false,
       purpose: "collect_caller",
       model: "gpt-5.6-luna",
       pricingVersion: "test-pricing",
+      cacheHit: true,
+      preparationLatencyMs: 0,
     });
     assert.doesNotMatch(JSON.stringify(languageEvent?.payload), /My father|callback phone number/);
+    assert.equal(generationAttempt, 8);
 
     await closeWebSocket(webSocket);
     webSocket = undefined;
+    generationShouldFail = true;
+    const degraded = await prepareCallerLanguageRuntime(callerLanguageRuntime, { force: true });
+    assert.equal(degraded.ready, false);
     const fallbackCallSid = "CAconversationrelaylanguagefallback0001";
     const fallbackOpeningBody = new URLSearchParams({
       CallSid: fallbackCallSid,

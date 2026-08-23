@@ -1193,3 +1193,23 @@ Next action:
 2. Deploy the exact commit while `CALLER_LANGUAGE_MODE=deterministic`; verify version, health, and the smoke with deterministic language status so the working call path is unchanged.
 3. In a separate approved change, store `OPENAI_API_KEY` as a Render secret and set `CALLER_LANGUAGE_MODE=openai`.
 4. Run the phone-free smoke with `CALLER_LANGUAGE_EXPECT_STATUS=generated`, inspect content-free metering, and only then place one non-sensitive controlled call. Roll back only the language mode if wording or latency fails acceptance.
+
+## 2026-08-23 release-scoped caller-language preparation
+
+- Production probes proved that awaiting OpenAI during a live caller turn was not acceptable: observed server-side generation took roughly 1.7 seconds on one success and reached the 4-second deadline on another attempt. Production was returned to `CALLER_LANGUAGE_MODE=deterministic`; the natural ConversationRelay transport and simulated handoffs remained active.
+- The release candidate now generates and validates all eight exact allowlisted generic rewrites once during process startup when `CALLER_LANGUAGE_MODE=openai`. Preparation uses only synthetic `system` identifiers and generic source prompts; it never receives a caller transcript, collected fact, caller identifier, or tenant identifier.
+- Validated wording is held only in process memory. A deployment or restart invalidates it and prepares a new release-scoped cache. Generated wording is not written to the database, replay, event store, or readiness response.
+- The live ConversationRelay path no longer invokes or awaits OpenAI. It performs an in-memory lookup; a missing, unprepared, timed-out, provider-failed, or validation-failed entry speaks the exact deterministic TypeScript prompt immediately.
+- The authenticated Twilio readiness response now includes content-free caller-language preparation status, approved/prepared/failed counts, failure categories, aggregate one-time token usage, estimated preparation cost, and privacy flags.
+- The structured `caller_language_preparation` startup log records the same one-time metering. Per-call `TTS_STARTED` records `cacheHit=true`, lookup latency, zero new model tokens, and zero new model cost so startup cost is not multiplied by the number of callers.
+- The phone-free production smoke now requires complete preparation readiness, positive one-time preparation usage, a generated cache hit, no more than 100 milliseconds of lookup latency, zero duplicated per-call model cost, and no retained wording.
+- ADR 0003 records the release-scoped cache boundary, failure behavior, privacy model, and cost-accounting decision. The activation runbook was updated to require readiness before any controlled phone call.
+- TypeScript typecheck, production build, focused integration coverage, and the complete automated suite pass `344/344`. `git diff --check` is clean.
+- These changes are local only. They have not been committed, pushed, deployed, or activated. Production remains on the previously verified commit `08bc1594df27d5e703ff6b45c088f674c2a999b5` with deterministic caller language.
+
+Next action:
+
+1. Review the release candidate and obtain owner approval before committing or pushing.
+2. Deploy the exact commit while caller language remains deterministic; verify version, health, authenticated Twilio readiness, and the deterministic phone-free smoke.
+3. In a separate approved activation, change only `CALLER_LANGUAGE_MODE` to `openai`, deploy, and require full startup-cache readiness plus the generated phone-free smoke before placing a controlled call.
+4. If any entry is degraded, the smoke fails or wording is unacceptable, restore deterministic mode without changing the working ConversationRelay transport.

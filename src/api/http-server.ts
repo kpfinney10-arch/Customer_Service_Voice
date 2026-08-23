@@ -78,6 +78,7 @@ import {
 } from "../providers/telephony/twilio-conversation-relay-config.js";
 import type { TwilioConversationRelayConfig } from "../providers/telephony/twilio-conversation-relay-config.js";
 import { createCallerLanguageRuntimeFromEnv } from "../config/caller-language-environment.js";
+import { getCallerLanguageReadiness } from "../orchestrator/caller-language.js";
 import type { CallerLanguageRuntime } from "../orchestrator/caller-language.js";
 import { createFirstCallService, FirstCallServiceError } from "./first-call-service.js";
 import type { FirstCallService } from "./first-call-service.js";
@@ -159,6 +160,7 @@ export function createApiServer(options: ApiServerOptions = {}): http.Server {
         callHealthProbe,
         operatorAuthService,
         twilioConversationRelayConfig,
+        callerLanguageRuntime,
         request,
         response,
       );
@@ -257,6 +259,7 @@ export async function handleApiRequest(
   callHealthProbe: CallHealthProbe = createHealthyCallHealthProbe(),
   operatorAuthService: OperatorAuthService = new OperatorAuthService(new InMemoryOperatorAuthStore(), { secureCookie: false }),
   twilioConversationRelayConfig: TwilioConversationRelayConfig = createTwilioConversationRelayConfigFromEnv(),
+  callerLanguageRuntime: CallerLanguageRuntime = createCallerLanguageRuntimeFromEnv(),
 ): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(request.url);
@@ -420,6 +423,7 @@ export async function handleApiRequest(
       response = jsonResponse(200, {
         tenantReadiness: evaluateTenantReadiness(config),
         twilioReadiness,
+        callerLanguageReadiness: getCallerLanguageReadiness(callerLanguageRuntime),
       });
       response.headers.set("x-request-id", requestId);
       return response;
@@ -932,6 +936,7 @@ async function routeRequest(
   callHealthProbe: CallHealthProbe,
   operatorAuthService: OperatorAuthService,
   twilioConversationRelayConfig: TwilioConversationRelayConfig,
+  callerLanguageRuntime: CallerLanguageRuntime,
   request: http.IncomingMessage,
   response: http.ServerResponse,
 ): Promise<void> {
@@ -1060,6 +1065,7 @@ async function routeRequest(
     sendJson(response, 200, {
       tenantReadiness: evaluateTenantReadiness(config),
       twilioReadiness,
+      callerLanguageReadiness: getCallerLanguageReadiness(callerLanguageRuntime),
     });
     return;
   }

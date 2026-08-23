@@ -43,6 +43,31 @@ export type CallerLanguagePricing = {
   version: string;
 };
 
+type PreparedCallerLanguage = {
+  text: string;
+  provider: "openai";
+  model: string;
+  purpose: CallerLanguagePurpose;
+  preparedAtMs: number;
+  generationLatencyMs: number;
+};
+
+export type CallerLanguagePreparationStatus =
+  | "not_required"
+  | "not_started"
+  | "preparing"
+  | "ready"
+  | "degraded";
+
+export type CallerLanguageCache = {
+  entries: ReadonlyMap<CallerLanguagePurpose, PreparedCallerLanguage>;
+  failures: ReadonlyMap<CallerLanguagePurpose, CallerLanguageFallbackReason>;
+  status: Exclude<CallerLanguagePreparationStatus, "not_required">;
+  preparationUsage: CallerLanguageUsage;
+  preparationEstimatedCostMicrousd: number;
+  preparationPromise: Promise<CallerLanguageReadiness> | undefined;
+};
+
 export type CallerLanguageRuntime =
   | {
       mode: "deterministic";
@@ -52,6 +77,7 @@ export type CallerLanguageRuntime =
       mode: "openai";
       generator: CallerLanguageGenerator;
       pricing: CallerLanguagePricing;
+      cache: CallerLanguageCache;
       nowMs?: () => number;
     };
 
@@ -59,6 +85,7 @@ export type CallerLanguageStatus = "deterministic" | "generated" | "skipped" | "
 
 export type CallerLanguageFallbackReason =
   | "unapproved_canonical_text"
+  | "cache_not_ready"
   | "timeout"
   | "provider_error"
   | "invalid_output";
@@ -75,6 +102,26 @@ export type CallerLanguageOutcome = {
   usage: CallerLanguageUsage;
   estimatedCostMicrousd: number;
   pricingVersion?: string;
+  cacheHit?: boolean;
+  preparationLatencyMs?: number;
+};
+
+export type CallerLanguageReadiness = {
+  mode: CallerLanguageRuntime["mode"];
+  ready: boolean;
+  preparationStatus: CallerLanguagePreparationStatus;
+  approvedPromptCount: number;
+  preparedPromptCount: number;
+  failedPromptCount: number;
+  failures: Array<{
+    purpose: CallerLanguagePurpose;
+    reason: CallerLanguageFallbackReason;
+  }>;
+  preparationUsage: CallerLanguageUsage;
+  preparationEstimatedCostMicrousd: number;
+  canonicalTextSentToModel: boolean;
+  callerDataSentToModel: false;
+  generatedTextDurablyRetained: false;
 };
 
 export class CallerLanguageGenerationError extends Error {
@@ -144,6 +191,80 @@ export function createDeterministicCallerLanguageRuntime(): CallerLanguageRuntim
   return { mode: "deterministic" };
 }
 
+export function createCallerLanguageCache(): CallerLanguageCache {
+  return {
+    entries: new Map(),
+    failures: new Map(),
+    status: "not_started",
+    preparationUsage: { ...zeroUsage },
+    preparationEstimatedCostMicrousd: 0,
+    preparationPromise: undefined,
+  };
+}
+
+export async function prepareCallerLanguageRuntime(
+  runtime: CallerLanguageRuntime,
+  options: { force?: boolean } = {},
+): Promise<CallerLanguageReadiness> {
+  if (runtime.mode === "deterministic") return getCallerLanguageReadiness(runtime);
+  if (!options.force && runtime.cache.preparationPromise) {
+    return runtime.cache.preparationPromise;
+  }
+  if (!options.force && (runtime.cache.status === "ready" || runtime.cache.status === "degraded")) {
+    return getCallerLanguageReadiness(runtime);
+  }
+
+  runtime.cache.status = "preparing";
+  const preparation = prepareApprovedPrompts(runtime);
+  runtime.cache.preparationPromise = preparation;
+  try {
+    return await preparation;
+  } finally {
+    if (runtime.cache.preparationPromise === preparation) {
+      runtime.cache.preparationPromise = undefined;
+    }
+  }
+}
+
+export function getCallerLanguageReadiness(
+  runtime: CallerLanguageRuntime,
+): CallerLanguageReadiness {
+  if (runtime.mode === "deterministic") {
+    return {
+      mode: "deterministic",
+      ready: true,
+      preparationStatus: "not_required",
+      approvedPromptCount: approvedCanonicalText.size,
+      preparedPromptCount: 0,
+      failedPromptCount: 0,
+      failures: [],
+      preparationUsage: { ...zeroUsage },
+      preparationEstimatedCostMicrousd: 0,
+      canonicalTextSentToModel: false,
+      callerDataSentToModel: false,
+      generatedTextDurablyRetained: false,
+    };
+  }
+
+  const failures = [...runtime.cache.failures.entries()]
+    .map(([purpose, reason]) => ({ purpose, reason }))
+    .sort((left, right) => left.purpose.localeCompare(right.purpose));
+  return {
+    mode: "openai",
+    ready: runtime.cache.status === "ready",
+    preparationStatus: runtime.cache.status,
+    approvedPromptCount: approvedCanonicalText.size,
+    preparedPromptCount: runtime.cache.entries.size,
+    failedPromptCount: runtime.cache.failures.size,
+    failures,
+    preparationUsage: { ...runtime.cache.preparationUsage },
+    preparationEstimatedCostMicrousd: runtime.cache.preparationEstimatedCostMicrousd,
+    canonicalTextSentToModel: runtime.cache.status !== "not_started",
+    callerDataSentToModel: false,
+    generatedTextDurablyRetained: false,
+  };
+}
+
 export async function generateCallerLanguage(
   runtime: CallerLanguageRuntime,
   input: { tenantId: string; callId: string; canonicalText: string },
@@ -164,38 +285,95 @@ export async function generateCallerLanguage(
 
   const nowMs = runtime.nowMs ?? Date.now;
   const startedAt = nowMs();
-  try {
-    const generated = await runtime.generator.generate({
-      tenantId: input.tenantId,
-      callId: input.callId,
-      purpose,
-      canonicalText: input.canonicalText,
-    });
-    const text = validateGeneratedText(generated, purpose);
-    const usage = normalizeUsage(generated.usage);
-    return {
-      text,
-      mode: "openai",
-      status: "generated",
-      provider: generated.provider,
-      purpose,
-      model: generated.model,
-      latencyMs: Math.max(0, nowMs() - startedAt),
-      usage,
-      estimatedCostMicrousd: estimateCostMicrousd(usage, runtime.pricing),
-      pricingVersion: runtime.pricing.version,
-    };
-  } catch (error) {
-    const reason =
-      error instanceof CallerLanguageGenerationError ? error.code : "provider_error";
+  const prepared = runtime.cache.entries.get(purpose);
+  if (!prepared) {
     return deterministicOutcome(
       input.canonicalText,
       "fallback",
       Math.max(0, nowMs() - startedAt),
-      reason,
+      runtime.cache.failures.get(purpose) ?? "cache_not_ready",
       purpose,
     );
   }
+
+  return {
+    text: prepared.text,
+    mode: "openai",
+    status: "generated",
+    provider: prepared.provider,
+    purpose,
+    model: prepared.model,
+    latencyMs: Math.max(0, nowMs() - startedAt),
+    usage: { ...zeroUsage },
+    estimatedCostMicrousd: 0,
+    pricingVersion: runtime.pricing.version,
+    cacheHit: true,
+    preparationLatencyMs: prepared.generationLatencyMs,
+  };
+}
+
+async function prepareApprovedPrompts(
+  runtime: Extract<CallerLanguageRuntime, { mode: "openai" }>,
+): Promise<CallerLanguageReadiness> {
+  const results = await Promise.all(
+    [...approvedCanonicalText.entries()].map(async ([canonicalText, purpose]) => {
+      const nowMs = runtime.nowMs ?? Date.now;
+      const startedAt = nowMs();
+      try {
+        const generated = await runtime.generator.generate({
+          tenantId: "system",
+          callId: `caller-language-preparation-${purpose}`,
+          purpose,
+          canonicalText,
+        });
+        const text = validateGeneratedText(generated, purpose);
+        const usage = normalizeUsage(generated.usage);
+        const completedAt = nowMs();
+        return {
+          ok: true as const,
+          entry: {
+            text,
+            provider: generated.provider,
+            model: generated.model,
+            purpose,
+            preparedAtMs: completedAt,
+            generationLatencyMs: Math.max(0, completedAt - startedAt),
+          },
+          usage,
+          estimatedCostMicrousd: estimateCostMicrousd(usage, runtime.pricing),
+        };
+      } catch (error) {
+        return {
+          ok: false as const,
+          purpose,
+          reason: error instanceof CallerLanguageGenerationError ? error.code : "provider_error",
+        };
+      }
+    }),
+  );
+
+  const entries = new Map<CallerLanguagePurpose, PreparedCallerLanguage>();
+  const failures = new Map<CallerLanguagePurpose, CallerLanguageFallbackReason>();
+  const preparationUsage = { ...zeroUsage };
+  let preparationEstimatedCostMicrousd = 0;
+  for (const result of results) {
+    if (!result.ok) {
+      failures.set(result.purpose, result.reason);
+      continue;
+    }
+    entries.set(result.entry.purpose, result.entry);
+    addUsage(preparationUsage, result.usage);
+    preparationEstimatedCostMicrousd += result.estimatedCostMicrousd;
+  }
+
+  runtime.cache.entries = entries;
+  runtime.cache.failures = failures;
+  runtime.cache.preparationUsage = preparationUsage;
+  runtime.cache.preparationEstimatedCostMicrousd = preparationEstimatedCostMicrousd;
+  runtime.cache.status = failures.size === 0 && entries.size === approvedCanonicalText.size
+    ? "ready"
+    : "degraded";
+  return getCallerLanguageReadiness(runtime);
 }
 
 function validateGeneratedText(
@@ -267,6 +445,14 @@ function normalizeUsage(usage: CallerLanguageUsage): CallerLanguageUsage {
 
 function nonNegativeInteger(value: number): number {
   return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
+function addUsage(target: CallerLanguageUsage, usage: CallerLanguageUsage): void {
+  target.inputTokens += usage.inputTokens;
+  target.cachedInputTokens += usage.cachedInputTokens;
+  target.cacheWriteTokens += usage.cacheWriteTokens;
+  target.outputTokens += usage.outputTokens;
+  target.totalTokens += usage.totalTokens;
 }
 
 function estimateCostMicrousd(

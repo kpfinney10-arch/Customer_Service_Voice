@@ -55,30 +55,32 @@ Record the Twilio Call SID, Render release, test script, outcome, and any speech
 
 ## Constrained Caller-Language Activation
 
-Use this stage only after the transport-only controlled call passes. The deterministic TypeScript orchestrator continues to choose the state, required fact, tools, pricing outcome, handoff, and canonical response. OpenAI receives only an exact allowlisted generic canonical prompt; it does not receive the caller transcript or collected facts. Dynamic prompts containing a recognized name or address bypass OpenAI.
+Use this stage only after the transport-only controlled call passes. The deterministic TypeScript orchestrator continues to choose the state, required fact, tools, pricing outcome, handoff, and canonical response. OpenAI receives only exact allowlisted generic canonical prompts during process startup; it does not receive the caller transcript or collected facts, and no live caller turn awaits OpenAI. Dynamic prompts containing a recognized name or address bypass OpenAI.
 
 Preconditions:
 
 - The exact release passes typecheck, build, and the complete automated suite with `CALLER_LANGUAGE_MODE=deterministic`.
 - `OPENAI_API_KEY` is stored only as a Render secret.
 - `CALLER_LANGUAGE_OPENAI_MODEL=gpt-5.6-luna` and the reviewed pricing-rate variables match the approved model price sheet.
-- `CALLER_LANGUAGE_OPENAI_TIMEOUT_MS=1200` is the initial hard deadline.
+- `CALLER_LANGUAGE_OPENAI_TIMEOUT_MS` is a bounded startup-preparation deadline. It does not extend a live caller turn.
 - The owner approves a phone-free OpenAI request and a later non-sensitive controlled call. Real-customer data retains its separate legal/privacy gate.
 
 Activation:
 
 1. Change only `CALLER_LANGUAGE_MODE` from `deterministic` to `openai`.
 2. Deploy the exact approved commit and verify `/version`, `/health`, and `/health/calls`.
-3. Run the phone-free smoke with the generated-language acceptance flag:
+3. Fetch the authenticated Twilio readiness endpoint and require `callerLanguageReadiness.mode=openai`, `ready=true`, `preparationStatus=ready`, equal approved and prepared prompt counts, zero failed prompts, and `callerDataSentToModel=false`. If preparation is degraded, do not proceed to a phone call; callers would receive deterministic fallback for missing entries.
+4. Run the phone-free smoke with the generated-language acceptance flag:
 
 ```sh
 export CALLER_LANGUAGE_EXPECT_STATUS=generated
 npm run smoke:twilio-conversation-relay
 ```
 
-4. Inspect the smoke session's `TTS_STARTED` event. It must report `languageMode=openai`, `languageStatus=generated`, positive token usage, bounded latency, an estimated micro-USD cost, and both text-retention flags as `false`.
-5. Run a provider-failure drill in a non-production environment and confirm the caller receives the exact canonical TypeScript prompt with `languageStatus=fallback`.
-6. Only after those checks pass, place one non-sensitive controlled call. Confirm the generated questions remain short, ask only for the expected field, and never add pricing, promises, transfers, or other requests.
+5. Inspect preparation metering in the authenticated readiness response or the `caller_language_preparation` startup log. It must contain positive one-time token usage, the estimated micro-USD cost, no caller data, and no generated wording.
+6. Inspect the smoke session's `TTS_STARTED` event. It must report `languageMode=openai`, `languageStatus=generated`, `cacheHit=true`, lookup latency no greater than 100 milliseconds, zero per-call model tokens, zero per-call model cost, and both text-retention flags as `false`.
+7. Run a provider-failure drill in a non-production environment and confirm the caller receives the exact canonical TypeScript prompt immediately with `languageStatus=fallback`.
+8. Only after those checks pass, place one non-sensitive controlled call. Confirm the generated questions remain short, ask only for the expected field, and never add pricing, promises, transfers, or other requests.
 
 Immediate language rollback:
 

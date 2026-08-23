@@ -679,6 +679,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       addIfPresent(payload, "model", input.outcome.model);
       addIfPresent(payload, "fallbackReason", input.outcome.fallbackReason);
       addIfPresent(payload, "pricingVersion", input.outcome.pricingVersion);
+      addIfPresent(payload, "cacheHit", input.outcome.cacheHit);
+      addIfPresent(payload, "preparationLatencyMs", input.outcome.preparationLatencyMs);
       const event = createCallEvent({
         eventId: idFactory(),
         eventType: "TTS_STARTED",

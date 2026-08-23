@@ -2,6 +2,7 @@ import type {
   CallerLanguagePricing,
   CallerLanguageRuntime,
 } from "../orchestrator/caller-language.js";
+import { createCallerLanguageCache } from "../orchestrator/caller-language.js";
 import { createOpenAiCallerLanguageAdapter } from "../providers/model/openai-caller-language-adapter.js";
 
 export const DEFAULT_CALLER_LANGUAGE_MODEL = "gpt-5.6-luna";
@@ -56,6 +57,7 @@ export function createCallerLanguageRuntimeFromEnv(
     mode,
     generator: createOpenAiCallerLanguageAdapter(adapterOptions),
     pricing: parsePricing(env, model),
+    cache: createCallerLanguageCache(),
   };
   if (dependencies.nowMs) runtime.nowMs = dependencies.nowMs;
   return runtime;

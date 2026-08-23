@@ -4,6 +4,7 @@ import { createApiServer, listen } from "./http-server.js";
 import { loadServerEnvironment } from "../config/server-environment.js";
 import { createConsoleLogger } from "../observability/logger.js";
 import { synchronizeOperatorUsers } from "../security/operator-users-config.js";
+import { prepareCallerLanguageRuntime } from "../orchestrator/caller-language.js";
 
 const logger = createConsoleLogger();
 let closePersistence: (() => Promise<void>) | undefined;
@@ -13,6 +14,14 @@ try {
   closePersistence = environment.storage.close;
   await environment.storage.initialize();
   await synchronizeOperatorUsers(environment.operatorAuthStore, environment.operatorUsers);
+  const callerLanguageReadiness = await prepareCallerLanguageRuntime(
+    environment.callerLanguageRuntime,
+  );
+  console.log(JSON.stringify({
+    level: "info",
+    type: "caller_language_preparation",
+    ...callerLanguageReadiness,
+  }));
   const service = createFirstCallService({
     store: environment.sessionStore,
     eventStore: environment.eventStore,

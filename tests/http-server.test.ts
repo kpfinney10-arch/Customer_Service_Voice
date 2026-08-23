@@ -26,6 +26,7 @@ import type { TwilioReadiness } from "../src/providers/telephony/twilio-readines
 import type { FirstCallExtractor } from "../src/verticals/funeral-home/first-call-extractor.js";
 import { OperatorAuthService, hashOperatorPassword } from "../src/security/operator-auth.js";
 import { InMemoryOperatorAuthStore } from "../src/security/operator-auth-store.js";
+import type { CallerLanguageRuntime } from "../src/orchestrator/caller-language.js";
 
 test("health endpoint reports ready", async () => {
   const response = await fetchJson("GET", "/health");
@@ -275,6 +276,9 @@ test("Twilio readiness endpoint returns tenant and provider preflight status", a
   assert.equal(response.body.twilioReadiness.handoffMode, "simulate");
   assert.equal(response.body.twilioReadiness.readyForPublicTraffic, true);
   assert.equal(response.body.twilioReadiness.checks[0].name, "webhook_signature_configured");
+  assert.equal(response.body.callerLanguageReadiness.mode, "deterministic");
+  assert.equal(response.body.callerLanguageReadiness.ready, true);
+  assert.equal(response.body.callerLanguageReadiness.callerDataSentToModel, false);
 });
 
 test("tenant diagnostics activity endpoint returns authenticated recent summaries", async () => {
@@ -6139,6 +6143,7 @@ async function fetchJson(
     extractor?: FirstCallExtractor;
     callHealthProbe?: CallHealthProbe;
     operatorAuthService?: OperatorAuthService;
+    callerLanguageRuntime?: CallerLanguageRuntime;
     nowMs?: () => number;
   } = {},
 ): Promise<{ status: number; body: any; requestId: string | null; headers: Record<string, string> }> {
@@ -6183,6 +6188,8 @@ async function fetchJson(
     options.twilioReadiness,
     options.callHealthProbe,
     options.operatorAuthService,
+    undefined,
+    options.callerLanguageRuntime,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
@@ -6212,6 +6219,7 @@ async function fetchText(
     twilioReadiness?: TwilioReadiness;
     callHealthProbe?: CallHealthProbe;
     operatorAuthService?: OperatorAuthService;
+    callerLanguageRuntime?: CallerLanguageRuntime;
   } = {},
 ): Promise<{ status: number; body: string; requestId: string | null; headers: Record<string, string> }> {
   const init: RequestInit = { method };
@@ -6248,6 +6256,8 @@ async function fetchText(
     options.twilioReadiness,
     options.callHealthProbe,
     options.operatorAuthService,
+    undefined,
+    options.callerLanguageRuntime,
   );
   const responseHeaders: Record<string, string> = {};
   response.headers.forEach((value, key) => {
