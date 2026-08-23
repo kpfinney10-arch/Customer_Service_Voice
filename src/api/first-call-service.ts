@@ -1,7 +1,7 @@
 import type { CallEvent } from "../events/call-event.js";
 import { createCallEvent } from "../events/call-event.js";
 import type { EventStore } from "../events/in-memory-event-store.js";
-import type { CallIntent, StructuredFacts } from "../domain/call-types.js";
+import type { CallIntent, EscalationReason, StructuredFacts } from "../domain/call-types.js";
 import { createSessionReplaySnapshot } from "../debug/session-replay.js";
 import type { SessionReplaySnapshot } from "../debug/session-replay.js";
 import { createTenantCallDetail } from "../debug/tenant-call-detail.js";
@@ -38,6 +38,10 @@ import {
   extractSpokenDigitSequence,
   extractSpokenPhoneNumber,
 } from "../verticals/funeral-home/spoken-phone.js";
+import {
+  normalizeSpokenHouseNumberInAddress,
+  spokenAddressInputDiagnostics,
+} from "../verticals/funeral-home/spoken-address.js";
 import type { HandoffRoutingDecision } from "../verticals/funeral-home/handoff-routing.js";
 import { createFuneralHomeToolDefinitions } from "../verticals/funeral-home/tools.js";
 
@@ -248,7 +252,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
     }
     const events = (await options.eventStore?.listBySession(input.tenantId, input.sessionId)) ?? [];
     const facts = existingSession.facts as Partial<FirstCallFacts>;
-    const decision = decideFirstCallNextStep(facts);
+    const decision = replayFirstCallDecision(facts, events);
     const toolResults = events
       .filter((event) => event.eventType === "TOOL_EXECUTED" || event.eventType === "TOOL_FAILED")
       .map((event): ToolResult<object> => {
@@ -318,6 +322,8 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       }
       const tenantConfig = await options.tenantConfigStore?.get(existingSession.tenantId);
       assertVoiceIntakeEnabled(tenantConfig);
+      const existingEvents =
+        (await options.eventStore?.listBySession(existingSession.tenantId, existingSession.sessionId)) ?? [];
 
       const redacted = redactText(input.transcript);
       const activeDecision = decideFirstCallNextStep(existingSession.facts as Partial<FirstCallFacts>);
@@ -362,11 +368,15 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
           : isRoutineFollowUpIntent(effectiveIntent)
             ? decideRoutineInquiryNextStep(reviewedFacts)
             : decideFirstCallNextStep(reviewedFacts);
-      const decision = firstCallDecisionAfterValidation(
+      const validatedDecision = firstCallDecisionAfterValidation(
         nextStepDecision,
         reviewedFacts,
         extraction.factConfidence,
         input.transcript,
+      );
+      const decision = firstCallDecisionAfterRetryBudget(
+        validatedDecision,
+        existingEvents,
       );
       const session = updateSession(existingSession, {
         currentState: decision.nextState,
@@ -389,6 +399,22 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
           redactionCategories: redacted.categories,
         },
       });
+      const intentPayload = {
+        intent: extraction.intent,
+        confidence: extraction.confidence,
+        factConfidence: extraction.factConfidence,
+        warnings: extraction.warnings,
+      };
+      if (activeDecision.step === "collect_location") {
+        addIfPresent(
+          intentPayload,
+          "slotDiagnostics",
+          spokenAddressInputDiagnostics(
+            input.transcript,
+            Boolean(contextualFacts.pickup_address || rawExtraction.facts.pickup_address),
+          ),
+        );
+      }
       const intentEvent = createCallEvent({
         eventId: idFactory(),
         eventType: "INTENT_DETECTED",
@@ -396,13 +422,18 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         sessionId: session.sessionId,
         tenantId: session.tenantId,
         correlationId,
-        payload: {
-          intent: extraction.intent,
-          confidence: extraction.confidence,
-          factConfidence: extraction.factConfidence,
-          warnings: extraction.warnings,
-        },
+        payload: intentPayload,
       });
+      const transitionPayload = {
+        from: existingSession.currentState,
+        to: session.currentState,
+        step: decision.step,
+        missingTargetFacts: decision.missingTargetFacts,
+        escalationReason: decision.escalationReason,
+        turnDurationMs: 0,
+      };
+      addIfPresent(transitionPayload, "retryAttempt", decision.retryAttempt);
+      addIfPresent(transitionPayload, "retryBudget", decision.retryBudget);
       const transitionEvent = createCallEvent({
         eventId: idFactory(),
         eventType: decision.escalationReason ? "ESCALATION_TRIGGERED" : "STATE_TRANSITIONED",
@@ -410,14 +441,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
         sessionId: session.sessionId,
         tenantId: session.tenantId,
         correlationId,
-        payload: {
-          from: existingSession.currentState,
-          to: session.currentState,
-          step: decision.step,
-          missingTargetFacts: decision.missingTargetFacts,
-          escalationReason: decision.escalationReason,
-          turnDurationMs: 0,
-        },
+        payload: transitionPayload,
       });
       const decisionEvents = [transcriptEvent, intentEvent, transitionEvent];
       const toolInput = {
@@ -432,7 +456,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       addIfPresent(
         toolInput,
         "completedToolNames",
-        completedToolNamesFromEvents((await options.eventStore?.listBySession(session.tenantId, session.sessionId)) ?? []),
+        completedToolNamesFromEvents(existingEvents),
       );
       addIfPresent(toolInput, "enabledToolNames", enabledToolNamesForTenant(tenantConfig));
       const toolOutput = await executeFirstCallTools(toolInput);
@@ -711,6 +735,51 @@ function createReplaySnapshot(input: {
     session: input.session,
     events: input.events,
   });
+}
+
+const escalationReasons = new Set<EscalationReason>([
+  "urgent_death_report",
+  "medical_or_legal_question",
+  "caller_distress",
+  "unsupported_intent",
+  "authentication_failed",
+  "tool_failure",
+  "retry_budget_exhausted",
+  "policy_required",
+]);
+
+function replayFirstCallDecision(
+  facts: Partial<FirstCallFacts>,
+  events: CallEvent[],
+): FirstCallFlowDecision {
+  const fallback = decideFirstCallNextStep(facts);
+
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.eventType !== "ESCALATION_TRIGGERED") continue;
+    const reason = event.payload.escalationReason;
+    if (typeof reason !== "string" || !escalationReasons.has(reason as EscalationReason)) continue;
+    const missingTargetFacts = Array.isArray(event.payload.missingTargetFacts)
+      ? event.payload.missingTargetFacts.filter((value): value is string => typeof value === "string")
+      : fallback.missingTargetFacts;
+    const decision: FirstCallFlowDecision = {
+      nextState: "ESCALATE",
+      step: "escalate",
+      missingTargetFacts,
+      toolNames: fallback.toolNames,
+      escalationReason: reason as EscalationReason,
+    };
+    const retryAttempt = positiveIntegerOrUndefined(event.payload.retryAttempt);
+    const retryBudget = positiveIntegerOrUndefined(event.payload.retryBudget);
+    if (retryAttempt !== undefined) decision.retryAttempt = retryAttempt;
+    if (retryBudget !== undefined) decision.retryBudget = retryBudget;
+    return decision;
+  }
+  return fallback;
+}
+
+function positiveIntegerOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 function effectiveCallIntent(existingIntent: CallIntent | null, extractedIntent: CallIntent): CallIntent {
@@ -1090,6 +1159,47 @@ function firstCallDecisionAfterValidation(
   return decision;
 }
 
+const PICKUP_ADDRESS_RETRY_BUDGET = 2;
+
+function firstCallDecisionAfterRetryBudget(
+  decision: FirstCallFlowDecision,
+  existingEvents: CallEvent[],
+): FirstCallFlowDecision {
+  if (decision.step !== "collect_location") return decision;
+
+  const retryAttempt = consecutiveDecisionCount(existingEvents, "collect_location");
+  if (retryAttempt === 0) return decision;
+  if (retryAttempt < PICKUP_ADDRESS_RETRY_BUDGET) {
+    return {
+      ...decision,
+      retryAttempt,
+      retryBudget: PICKUP_ADDRESS_RETRY_BUDGET,
+    };
+  }
+
+  return {
+    nextState: "ESCALATE",
+    step: "escalate",
+    missingTargetFacts: decision.missingTargetFacts,
+    toolNames: decision.toolNames,
+    escalationReason: "retry_budget_exhausted",
+    retryAttempt,
+    retryBudget: PICKUP_ADDRESS_RETRY_BUDGET,
+  };
+}
+
+function consecutiveDecisionCount(events: CallEvent[], step: FirstCallStep): number {
+  const decisions = events.filter(
+    (event) => event.eventType === "STATE_TRANSITIONED" || event.eventType === "ESCALATION_TRIGGERED",
+  );
+  let count = 0;
+  for (let index = decisions.length - 1; index >= 0; index -= 1) {
+    if (decisions[index]?.payload.step !== step) break;
+    count += 1;
+  }
+  return count;
+}
+
 function needsPickupAddressConfirmation(
   facts: Partial<FirstCallFacts>,
   _factConfidence: FirstCallFactConfidence | undefined,
@@ -1297,6 +1407,9 @@ function firstCallResponseText(
   }
   if (decision.step === "collect_location" && needsPickupAddressConfirmation(facts, undefined, transcript)) {
     return `I heard ${facts.pickup_address}. Please repeat just the street name so I can make sure I have it right.`;
+  }
+  if (decision.step === "collect_location" && decision.retryAttempt === 1) {
+    return "I am sorry, I still do not have the address clearly. Please say only the house number one digit at a time, followed by the street name and city.";
   }
   return firstCallPromptForDecision(decision, facts);
 }
@@ -1511,7 +1624,7 @@ function stringFact(facts: Partial<FirstCallFacts> | StructuredFacts, key: strin
 }
 
 function addressOnlyAnswer(transcript: string): string | undefined {
-  const normalized = transcript
+  const normalized = normalizeSpokenHouseNumberInAddress(transcript
     .trim()
     .replace(/\b(\d):(\d{2})(?=[.?!,\s]+[A-Za-z])/g, "$1$2")
     .replace(/[.?!]+$/, "")
@@ -1532,9 +1645,9 @@ function addressOnlyAnswer(transcript: string): string | undefined {
       /\b(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\s+(?:and|in|from)\s+/gi,
       "$1 ",
     )
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " "));
   const address = normalized.match(
-    /\b(\d{2,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?(?:\s+(?!and\b)[A-Za-z][A-Za-z]*){0,4})\b/i,
+    /\b(\d{1,6}\s+[A-Za-z0-9][A-Za-z0-9\s.-]+\b(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Circle|Cir|Way|Place|Pl|Terrace|Ter|Parkway|Pkwy)\b(?:\s+(?!(?:apartment|apt|unit|suite)\b)[A-Za-z][A-Za-z]*)*(?:\s+(?:apartment|apt|unit|suite)\s+\w+)?(?:\s+(?!and\b)[A-Za-z][A-Za-z]*){0,4})\b/i,
   )?.[1];
   return address?.trim();
 }

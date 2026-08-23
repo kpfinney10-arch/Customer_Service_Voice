@@ -126,6 +126,23 @@ test("call health probe detects three consecutive no-progress prompt decisions",
   });
 });
 
+test("call health probe stays healthy when retry exhaustion breaks a prompt loop", async () => {
+  const store = new InMemoryEventStore();
+  store.append([
+    locationDecisionEvent("location-ask", "STATE_TRANSITIONED", "collect_location", "2026-08-01T14:53:00.000Z"),
+    locationDecisionEvent("location-clarify", "STATE_TRANSITIONED", "collect_location", "2026-08-01T14:54:00.000Z"),
+    locationDecisionEvent("location-escalate", "ESCALATION_TRIGGERED", "escalate", "2026-08-01T14:55:00.000Z"),
+  ]);
+  const probe = new EventStoreCallHealthProbe(store, { windowSeconds: 1_800, now });
+
+  assert.deepEqual(await probe.snapshot(), {
+    ok: true,
+    windowSeconds: 1_800,
+    failureCount: 0,
+    failureKinds: [],
+  });
+});
+
 test("call alert window parser defaults and validates configuration", () => {
   assert.equal(callAlertWindowSecondsFromEnv(undefined), DEFAULT_CALL_ALERT_WINDOW_SECONDS);
   assert.equal(callAlertWindowSecondsFromEnv("900"), 900);
@@ -156,6 +173,31 @@ function repeatedDecisionEvent(eventId: string, occurredAt: string) {
       to: "IDENTIFY_INTENT",
       step: "collect_caller",
       missingTargetFacts: ["caller_phone"],
+      turnDurationMs: 10,
+    },
+  });
+}
+
+function locationDecisionEvent(
+  eventId: string,
+  eventType: "STATE_TRANSITIONED" | "ESCALATION_TRIGGERED",
+  step: "collect_location" | "escalate",
+  occurredAt: string,
+) {
+  return createCallEvent({
+    eventId,
+    eventType,
+    callId: "call-location-retry",
+    sessionId: "session-location-retry",
+    tenantId: "fh-demo",
+    correlationId: `correlation-${eventId}`,
+    occurredAt,
+    payload: {
+      from: "RESOLVE_REQUEST",
+      to: step === "escalate" ? "ESCALATE" : "RESOLVE_REQUEST",
+      step,
+      missingTargetFacts: ["pickup_address"],
+      escalationReason: step === "escalate" ? "retry_budget_exhausted" : undefined,
       turnDurationMs: 10,
     },
   });

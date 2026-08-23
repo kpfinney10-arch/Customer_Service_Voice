@@ -25,6 +25,8 @@ export type FirstCallFlowDecision = {
   missingTargetFacts: string[];
   toolNames: string[];
   escalationReason?: EscalationReason;
+  retryAttempt?: number;
+  retryBudget?: number;
 };
 
 export function decideFirstCallNextStep(facts: Partial<FirstCallFacts>): FirstCallFlowDecision {

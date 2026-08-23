@@ -139,6 +139,15 @@ Always escalate when:
 - CRM or dispatch tool fails.
 - Tenant policy requires human handling.
 
+### Pickup-address recovery
+
+The active pickup-address slot accepts numeric or spoken house numbers, including digit-by-digit and common grouped forms. Address recovery has a fixed two-attempt budget:
+
+1. The first unrecognized address receives a constrained prompt asking for the house number one digit at a time, followed by the street name and city.
+2. A second unrecognized address triggers `retry_budget_exhausted` escalation. The workflow must not continue repeating the same location prompt.
+
+In demo mode the escalation records the partial CRM intake and ends with the simulated follow-up message. A dispatch request is not created without sufficient pickup context. Durable events may record privacy-safe input-shape diagnostics such as whether digits, spoken-number words, a street suffix, or an address cue were detected, but they must not retain the raw address transcript.
+
 ## Caller Tone
 
 Voice should be:

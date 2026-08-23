@@ -5297,6 +5297,103 @@ test("first-call API uses address-only answers to fill the active pickup-address
   assert.equal(turn.body.decision.step, "escalate");
 });
 
+test("first-call API normalizes spoken house numbers in address-only answers", async () => {
+  const sessionId = "session-contextual-spoken-address-1";
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId,
+    callerPhone: "603-731-5845",
+  });
+  await fetchJson("POST", `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`, {
+    transcript: "My name is Kyle. My father Robert Jones passed away. My phone number is 603-731-5845.",
+  });
+
+  const turn = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "six three six Commerce Avenue Keller Texas." },
+  );
+
+  assert.equal(turn.status, 200);
+  assert.equal(turn.body.session.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+  assert.equal(turn.body.decision.step, "escalate");
+
+  const replay = await fetchJson(
+    "GET",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/replay`,
+  );
+  const finalIntentEvent = replay.body.events
+    .filter((event: { eventType: string }) => event.eventType === "INTENT_DETECTED")
+    .at(-1);
+  assert.deepEqual(finalIntentEvent.payload.slotDiagnostics, {
+    targetFact: "pickup_address",
+    captured: true,
+    tokenCountBucket: "medium",
+    numericDigitPresent: false,
+    spokenNumberPresent: true,
+    streetSuffixPresent: true,
+    addressCuePresent: false,
+  });
+  assert.equal("transcript" in finalIntentEvent.payload, false);
+});
+
+test("first-call API clarifies once and escalates when the address retry budget is exhausted", async () => {
+  const sessionId = "session-contextual-address-retry-budget-1";
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
+    sessionId,
+    callerPhone: "603-731-5845",
+  });
+  const initial = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    {
+      transcript:
+        "My name is Kyle. My father Robert Jones passed away at home. My phone number is 603-731-5845.",
+    },
+  );
+  assert.equal(initial.body.decision.step, "collect_location");
+  assert.equal(initial.body.decision.retryAttempt, undefined);
+  assert.match(initial.body.responseText, /located right now/i);
+
+  const clarification = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "It is difficult to explain." },
+  );
+  assert.equal(clarification.status, 200);
+  assert.equal(clarification.body.decision.step, "collect_location");
+  assert.equal(clarification.body.decision.retryAttempt, 1);
+  assert.equal(clarification.body.decision.retryBudget, 2);
+  assert.match(clarification.body.responseText, /house number one digit at a time/i);
+
+  const exhausted = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "I still cannot explain it clearly." },
+  );
+  assert.equal(exhausted.status, 200);
+  assert.equal(exhausted.body.session.currentState, "ESCALATE");
+  assert.equal(exhausted.body.decision.step, "escalate");
+  assert.equal(exhausted.body.decision.escalationReason, "retry_budget_exhausted");
+  assert.equal(exhausted.body.decision.retryAttempt, 2);
+  assert.equal(exhausted.body.decision.retryBudget, 2);
+  assert.equal(exhausted.body.handoff.reason, "retry_budget_exhausted");
+  assert.equal(exhausted.body.session.facts.pickup_address, undefined);
+
+  const replay = await fetchJson(
+    "GET",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/replay`,
+  );
+  const finalTransition = replay.body.events
+    .filter((event: { eventType: string }) =>
+      event.eventType === "STATE_TRANSITIONED" || event.eventType === "ESCALATION_TRIGGERED")
+    .at(-1);
+  assert.equal(finalTransition.eventType, "ESCALATION_TRIGGERED");
+  assert.equal(finalTransition.payload.retryAttempt, 2);
+  assert.equal(finalTransition.payload.retryBudget, 2);
+  assert.equal(finalTransition.payload.escalationReason, "retry_budget_exhausted");
+  assert.equal(JSON.stringify(finalTransition.payload).includes("explain it"), false);
+});
+
 test("first-call API captures decedent name from mixed decedent and garbled location answer", async () => {
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
     sessionId: "session-contextual-mixed-decedent-location-1",

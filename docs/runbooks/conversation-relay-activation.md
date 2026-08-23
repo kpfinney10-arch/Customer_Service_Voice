@@ -39,6 +39,8 @@ The smoke does not place a phone call. It must prove:
 - The persisted replay contains the structured pricing intent but no raw prompt text.
 - `/health/calls` remains green after the run.
 
+The release test suite must also traverse the signed ConversationRelay WebSocket with an address whose house number is transcribed as spoken words. It must verify successful address capture and verify that two unrecognized address turns trigger `retry_budget_exhausted` instead of a prompt loop.
+
 ## Controlled Phone Call
 
 After the digital smoke passes, place one inbound call from the owner's phone. Use a non-sensitive demo script and confirm:

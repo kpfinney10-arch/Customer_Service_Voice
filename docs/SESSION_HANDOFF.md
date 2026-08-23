@@ -1157,3 +1157,19 @@ Next action:
 2. Run the new digital production smoke before placing the phone call.
 3. If the smoke passes, complete one non-sensitive inbound natural-voice call and inspect call health and the redacted operator replay.
 4. Roll back immediately to `gather` if any check fails.
+
+## 2026-08-22 ConversationRelay activation and spoken-input hardening
+
+- Production was switched to `TWILIO_VOICE_MODE=conversation_relay` with ElevenLabs TTS, Deepgram Flux transcription, `TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD=0.85`, medium interruption sensitivity, and simulated handoffs. The natural voice and improved end-of-turn timing were accepted in controlled calls.
+- A controlled call then repeated the callback-number question because Deepgram supplied the digits as words. Commit `8b7c29bb33621c333e55c0e9be16b949dad5c956` added spoken callback-number normalization and a signed ConversationRelay regression. TypeScript checks and all `323/323` tests passed; Render deployment `dep-da536fvqj5pc73blsk3g` reached Live and the production digital smoke passed.
+- The next controlled call, `CAec4cfb87b7794e748847b49ba88e6eb9`, accepted the callback number but repeated the pickup-address question. Replay proved the caller and decedent details were retained, the CRM intake was created once, and two address answers failed to create `pickup_address`; no dispatch request ran. The raw transcript was not retained under the approved privacy policy.
+- Local reproduction identified the uncovered boundary: the active address-only parser accepted a numeric house number but not common Deepgram word forms such as `six three six` or `six thirty six`. Monitoring detected the repeated decision, but the alert did not itself recover the caller experience.
+- The release candidate now normalizes digit-by-digit, grouped, repeated, and cardinal spoken house numbers; gives one constrained digit-by-digit clarification; and escalates with `retry_budget_exhausted` after the second unrecognized address instead of looping. Partial CRM intake remains available, while dispatch remains blocked without adequate pickup context.
+- `INTENT_DETECTED` records only privacy-safe address input-shape diagnostics. It does not add raw transcript or address text. Replay now preserves the durable retry-exhaustion reason for operator and handoff summaries.
+- Signed ConversationRelay tests cover both spoken-address success and retry exhaustion through the real WebSocket protocol boundary. TypeScript typecheck, production build, and the complete automated suite pass `329/329`.
+
+Next action:
+
+1. Review, commit, push, and manually deploy the spoken-address/retry release candidate after owner approval.
+2. Verify the exact production version, core health, Twilio readiness, and the phone-free ConversationRelay smoke.
+3. Place one controlled call. Confirm the spoken address is accepted on the first attempt; if it is not, confirm the constrained clarification occurs once and the caller is then routed to the simulated follow-up rather than trapped in a loop.

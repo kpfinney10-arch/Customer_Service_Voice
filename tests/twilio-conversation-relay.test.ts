@@ -260,6 +260,155 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
       sessionId: spokenPhoneCallSid,
     });
     assert.equal(spokenPhoneReplay.session.facts.caller_phone, "603-731-5845");
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "My father Robert Jones passed away at home.",
+      lang: "en-US",
+      last: true,
+    }));
+    const addressPrompt = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(addressPrompt.type, "text");
+    assert.match(addressPrompt.token, /located right now/i);
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "six three six Commerce Avenue Keller Texas.",
+      lang: "en-US",
+      last: true,
+    }));
+    const spokenAddressTerminal = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      handoffData: string;
+    };
+    assert.equal(spokenAddressTerminal.type, "end");
+    assert.deepEqual(JSON.parse(spokenAddressTerminal.handoffData), { reasonCode: "handoff" });
+
+    const spokenAddressReplay = await service.replaySession({
+      tenantId: "fh-demo",
+      sessionId: spokenPhoneCallSid,
+    });
+    assert.equal(spokenAddressReplay.session.facts.pickup_address, "636 Commerce Avenue Keller Texas");
+    assert.equal(spokenAddressReplay.session.currentState, "ESCALATE");
+    const spokenAddressIntent = spokenAddressReplay.events
+      .filter((event) => event.eventType === "INTENT_DETECTED")
+      .at(-1);
+    assert.deepEqual(spokenAddressIntent?.payload.slotDiagnostics, {
+      targetFact: "pickup_address",
+      captured: true,
+      tokenCountBucket: "medium",
+      numericDigitPresent: false,
+      spokenNumberPresent: true,
+      streetSuffixPresent: true,
+      addressCuePresent: false,
+    });
+
+    await closeWebSocket(webSocket);
+    const retryBudgetCallSid = "CAconversationrelayaddressretry0000001";
+    const retryBudgetOpeningBody = new URLSearchParams({
+      CallSid: retryBudgetCallSid,
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
+    const retryBudgetOpening = await fetch(`${localUrl}${webhookPath}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `${localUrl}${webhookPath}`,
+          rawBody: retryBudgetOpeningBody.toString(),
+        }),
+      },
+      body: retryBudgetOpeningBody,
+    });
+    assert.equal(retryBudgetOpening.status, 200);
+
+    webSocket = new WebSocket(localUrl.replace(/^http/, "ws") + relayPath, {
+      headers: {
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `wss://voice.lanternbell.com${relayPath}`,
+          rawBody: "",
+        }),
+      },
+    });
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: retryBudgetCallSid,
+      customParameters: { tenantId: "fh-demo" },
+    }));
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt:
+        "My name is Kyle Finney. My father Robert Jones passed away at home. My phone number is 603-731-5845.",
+      lang: "en-US",
+      last: true,
+    }));
+    const retryBudgetAddressPrompt = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(retryBudgetAddressPrompt.type, "text");
+    assert.match(retryBudgetAddressPrompt.token, /located right now/i);
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "It is difficult to explain.",
+      lang: "en-US",
+      last: true,
+    }));
+    const retryClarification = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(retryClarification.type, "text");
+    assert.match(retryClarification.token, /house number one digit at a time/i);
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "I still cannot explain it clearly.",
+      lang: "en-US",
+      last: true,
+    }));
+    const retryTerminal = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      handoffData: string;
+    };
+    assert.equal(retryTerminal.type, "end");
+    assert.deepEqual(JSON.parse(retryTerminal.handoffData), { reasonCode: "handoff" });
+
+    const retryReplay = await service.replaySession({
+      tenantId: "fh-demo",
+      sessionId: retryBudgetCallSid,
+    });
+    assert.equal(retryReplay.session.currentState, "ESCALATE");
+    assert.equal(retryReplay.snapshot.handoff?.reason, "retry_budget_exhausted");
+    assert.equal(retryReplay.session.facts.pickup_address, undefined);
+    const retryEscalation = retryReplay.events.find(
+      (event) =>
+        event.eventType === "ESCALATION_TRIGGERED" &&
+        event.payload.escalationReason === "retry_budget_exhausted",
+    );
+    assert.equal(retryEscalation?.payload.retryAttempt, 2);
+    assert.equal(retryEscalation?.payload.retryBudget, 2);
+
+    await service.endSession({
+      tenantId: "fh-demo",
+      sessionId: retryBudgetCallSid,
+      reason: "completed",
+    });
+    const endedRetryReplay = await service.replaySession({
+      tenantId: "fh-demo",
+      sessionId: retryBudgetCallSid,
+    });
+    assert.equal(endedRetryReplay.session.currentState, "END_CALL");
+    assert.equal(endedRetryReplay.snapshot.handoff?.reason, "retry_budget_exhausted");
   } finally {
     webSocket?.close();
     await closeServer(server);
