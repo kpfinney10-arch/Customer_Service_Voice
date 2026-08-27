@@ -392,6 +392,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       );
       const decision = firstCallDecisionAfterRetryBudget(
         validatedDecision,
+        reviewedFacts,
         existingEvents,
       );
       const session = updateSession(existingSession, {
@@ -450,6 +451,11 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
       addIfPresent(transitionPayload, "retryAttempt", decision.retryAttempt);
       addIfPresent(transitionPayload, "retryBudget", decision.retryBudget);
+      addIfPresent(
+        transitionPayload,
+        "promptTarget",
+        promptTargetForDecision(decision, reviewedFacts),
+      );
       const transitionEvent = createCallEvent({
         eventId: idFactory(),
         eventType: decision.escalationReason ? "ESCALATION_TRIGGERED" : "STATE_TRANSITIONED",
@@ -1214,22 +1220,37 @@ function firstCallDecisionAfterValidation(
   return decision;
 }
 
-const PICKUP_ADDRESS_RETRY_BUDGET = 2;
+const SLOT_RETRY_BUDGET = 2;
 
 function firstCallDecisionAfterRetryBudget(
   decision: FirstCallFlowDecision,
+  facts: Partial<FirstCallFacts>,
   existingEvents: CallEvent[],
 ): FirstCallFlowDecision {
+  if (
+    decision.step === "collect_caller" &&
+    facts.caller_name &&
+    !facts.caller_phone &&
+    !needsCallerNameSpellingConfirmation(facts)
+  ) {
+    return decisionAfterBoundedRetry(
+      decision,
+      consecutivePromptTargetCount(existingEvents, "caller_phone"),
+    );
+  }
   if (decision.step !== "collect_location") return decision;
 
   const retryAttempt = consecutiveDecisionCount(existingEvents, "collect_location");
+  return decisionAfterBoundedRetry(decision, retryAttempt);
+}
+
+function decisionAfterBoundedRetry(
+  decision: FirstCallFlowDecision,
+  retryAttempt: number,
+): FirstCallFlowDecision {
   if (retryAttempt === 0) return decision;
-  if (retryAttempt < PICKUP_ADDRESS_RETRY_BUDGET) {
-    return {
-      ...decision,
-      retryAttempt,
-      retryBudget: PICKUP_ADDRESS_RETRY_BUDGET,
-    };
+  if (retryAttempt < SLOT_RETRY_BUDGET) {
+    return { ...decision, retryAttempt, retryBudget: SLOT_RETRY_BUDGET };
   }
 
   return {
@@ -1239,8 +1260,38 @@ function firstCallDecisionAfterRetryBudget(
     toolNames: decision.toolNames,
     escalationReason: "retry_budget_exhausted",
     retryAttempt,
-    retryBudget: PICKUP_ADDRESS_RETRY_BUDGET,
+    retryBudget: SLOT_RETRY_BUDGET,
   };
+}
+
+function promptTargetForDecision(
+  decision: FirstCallFlowDecision,
+  facts: Partial<FirstCallFacts>,
+): "caller_phone" | undefined {
+  if (
+    decision.step === "collect_caller" &&
+    facts.caller_name &&
+    !facts.caller_phone &&
+    !needsCallerNameSpellingConfirmation(facts)
+  ) {
+    return "caller_phone";
+  }
+  return undefined;
+}
+
+function consecutivePromptTargetCount(
+  events: CallEvent[],
+  target: "caller_phone",
+): number {
+  const decisions = events.filter(
+    (event) => event.eventType === "STATE_TRANSITIONED" || event.eventType === "ESCALATION_TRIGGERED",
+  );
+  let count = 0;
+  for (let index = decisions.length - 1; index >= 0; index -= 1) {
+    if (decisions[index]?.payload.promptTarget !== target) break;
+    count += 1;
+  }
+  return count;
 }
 
 function consecutiveDecisionCount(events: CallEvent[], step: FirstCallStep): number {
@@ -1456,6 +1507,9 @@ function firstCallResponseText(
   if (decision.step === "collect_caller" && needsCallerNameSpellingConfirmation(facts)) {
     const callbackAcknowledgement = facts.caller_phone ? "I have the callback number. " : "";
     return `${callbackAcknowledgement}I heard your name as ${facts.caller_name}. Please spell your last name for the funeral director.`;
+  }
+  if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && decision.retryAttempt === 1) {
+    return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";
   }
   if (decision.step === "collect_caller" && facts.caller_name && !facts.caller_phone && hasNearPhoneNumber(transcript)) {
     return "I heard a phone number, but I want to make sure I have all 10 digits correctly. Please say the best callback number one digit at a time.";

@@ -207,6 +207,97 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
     await waitForEvent(eventStore, interruptionCallSid, "CALL_INTERRUPTED");
 
     await closeWebSocket(webSocket);
+    const phoneRetryCallSid = "CAconversationrelayphoneretry00000001";
+    const phoneRetryOpeningBody = new URLSearchParams({
+      CallSid: phoneRetryCallSid,
+      From: "+15551230000",
+      To: "+15559870000",
+      CallStatus: "ringing",
+    });
+    const phoneRetryOpening = await fetch(`${localUrl}${webhookPath}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `${localUrl}${webhookPath}`,
+          rawBody: phoneRetryOpeningBody.toString(),
+        }),
+      },
+      body: phoneRetryOpeningBody,
+    });
+    assert.equal(phoneRetryOpening.status, 200);
+
+    webSocket = new WebSocket(localUrl.replace(/^http/, "ws") + relayPath, {
+      headers: {
+        "x-twilio-signature": createTwilioWebhookSignature({
+          authToken,
+          url: `wss://voice.lanternbell.com${relayPath}`,
+          rawBody: "",
+        }),
+      },
+    });
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: phoneRetryCallSid,
+      customParameters: { tenantId: "fh-demo" },
+    }));
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "My name is Kyle Finney. I am reporting a death.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phonePrompt = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(phonePrompt.type, "text");
+    assert.match(phonePrompt.token, /best phone number/i);
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "The number should already be in your records.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phoneClarification = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      token: string;
+    };
+    assert.equal(phoneClarification.type, "text");
+    assert.match(phoneClarification.token, /callback number one digit at a time/i);
+
+    webSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "It still is not understanding the number.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phoneRetryTerminal = JSON.parse(await onceMessage(webSocket)) as {
+      type: string;
+      handoffData: string;
+    };
+    assert.equal(phoneRetryTerminal.type, "end");
+    assert.deepEqual(JSON.parse(phoneRetryTerminal.handoffData), { reasonCode: "handoff" });
+
+    const phoneRetryReplay = await service.replaySession({
+      tenantId: "fh-demo",
+      sessionId: phoneRetryCallSid,
+    });
+    assert.equal(phoneRetryReplay.session.currentState, "ESCALATE");
+    assert.equal(phoneRetryReplay.snapshot.handoff?.reason, "retry_budget_exhausted");
+    assert.equal(phoneRetryReplay.session.facts.caller_phone, undefined);
+    const phoneRetryEscalation = phoneRetryReplay.events.find(
+      (event) =>
+        event.eventType === "ESCALATION_TRIGGERED" &&
+        event.payload.escalationReason === "retry_budget_exhausted",
+    );
+    assert.equal(phoneRetryEscalation?.payload.retryAttempt, 2);
+    assert.equal(phoneRetryEscalation?.payload.retryBudget, 2);
+
+    await closeWebSocket(webSocket);
     const spokenPhoneCallSid = "CAconversationrelayspokenphone00000001";
     const spokenPhoneOpeningBody = new URLSearchParams({
       CallSid: spokenPhoneCallSid,

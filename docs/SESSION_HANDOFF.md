@@ -1297,3 +1297,19 @@ Next action:
 1. Keep the current generated-language release under controlled demo observation.
 2. Obtain separate owner approval before placing a non-sensitive controlled phone call.
 3. If wording or voice latency is unacceptable, change only `CALLER_LANGUAGE_MODE` back to `deterministic`, redeploy the same code, and rerun the deterministic phone-free smoke.
+
+## 2026-08-27 controlled-call phone retry failure and release candidate
+
+- Controlled call `CA0bfb6f4e1468bfc870d7d6bbdaad05ba` captured the caller name but failed to capture a callback number across three nonempty turns.
+- The privacy-safe replay showed three consecutive generated `collect_phone` prompts, no retry attempt metadata, no tools, no escalation, and no retained raw transcript. Call health correctly returned HTTP 503 with `repeated_prompt`.
+- Root cause: the digit-by-digit clarification depended on the current transcript already resembling a 9–12 digit phone number. Other unrecognized Deepgram shapes could repeat the ordinary phone prompt indefinitely.
+- The release candidate records a privacy-safe `caller_phone` prompt target, gives one digit-by-digit clarification after the first no-progress callback turn, and escalates with `retry_budget_exhausted` after the second instead of looping.
+- Name-spelling collection is excluded from the phone retry counter, preventing a spelling prompt from consuming the callback retry budget.
+- Added service-level and signed ConversationRelay WebSocket regressions for the exact failure shape. TypeScript typecheck, production build, all `346/346` automated tests, and `git diff --check` pass.
+- The fix is local only. It has not been committed, pushed, or deployed; production remains unchanged pending owner approval.
+
+Next action:
+
+1. Review, commit, push, and deploy the bounded phone-retry release after owner approval.
+2. Require exact version, core health, OpenAI preparation readiness, and the generated-language phone-free smoke before another controlled call.
+3. In the next call, confirm a failed ordinary callback attempt produces exactly one digit-by-digit clarification and never a third ordinary phone prompt.

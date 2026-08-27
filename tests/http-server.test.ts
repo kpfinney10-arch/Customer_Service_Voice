@@ -5340,6 +5340,56 @@ test("first-call API normalizes spoken house numbers in address-only answers", a
   assert.equal("transcript" in finalIntentEvent.payload, false);
 });
 
+test("first-call API clarifies once and escalates when callback capture makes no progress", async () => {
+  const sessionId = "session-contextual-phone-retry-budget-1";
+  await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", { sessionId });
+
+  const initial = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "My name is Kyle Finney. I am reporting a death." },
+  );
+  assert.equal(initial.body.decision.step, "collect_caller");
+  assert.equal(initial.body.decision.retryAttempt, undefined);
+  assert.match(initial.body.responseText, /best phone number/i);
+
+  const clarification = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "The number should already be in your records." },
+  );
+  assert.equal(clarification.status, 200);
+  assert.equal(clarification.body.decision.step, "collect_caller");
+  assert.equal(clarification.body.decision.retryAttempt, 1);
+  assert.equal(clarification.body.decision.retryBudget, 2);
+  assert.match(clarification.body.responseText, /callback number one digit at a time/i);
+
+  const exhausted = await fetchJson(
+    "POST",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/transcript`,
+    { transcript: "It still is not understanding the number." },
+  );
+  assert.equal(exhausted.status, 200);
+  assert.equal(exhausted.body.session.currentState, "ESCALATE");
+  assert.equal(exhausted.body.decision.step, "escalate");
+  assert.equal(exhausted.body.decision.escalationReason, "retry_budget_exhausted");
+  assert.equal(exhausted.body.decision.retryAttempt, 2);
+  assert.equal(exhausted.body.decision.retryBudget, 2);
+  assert.equal(exhausted.body.session.facts.caller_phone, undefined);
+
+  const replay = await fetchJson(
+    "GET",
+    `/v1/tenants/fh-demo/first-call/sessions/${sessionId}/replay`,
+  );
+  const transitions = replay.body.events.filter((event: { eventType: string }) =>
+    event.eventType === "STATE_TRANSITIONED" || event.eventType === "ESCALATION_TRIGGERED");
+  assert.equal(transitions[0].payload.promptTarget, "caller_phone");
+  assert.equal(transitions[1].payload.promptTarget, "caller_phone");
+  assert.equal(transitions.at(-1).eventType, "ESCALATION_TRIGGERED");
+  assert.equal(transitions.at(-1).payload.escalationReason, "retry_budget_exhausted");
+  assert.equal(JSON.stringify(replay.body.events).includes("not understanding the number"), false);
+});
+
 test("first-call API clarifies once and escalates when the address retry budget is exhausted", async () => {
   const sessionId = "session-contextual-address-retry-budget-1";
   await fetchJson("POST", "/v1/tenants/fh-demo/first-call/sessions", {
