@@ -76,10 +76,10 @@ function parseMode(value: string | undefined): CallerLanguageRuntime["mode"] {
 function parseTimeout(value: string | undefined): number {
   if (!value?.trim()) return 1_200;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 250 || parsed > 5_000) {
+  if (!Number.isInteger(parsed) || parsed < 250 || parsed > 10_000) {
     throw new CallerLanguageEnvironmentError(
       "INVALID_CALLER_LANGUAGE_TIMEOUT",
-      "CALLER_LANGUAGE_OPENAI_TIMEOUT_MS must be an integer from 250 through 5000.",
+      "CALLER_LANGUAGE_OPENAI_TIMEOUT_MS must be an integer from 250 through 10000.",
     );
   }
   return parsed;

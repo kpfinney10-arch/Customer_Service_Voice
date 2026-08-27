@@ -34,11 +34,18 @@ test("caller-language environment requires a key and bounded timeout", () => {
       error instanceof CallerLanguageEnvironmentError &&
       error.code === "OPENAI_API_KEY_REQUIRED",
   );
+  const runtime = createCallerLanguageRuntimeFromEnv({
+    CALLER_LANGUAGE_MODE: "openai",
+    OPENAI_API_KEY: "test-openai-key",
+    CALLER_LANGUAGE_OPENAI_TIMEOUT_MS: "10000",
+  });
+  assert.equal(runtime.mode, "openai");
+
   assert.throws(
     () => createCallerLanguageRuntimeFromEnv({
       CALLER_LANGUAGE_MODE: "openai",
       OPENAI_API_KEY: "test-openai-key",
-      CALLER_LANGUAGE_OPENAI_TIMEOUT_MS: "10000",
+      CALLER_LANGUAGE_OPENAI_TIMEOUT_MS: "10001",
     }),
     /CALLER_LANGUAGE_OPENAI_TIMEOUT_MS/,
   );

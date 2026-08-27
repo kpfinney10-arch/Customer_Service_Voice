@@ -1213,3 +1213,21 @@ Next action:
 2. Deploy the exact commit while caller language remains deterministic; verify version, health, authenticated Twilio readiness, and the deterministic phone-free smoke.
 3. In a separate approved activation, change only `CALLER_LANGUAGE_MODE` to `openai`, deploy, and require full startup-cache readiness plus the generated phone-free smoke before placing a controlled call.
 4. If any entry is degraded, the smoke fails or wording is unacceptable, restore deterministic mode without changing the working ConversationRelay transport.
+
+## 2026-08-26 caller-language cache activation drill
+
+- Release-scoped caller-language preparation was committed and pushed as `3cf8f2f61122ca934b5d9a79decaaaa7406999cc`. The exact commit passed TypeScript typecheck, production build, `344/344` automated tests, and `git diff --check`.
+- Render deployment `dep-da7h4tajnfac738d44i0` established the deterministic production baseline. Exact version, core health, call health, authenticated Twilio readiness, and the phone-free ConversationRelay smoke passed with simulated handoffs and no retained raw transcript.
+- The first attempted environment edit did not persist and deployment `dep-da7le8ad0e5s73f8r1cg` remained deterministic. Readiness caught the mismatch before any generated-language smoke or phone call.
+- Corrected activation deployment `dep-da7lg515efls739g5bk0` entered `CALLER_LANGUAGE_MODE=openai`. Initial authenticated readiness was degraded: six of eight prompts prepared, while `collect_decedent` and `retry_phone_digits` reached the four-second provider deadline. The partial preparation used 1,153 tokens and an estimated 446 micro-USD. No generated-language smoke or real call was allowed.
+- A later process start prepared all eight prompts with 1,563 tokens and an estimated 608 micro-USD, confirming that the prompt rules can pass but the four-second startup deadline is not consistently reliable. The failed initial readiness remains the release decision.
+- The first dashboard rollback deployment `dep-da7lgpfavr4c73bd670g` completed but Render retained the prior secret-field value. The value was re-applied with the field explicitly revealed; deployment `dep-da7lhs8u01pc73dq2g10` restored deterministic mode.
+- Final production checks report commit `3cf8f2f`, HTTP 200 core health, HTTP 200 call health with zero failures, signed/public-ready Twilio, simulated handoffs, and deterministic caller language. Phone-free regression `caller-cache-rollback-1787779384584` passed and retained no raw transcript.
+- A temporary tenant test credential used during verification should be rotated before the next controlled activation. Its value is not recorded here.
+
+Next action:
+
+1. Rotate the temporary tenant test API key and update only the authorized test clients that use it.
+2. Increase the startup-only OpenAI preparation deadline from four seconds to ten seconds; this affects deployment preparation, not live caller response time.
+3. Require two consecutive fresh deployments to prepare all eight prompts, followed by the generated phone-free smoke, before placing a controlled phone call.
+4. Keep deterministic caller language as the immediate rollback and do not change ConversationRelay transport or simulated handoffs during the retry.
