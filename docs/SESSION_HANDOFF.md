@@ -1279,3 +1279,21 @@ Next action:
 1. Obtain separate owner approval for the phone-free OpenAI activation drill.
 2. Change only `CALLER_LANGUAGE_MODE` to `openai` and require two consecutive fresh deployments to report all eight prompts ready.
 3. Run the generated-language phone-free smoke only after the second deployment is ready; do not place a controlled phone call without a later separate approval.
+
+## 2026-08-27 repeatable caller-language activation
+
+- Owner separately approved the phone-free OpenAI activation drill. No controlled or customer phone call was authorized or placed.
+- Changed only `CALLER_LANGUAGE_MODE` from `deterministic` to `openai`; ConversationRelay remained active and handoffs remained simulated.
+- First activation deployment `dep-da83gauk1f9s73c6s0p0` prepared all eight approved prompts on their first attempt with zero failures. It used 1,561 tokens with an estimated startup cost of 606 micro-USD.
+- Independent second deployment `dep-da83gobbc2fs73cm7tv0` again prepared all eight prompts on their first attempt with zero failures. It used 1,562 tokens with an estimated startup cost of 607 micro-USD.
+- Across the repeatability drill, preparation used 3,123 tokens and an estimated 1,213 micro-USD. No bounded retry was required, but the readiness attempt counters verified exactly eight attempts and zero retried prompts on each deployment.
+- Both deployments reported `callerDataSentToModel=false` and `generatedTextDurablyRetained=false`; neither readiness nor startup logs exposed generated wording.
+- Exact production version `cf1472e80928c2f4b1d1d26c99dc8fdbf0ba53dd`, core health, call health, signed Twilio readiness, simulated handoffs, and complete OpenAI caller-language readiness passed.
+- Phone-free generated-language run `conversation-relay-1787836579053` passed the public WebSocket, pricing containment, cache-hit, zero per-call model usage/cost, terminal callback, and raw-transcript non-retention checks.
+- Final call health remained HTTP 200 with zero failures in the active 30-minute window. Production remains in OpenAI caller-language mode.
+
+Next action:
+
+1. Keep the current generated-language release under controlled demo observation.
+2. Obtain separate owner approval before placing a non-sensitive controlled phone call.
+3. If wording or voice latency is unacceptable, change only `CALLER_LANGUAGE_MODE` back to `deterministic`, redeploy the same code, and rerun the deterministic phone-free smoke.
