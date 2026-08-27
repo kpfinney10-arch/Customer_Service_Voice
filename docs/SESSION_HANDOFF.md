@@ -1313,3 +1313,18 @@ Next action:
 1. Review, commit, push, and deploy the bounded phone-retry release after owner approval.
 2. Require exact version, core health, OpenAI preparation readiness, and the generated-language phone-free smoke before another controlled call.
 3. In the next call, confirm a failed ordinary callback attempt produces exactly one digit-by-digit clarification and never a third ordinary phone prompt.
+
+Deployment and rollback update:
+
+- Owner approved the bounded phone-retry release. Commit `c0b1a70808f4d2a2920e0b95257a88c901c1b620` was pushed to `main`.
+- Initial Render deployment `dep-da8459m7bikc7393uo3g` built and started successfully, but OpenAI preparation remained degraded after the new bounded retry: `collect_name` failed validation twice, leaving seven of eight prompts ready. No phone test was allowed.
+- Per the approved rollback rule, changed only `CALLER_LANGUAGE_MODE` to `deterministic`. Deployment `dep-da845qu7bikc73940f2g` reached Live on the same phone-retry commit with core readiness green; ConversationRelay remained active and handoffs remained simulated.
+- Extended the phone-free production smoke with the exact callback no-progress path: ordinary phone prompt, one digit-by-digit clarification, then `retry_budget_exhausted` handoff instead of a third prompt.
+- Production run `conversation-relay-1787839312705` passed pricing containment, deterministic language, the signed public WebSocket phone-retry path, simulated handoff behavior, and raw-transcript non-retention.
+- The prior real-call `repeated_prompt` health incident remains visible only until its 30-minute monitoring window expires. The new synthetic retry-exhaustion path did not add a failure.
+
+Next action:
+
+1. Wait for the prior incident to age out and require `/health/calls` to return HTTP 200 with zero failures.
+2. Only then authorize one controlled phone retest on deterministic caller language.
+3. Keep OpenAI caller language disabled until generic prompt validation is made deterministic enough to satisfy repeatable startup readiness.

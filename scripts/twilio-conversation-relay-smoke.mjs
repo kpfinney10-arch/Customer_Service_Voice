@@ -16,6 +16,7 @@ const authToken = requiredEnv("TWILIO_AUTH_TOKEN");
 const runId = env("TWILIO_CONVERSATION_RELAY_RUN_ID", `conversation-relay-${Date.now()}`);
 const callSid = `${runId}-pricing`;
 const languageCallSid = `${runId}-language`;
+const phoneRetryCallSid = `${runId}-phone-retry`;
 const pricingPrompt = "No one has passed away. I need cremation pricing.";
 const languagePrompt = "My father passed away at home.";
 const expectedLanguageStatus = env("CALLER_LANGUAGE_EXPECT_STATUS", "deterministic");
@@ -206,9 +207,97 @@ async function main() {
     await closeWebSocket(languageSocket);
   }
 
+  const phoneRetryOpeningTwiml = await postTwilioForm(webhookPath, {
+    CallSid: phoneRetryCallSid,
+    From: "+15551230002",
+    To: "+15559870000",
+    CallStatus: "ringing",
+  });
+  assertIncludes(phoneRetryOpeningTwiml, "<ConversationRelay", "phone-retry opening TwiML");
+
+  const phoneRetrySocket = new WebSocket(relayConnectUrl, {
+    headers: {
+      "x-twilio-signature": createTwilioSignature({
+        authToken,
+        url: relayUrl,
+        rawBody: "",
+      }),
+    },
+  });
+  try {
+    await onceOpen(phoneRetrySocket);
+    phoneRetrySocket.send(JSON.stringify({
+      type: "setup",
+      callSid: phoneRetryCallSid,
+      customParameters: { tenantId },
+    }));
+    phoneRetrySocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "My name is Test Caller. I am reporting a death.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phonePrompt = JSON.parse(await onceMessage(phoneRetrySocket));
+    assertEqual(phonePrompt.type, "text", "phone collection message type");
+
+    phoneRetrySocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "The number should already be in your records.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phoneClarification = JSON.parse(await onceMessage(phoneRetrySocket));
+    assertEqual(phoneClarification.type, "text", "phone clarification message type");
+    assertIncludes(
+      String(phoneClarification.token).toLowerCase(),
+      "digit",
+      "phone digit-by-digit clarification",
+    );
+
+    phoneRetrySocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: "It still is not understanding the number.",
+      lang: "en-US",
+      last: true,
+    }));
+    const phoneRetryTerminal = JSON.parse(await onceMessage(phoneRetrySocket));
+    assertEqual(phoneRetryTerminal.type, "end", "phone retry terminal message type");
+    assertEqual(
+      JSON.parse(phoneRetryTerminal.handoffData).reasonCode,
+      "handoff",
+      "phone retry terminal reason",
+    );
+  } finally {
+    await closeWebSocket(phoneRetrySocket);
+  }
+
+  const phoneRetryReplay = await expectTenantJson(
+    "GET",
+    `/v1/tenants/${tenantId}/first-call/sessions/${encodeURIComponent(phoneRetryCallSid)}/replay`,
+    undefined,
+    200,
+  );
+  assertEqual(phoneRetryReplay.session?.currentState, "ESCALATE", "phone retry replay state");
+  assertEqual(
+    phoneRetryReplay.snapshot?.handoff?.reason,
+    "retry_budget_exhausted",
+    "phone retry replay handoff reason",
+  );
+  const phoneRetryEscalation = phoneRetryReplay.events?.find(
+    (event) => event.eventType === "ESCALATION_TRIGGERED",
+  );
+  assertEqual(phoneRetryEscalation?.payload?.retryAttempt, 2, "phone retry attempt count");
+  assertEqual(phoneRetryEscalation?.payload?.retryBudget, 2, "phone retry budget");
+  assertExcludes(
+    JSON.stringify(phoneRetryReplay),
+    "not understanding the number",
+    "durable phone-retry raw prompt",
+  );
+
   console.log("Twilio ConversationRelay smoke passed.");
   console.log(`Call SID: ${callSid}`);
   console.log(`Language Call SID: ${languageCallSid}`);
+  console.log(`Phone Retry Call SID: ${phoneRetryCallSid}`);
   console.log(`Caller-language status: ${expectedLanguageStatus}`);
   console.log("Handoff mode: simulate");
   console.log("Raw transcript retained: no");
