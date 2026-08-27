@@ -1263,3 +1263,19 @@ Next action:
 1. Review, commit, and push the bounded-retry release candidate after owner approval.
 2. Deploy it while caller language remains deterministic and verify exact version, core health, call health, authenticated Twilio readiness, and the deterministic phone-free smoke.
 3. In a separate activation, switch only caller language to OpenAI and require two consecutive fresh deployments with all eight prompts ready, followed by the generated phone-free smoke, before any controlled phone call.
+
+Deterministic baseline update:
+
+- Owner approved the release; commit `09523a6d3f46810540e08af2aa5c30a18a95b378` was pushed to `main`.
+- Render deployment `dep-da83b60u01pc73cg7sp0` completed its zero-vulnerability build, PostgreSQL pre-deploy migration, startup, health check, and zero-downtime cutover.
+- Startup readiness reported deterministic mode, all privacy flags intact, zero preparation attempts, and zero model usage.
+- Exact production version, core health, and call health passed; call health reported zero failures in the active 30-minute window.
+- The local Keychain still held the retired tenant test credential. Production rejected it with HTTP 403 before synthetic traffic. The approved replacement was reconciled from Render's secret store into the existing `LanternBell Render Tenant API Key` Keychain item without exposing its value.
+- Authenticated tenant and Twilio readiness then passed with signed public webhooks, simulated handoffs, and deterministic caller language.
+- Phone-free run `conversation-relay-1787835923432` passed the public WebSocket, pricing containment, terminal callback, and deterministic language checks with no real transfer and no retained raw transcript.
+
+Next action:
+
+1. Obtain separate owner approval for the phone-free OpenAI activation drill.
+2. Change only `CALLER_LANGUAGE_MODE` to `openai` and require two consecutive fresh deployments to report all eight prompts ready.
+3. Run the generated-language phone-free smoke only after the second deployment is ready; do not place a controlled phone call without a later separate approval.
