@@ -1339,6 +1339,13 @@ Next action:
 
 Next action:
 
-1. Commit, push, and deploy the grouped-number parser release.
-2. Require exact version, core health, call health, authenticated Twilio readiness, and the phone-free grouped-number ConversationRelay smoke before another controlled call.
+1. Complete one controlled phone retest using the natural grouped 3-3-4 callback-number cadence.
+2. Confirm the callback number advances directly to decedent collection without the digit-by-digit clarification.
 3. Keep caller language deterministic and handoffs simulated during validation.
+
+Deployment update:
+
+- Commit `a5041b4b711f4e0bace73f7c8b4826cc8de1a266` was pushed to `main`; Render deployment `dep-da86uc8n74is739nf3h0` reached Live.
+- Production `/version` returned the exact commit and build time `2026-08-27T17:09:18.240Z`.
+- Production run `conversation-relay-1787850638728` passed pricing containment, deterministic language, grouped-number capture on the first attempt, the bounded phone-retry path, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window.
