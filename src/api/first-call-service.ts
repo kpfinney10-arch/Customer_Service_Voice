@@ -1387,7 +1387,7 @@ function callerNameCandidate(transcript: string): string {
     .trim();
 }
 
-const contextualPhonePattern = /\b(?:\+?1[\s.-]*)?(?:\(?\d{3}\)?[\s.-]*)\d{3}[\s.-]*\d{4}\b/g;
+const contextualPhonePattern = /\b(?:\+?1[\s.,-]*)?(?:\(?\d{3}\)?[\s.,-]*)\d{3}[\s.,-]*\d{4}\b/g;
 const phoneCuePattern =
   /\b(?:my\s+)?(?:phone|telephone|number|contact|callback|call back|cell|mobile)\b|\b(?:reached|reach me|call me)\b|\bat\b(?=\s*(?:\+?1[\s.-]*)?\d)/i;
 

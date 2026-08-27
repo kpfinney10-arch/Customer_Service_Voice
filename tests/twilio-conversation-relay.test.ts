@@ -336,8 +336,7 @@ test("ConversationRelay routes a pricing prompt through the deterministic orches
     }));
     webSocket.send(JSON.stringify({
       type: "prompt",
-      voicePrompt:
-        "My name is Kyle Finney. My phone number is six zero three, seven three one, five eight four five.",
+      voicePrompt: "My name is Kyle Finney. My phone number is 603, 731, 5845.",
       lang: "en-US",
       last: true,
     }));

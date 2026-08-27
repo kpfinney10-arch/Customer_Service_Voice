@@ -31,7 +31,7 @@ export type FirstCallExtractionContext = {
   missingTargetFacts?: string[];
 };
 
-const phonePattern = /\b(?:\+?1[-.\s]*)?(?:\(?\d{3}\)?[-.\s]*)\d{3}[-.\s]*\d{4}\b/;
+const phonePattern = /\b(?:\+?1[-.,\s]*)?(?:\(?\d{3}\)?[-.,\s]*)\d{3}[-.,\s]*\d{4}\b/;
 
 const placeTerms: Array<[PlaceOfDeathType, RegExp]> = [
   ["medical_examiner", /\b(medical examiner|coroner|county morgue)\b/i],

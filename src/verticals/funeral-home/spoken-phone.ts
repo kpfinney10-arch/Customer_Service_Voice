@@ -13,7 +13,17 @@ const spokenDigitValues = new Map<string, string>([
   ["nine", "9"],
 ]);
 
+const groupedNumericPhonePattern =
+  /\b(?:\+?1[-.,\s]*)?(?:\(?\d{3}\)?[-.,\s]*)\d{3}[-.,\s]*\d{4}\b/;
+
 export function extractSpokenPhoneNumber(transcript: string): string | undefined {
+  const groupedNumericPhone = transcript.match(groupedNumericPhonePattern)?.[0];
+  if (groupedNumericPhone) {
+    const digits = groupedNumericPhone.replace(/\D/g, "");
+    const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+    if (tenDigits.length === 10) return formatTenDigitPhone(tenDigits);
+  }
+
   for (const digits of spokenDigitSequences(transcript)) {
     const tenDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
     if (tenDigits.length === 10) return formatTenDigitPhone(tenDigits);

@@ -1328,3 +1328,17 @@ Next action:
 1. Wait for the prior incident to age out and require `/health/calls` to return HTTP 200 with zero failures.
 2. Only then authorize one controlled phone retest on deterministic caller language.
 3. Keep OpenAI caller language disabled until generic prompt validation is made deterministic enough to satisfy repeatable startup readiness.
+
+## 2026-08-27 grouped callback-number parser release candidate
+
+- Controlled call `CA1aa461a9b142701a7dc9cc00a45662e0` completed successfully through the simulated urgent handoff, with both CRM intake and dispatch tools completing.
+- The privacy-safe decision trace showed that the first grouped callback-number turn left `caller_phone` unresolved; the following digit-by-digit turn captured it and advanced immediately to decedent collection.
+- Root cause: phone-number patterns accepted spaces, periods, and hyphens between the standard 3-3-4 numeric groups but not commas commonly inserted by speech transcription.
+- The release candidate accepts comma and speech punctuation between grouped numeric phone segments, normalizes the result to the existing canonical format, and retains the bounded digit-by-digit fallback.
+- Added direct normalization coverage and changed the signed ConversationRelay regression to the grouped numeric form. TypeScript typecheck, production build, all `347/347` automated tests, and `git diff --check` pass.
+
+Next action:
+
+1. Commit, push, and deploy the grouped-number parser release.
+2. Require exact version, core health, call health, authenticated Twilio readiness, and the phone-free grouped-number ConversationRelay smoke before another controlled call.
+3. Keep caller language deterministic and handoffs simulated during validation.

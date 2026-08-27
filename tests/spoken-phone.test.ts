@@ -20,6 +20,17 @@ test("spoken phone normalization accepts digit words and repeat words", () => {
   );
 });
 
+test("spoken phone normalization accepts punctuation between multi-digit groups", () => {
+  assert.equal(
+    extractSpokenPhoneNumber("My callback number is 603, 731, 5845."),
+    "603-731-5845",
+  );
+  assert.equal(
+    extractSpokenPhoneNumber("You can reach me at 1, 603, 731, 5845."),
+    "603-731-5845",
+  );
+});
+
 test("spoken phone normalization rejects incomplete and oversized sequences", () => {
   assert.equal(extractSpokenPhoneNumber("six zero three seven three one five eight four"), undefined);
   assert.equal(

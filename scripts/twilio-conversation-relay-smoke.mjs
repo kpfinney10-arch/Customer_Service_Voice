@@ -16,9 +16,11 @@ const authToken = requiredEnv("TWILIO_AUTH_TOKEN");
 const runId = env("TWILIO_CONVERSATION_RELAY_RUN_ID", `conversation-relay-${Date.now()}`);
 const callSid = `${runId}-pricing`;
 const languageCallSid = `${runId}-language`;
+const groupedPhoneCallSid = `${runId}-grouped-phone`;
 const phoneRetryCallSid = `${runId}-phone-retry`;
 const pricingPrompt = "No one has passed away. I need cremation pricing.";
 const languagePrompt = "My father passed away at home.";
+const groupedPhonePrompt = "My name is Morgan Parker. My callback number is 603, 731, 5845.";
 const expectedLanguageStatus = env("CALLER_LANGUAGE_EXPECT_STATUS", "deterministic");
 const timeoutMs = positiveInteger(env("TWILIO_CONVERSATION_RELAY_TIMEOUT_MS", "5000"));
 
@@ -207,6 +209,60 @@ async function main() {
     await closeWebSocket(languageSocket);
   }
 
+  const groupedPhoneOpeningTwiml = await postTwilioForm(webhookPath, {
+    CallSid: groupedPhoneCallSid,
+    From: "+15551230003",
+    To: "+15559870000",
+    CallStatus: "ringing",
+  });
+  assertIncludes(groupedPhoneOpeningTwiml, "<ConversationRelay", "grouped-phone opening TwiML");
+
+  const groupedPhoneSocket = new WebSocket(relayConnectUrl, {
+    headers: {
+      "x-twilio-signature": createTwilioSignature({
+        authToken,
+        url: relayUrl,
+        rawBody: "",
+      }),
+    },
+  });
+  try {
+    await onceOpen(groupedPhoneSocket);
+    groupedPhoneSocket.send(JSON.stringify({
+      type: "setup",
+      callSid: groupedPhoneCallSid,
+      customParameters: { tenantId },
+    }));
+    groupedPhoneSocket.send(JSON.stringify({
+      type: "prompt",
+      voicePrompt: groupedPhonePrompt,
+      lang: "en-US",
+      last: true,
+    }));
+    const groupedPhoneResponse = JSON.parse(await onceMessage(groupedPhoneSocket));
+    assertEqual(groupedPhoneResponse.type, "text", "grouped-phone response type");
+    assertIncludes(
+      String(groupedPhoneResponse.token).toLowerCase(),
+      "person who passed away",
+      "grouped-phone workflow advance",
+    );
+  } finally {
+    await closeWebSocket(groupedPhoneSocket);
+  }
+
+  const groupedPhoneReplay = await expectTenantJson(
+    "GET",
+    `/v1/tenants/${tenantId}/first-call/sessions/${encodeURIComponent(groupedPhoneCallSid)}/replay`,
+    undefined,
+    200,
+  );
+  assertEqual(groupedPhoneReplay.session?.facts?.caller_phone, "603-731-5845", "grouped callback");
+  assertExcludes(
+    JSON.stringify(groupedPhoneReplay),
+    groupedPhonePrompt,
+    "durable grouped-phone raw prompt",
+  );
+
   const phoneRetryOpeningTwiml = await postTwilioForm(webhookPath, {
     CallSid: phoneRetryCallSid,
     From: "+15551230002",
@@ -297,6 +353,7 @@ async function main() {
   console.log("Twilio ConversationRelay smoke passed.");
   console.log(`Call SID: ${callSid}`);
   console.log(`Language Call SID: ${languageCallSid}`);
+  console.log(`Grouped Phone Call SID: ${groupedPhoneCallSid}`);
   console.log(`Phone Retry Call SID: ${phoneRetryCallSid}`);
   console.log(`Caller-language status: ${expectedLanguageStatus}`);
   console.log("Handoff mode: simulate");
