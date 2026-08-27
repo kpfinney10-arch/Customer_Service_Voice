@@ -83,6 +83,8 @@ test("caller language accepts a bounded rewrite and meters its estimated cost", 
   assert.equal(preparation.ready, true);
   assert.equal(preparation.preparationUsage.totalTokens, 960);
   assert.equal(preparation.preparationEstimatedCostMicrousd, 328);
+  assert.equal(preparation.preparationAttemptCount, 8);
+  assert.equal(preparation.retriedPromptCount, 0);
   assert.equal(getCallerLanguageReadiness(runtime).generatedTextDurablyRetained, false);
 });
 
@@ -110,6 +112,39 @@ test("caller language rejects extra questions during preparation and falls back 
   assert.equal(output.fallbackReason, "invalid_output");
   assert.equal(readiness.ready, false);
   assert.equal(readiness.preparedPromptCount, 0);
+  assert.equal(readiness.preparationAttemptCount, 16);
+  assert.equal(readiness.retriedPromptCount, 8);
+});
+
+test("caller language retries each failed startup prompt once and aggregates retry usage", async () => {
+  const attempts = new Map<string, number>();
+  const runtime = openAiRuntime({
+    async generate(request) {
+      const attempt = (attempts.get(request.purpose) ?? 0) + 1;
+      attempts.set(request.purpose, attempt);
+      return {
+        text: attempt === 1 ? "This output is invalid." : validGeneratedText(request.purpose, request.canonicalText),
+        purpose: request.purpose,
+        provider: "openai",
+        model: "gpt-5.6-luna",
+        usage: {
+          inputTokens: 10,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 5,
+          totalTokens: 15,
+        },
+      };
+    },
+  });
+
+  const readiness = await prepareCallerLanguageRuntime(runtime);
+
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.preparationAttemptCount, 16);
+  assert.equal(readiness.retriedPromptCount, 8);
+  assert.equal(readiness.preparationUsage.totalTokens, 240);
+  assert.equal([...attempts.values()].every((count) => count === 2), true);
 });
 
 test("caller language never sends dynamic name or address confirmations to the model", async () => {

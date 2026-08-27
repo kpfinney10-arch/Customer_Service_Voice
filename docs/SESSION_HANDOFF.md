@@ -1231,3 +1231,35 @@ Next action:
 2. Increase the startup-only OpenAI preparation deadline from four seconds to ten seconds; this affects deployment preparation, not live caller response time.
 3. Require two consecutive fresh deployments to prepare all eight prompts, followed by the generated phone-free smoke, before placing a controlled phone call.
 4. Keep deterministic caller language as the immediate rollback and do not change ConversationRelay transport or simulated handoffs during the retry.
+
+## 2026-08-26 credential rotation and repeatability drill
+
+- Rotated the `fh-demo` tenant test API key in Render. The replacement credential returned HTTP 200 on authenticated readiness, while the prior credential returned HTTP 403. No application client stored the prior key; it was used only by protected test commands.
+- The first 10-second activation attempt failed safely before receiving traffic because the existing TypeScript environment validator still capped `CALLER_LANGUAGE_OPENAI_TIMEOUT_MS` at 5,000 milliseconds. The prior deterministic deployment remained live throughout.
+- Commit `fed3d95bb649128240b2c5b80877db1d98da18b6` raises only the startup-preparation ceiling to 10,000 milliseconds and adds boundary regression coverage. TypeScript typecheck, production build, all `344/344` tests, and `git diff --check` passed before push.
+- Corrected activation deployment `dep-da7nsogu01pc73963nrg` prepared all eight prompts with zero failures. One-time usage was 1,565 tokens with an estimated cost of 610 micro-USD; readiness confirmed no caller data was sent and generated text was not durably retained.
+- Independent repeatability deployment `dep-da7o27e7bikc73arc7dg` prepared seven of eight prompts. The `collect_name` rewrite failed validation as `invalid_output`; this was not a timeout. The generated-language smoke and real phone call were therefore blocked.
+- Deterministic recovery deployment `dep-da7oi0k9v7es73f5raa0` restored the safe mode on commit `fed3d95`. Exact version, core health, call health, tenant readiness, signed/public-ready Twilio, and simulated handoffs are green with zero call failures.
+- Phone-free recovery run `caller-cache-recovery-1787792896634` passed pricing containment and the deterministic language turn, with no real transfer and no retained raw transcript.
+
+Next action:
+
+1. Add one bounded startup-only retry for an individual generic prompt that times out, receives a provider error, or fails validation. Aggregate retry usage and expose only content-free attempt counts.
+2. Keep the release unready unless every prompt validates; do not retry or invoke OpenAI during a live call.
+3. Repeat the two-consecutive-deployment requirement and generated phone-free smoke before any controlled phone call.
+
+## 2026-08-27 bounded caller-language preparation retry
+
+- Added one startup-only retry per approved generic prompt after a timeout, provider error, or validation failure.
+- The live ConversationRelay turn path remains cache-only and never calls, waits on, or retries OpenAI.
+- Readiness and startup logs now expose only aggregate `preparationAttemptCount` and `retriedPromptCount`; they do not expose generated wording or per-prompt attempt details.
+- Usage and estimated cost from invalid model responses are included in the aggregate preparation totals so retry cost is not understated.
+- Readiness remains degraded unless all eight approved prompts validate within at most two attempts each.
+- TypeScript typecheck, production build, all `345/345` automated tests, and `git diff --check` pass.
+- The release candidate is local only. Production remains in deterministic caller-language mode on commit `fed3d95bb649128240b2c5b80877db1d98da18b6`.
+
+Next action:
+
+1. Review, commit, and push the bounded-retry release candidate after owner approval.
+2. Deploy it while caller language remains deterministic and verify exact version, core health, call health, authenticated Twilio readiness, and the deterministic phone-free smoke.
+3. In a separate activation, switch only caller language to OpenAI and require two consecutive fresh deployments with all eight prompts ready, followed by the generated phone-free smoke, before any controlled phone call.

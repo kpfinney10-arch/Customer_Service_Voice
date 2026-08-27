@@ -65,6 +65,8 @@ export type CallerLanguageCache = {
   status: Exclude<CallerLanguagePreparationStatus, "not_required">;
   preparationUsage: CallerLanguageUsage;
   preparationEstimatedCostMicrousd: number;
+  preparationAttemptCount: number;
+  retriedPromptCount: number;
   preparationPromise: Promise<CallerLanguageReadiness> | undefined;
 };
 
@@ -119,6 +121,8 @@ export type CallerLanguageReadiness = {
   }>;
   preparationUsage: CallerLanguageUsage;
   preparationEstimatedCostMicrousd: number;
+  preparationAttemptCount: number;
+  retriedPromptCount: number;
   canonicalTextSentToModel: boolean;
   callerDataSentToModel: false;
   generatedTextDurablyRetained: false;
@@ -198,6 +202,8 @@ export function createCallerLanguageCache(): CallerLanguageCache {
     status: "not_started",
     preparationUsage: { ...zeroUsage },
     preparationEstimatedCostMicrousd: 0,
+    preparationAttemptCount: 0,
+    retriedPromptCount: 0,
     preparationPromise: undefined,
   };
 }
@@ -240,6 +246,8 @@ export function getCallerLanguageReadiness(
       failures: [],
       preparationUsage: { ...zeroUsage },
       preparationEstimatedCostMicrousd: 0,
+      preparationAttemptCount: 0,
+      retriedPromptCount: 0,
       canonicalTextSentToModel: false,
       callerDataSentToModel: false,
       generatedTextDurablyRetained: false,
@@ -259,6 +267,8 @@ export function getCallerLanguageReadiness(
     failures,
     preparationUsage: { ...runtime.cache.preparationUsage },
     preparationEstimatedCostMicrousd: runtime.cache.preparationEstimatedCostMicrousd,
+    preparationAttemptCount: runtime.cache.preparationAttemptCount,
+    retriedPromptCount: runtime.cache.retriedPromptCount,
     canonicalTextSentToModel: runtime.cache.status !== "not_started",
     callerDataSentToModel: false,
     generatedTextDurablyRetained: false,
@@ -316,64 +326,92 @@ async function prepareApprovedPrompts(
   runtime: Extract<CallerLanguageRuntime, { mode: "openai" }>,
 ): Promise<CallerLanguageReadiness> {
   const results = await Promise.all(
-    [...approvedCanonicalText.entries()].map(async ([canonicalText, purpose]) => {
-      const nowMs = runtime.nowMs ?? Date.now;
-      const startedAt = nowMs();
-      try {
-        const generated = await runtime.generator.generate({
-          tenantId: "system",
-          callId: `caller-language-preparation-${purpose}`,
-          purpose,
-          canonicalText,
-        });
-        const text = validateGeneratedText(generated, purpose);
-        const usage = normalizeUsage(generated.usage);
-        const completedAt = nowMs();
-        return {
-          ok: true as const,
-          entry: {
-            text,
-            provider: generated.provider,
-            model: generated.model,
-            purpose,
-            preparedAtMs: completedAt,
-            generationLatencyMs: Math.max(0, completedAt - startedAt),
-          },
-          usage,
-          estimatedCostMicrousd: estimateCostMicrousd(usage, runtime.pricing),
-        };
-      } catch (error) {
-        return {
-          ok: false as const,
-          purpose,
-          reason: error instanceof CallerLanguageGenerationError ? error.code : "provider_error",
-        };
-      }
-    }),
+    [...approvedCanonicalText.entries()].map(([canonicalText, purpose]) =>
+      prepareApprovedPrompt(runtime, canonicalText, purpose),
+    ),
   );
 
   const entries = new Map<CallerLanguagePurpose, PreparedCallerLanguage>();
   const failures = new Map<CallerLanguagePurpose, CallerLanguageFallbackReason>();
   const preparationUsage = { ...zeroUsage };
   let preparationEstimatedCostMicrousd = 0;
+  let preparationAttemptCount = 0;
+  let retriedPromptCount = 0;
   for (const result of results) {
+    preparationAttemptCount += result.attemptCount;
+    if (result.attemptCount > 1) retriedPromptCount += 1;
+    addUsage(preparationUsage, result.usage);
+    preparationEstimatedCostMicrousd += result.estimatedCostMicrousd;
     if (!result.ok) {
       failures.set(result.purpose, result.reason);
       continue;
     }
     entries.set(result.entry.purpose, result.entry);
-    addUsage(preparationUsage, result.usage);
-    preparationEstimatedCostMicrousd += result.estimatedCostMicrousd;
   }
 
   runtime.cache.entries = entries;
   runtime.cache.failures = failures;
   runtime.cache.preparationUsage = preparationUsage;
   runtime.cache.preparationEstimatedCostMicrousd = preparationEstimatedCostMicrousd;
+  runtime.cache.preparationAttemptCount = preparationAttemptCount;
+  runtime.cache.retriedPromptCount = retriedPromptCount;
   runtime.cache.status = failures.size === 0 && entries.size === approvedCanonicalText.size
     ? "ready"
     : "degraded";
   return getCallerLanguageReadiness(runtime);
+}
+
+async function prepareApprovedPrompt(
+  runtime: Extract<CallerLanguageRuntime, { mode: "openai" }>,
+  canonicalText: string,
+  purpose: CallerLanguagePurpose,
+) {
+  const nowMs = runtime.nowMs ?? Date.now;
+  const startedAt = nowMs();
+  const usage = { ...zeroUsage };
+  let estimatedCostMicrousd = 0;
+  let lastReason: CallerLanguageFallbackReason = "provider_error";
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const generated = await runtime.generator.generate({
+        tenantId: "system",
+        callId: `caller-language-preparation-${purpose}-attempt-${attempt}`,
+        purpose,
+        canonicalText,
+      });
+      const attemptUsage = normalizeUsage(generated.usage);
+      addUsage(usage, attemptUsage);
+      estimatedCostMicrousd += estimateCostMicrousd(attemptUsage, runtime.pricing);
+      const text = validateGeneratedText(generated, purpose);
+      const completedAt = nowMs();
+      return {
+        ok: true as const,
+        entry: {
+          text,
+          provider: generated.provider,
+          model: generated.model,
+          purpose,
+          preparedAtMs: completedAt,
+          generationLatencyMs: Math.max(0, completedAt - startedAt),
+        },
+        usage,
+        estimatedCostMicrousd,
+        attemptCount: attempt,
+      };
+    } catch (error) {
+      lastReason = error instanceof CallerLanguageGenerationError ? error.code : "provider_error";
+    }
+  }
+
+  return {
+    ok: false as const,
+    purpose,
+    reason: lastReason,
+    usage,
+    estimatedCostMicrousd,
+    attemptCount: 2,
+  };
 }
 
 function validateGeneratedText(
