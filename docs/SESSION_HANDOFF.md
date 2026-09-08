@@ -1569,3 +1569,23 @@ Next action:
 1. Complete local validation and obtain owner approval before committing or pushing the privacy and ConversationRelay concurrency-harness changes.
 2. Keep the customer profile ignored and the tenant undeployed until customer authorization and remaining launch gates are complete.
 3. Continue with the legal/privacy review and real-handoff drill; both remain blockers for real customer traffic.
+
+Release completion:
+
+- Owner approved the concurrency/privacy increment. Commit `c530b71d99fa943ceb0c4f8687e7164f95ec1609` was pushed to `main`; the complete TypeScript suite passed `357/357` and `git diff --check` passed. No Render deployment was required because the commit changed only the local smoke harness, tests, documentation, and ignore rules.
+- The prospective customer's disabled operating profiles remain under ignored `.pilot-private/` storage and are not deployed.
+
+## 2026-09-08 counsel-ready pilot legal/privacy packet refresh
+
+- Refreshed the engineering packet from the retired TwiML `<Gather>` description to the deployed Twilio ConversationRelay path: signed WebSocket transport, Deepgram Flux recognition, ElevenLabs speech, deterministic TypeScript decisions, and the active reviewed language bundle with zero production model calls.
+- Added the bounded first-pilot assumptions: one Texas funeral home, inbound only, seven tested call categories, and no more than five simultaneous sessions. The customer's identity, schedule, contacts, credentials, and destinations remain outside tracked documentation.
+- Added a structured counsel response worksheet covering entity and processing roles, exact automated-assistant notice, interstate communications rules, Texas privacy and AI law, HIPAA/BAAs, Funeral Rule pricing, incidents, vendors, operating boundaries, required engineering changes, and a final `Go` / `Conditional Go` / `No-go` record.
+- Recorded the present blockers without making a legal conclusion: no completed counsel review or customer/vendor agreements; current opening not legally approved; interstate analysis incomplete; pricing remains demo containment; real handoff incomplete; current Render workspace not documented as HIPAA enabled; and current Twilio BAA/account configuration plus Deepgram/ElevenLabs route coverage not verified.
+- Refreshed the data-handling policy and controlled-pilot checklist to match the current providers and link the written counsel record. Real customer data and live transfers remain prohibited.
+- Local Markdown-link validation, `git diff --check`, TypeScript typecheck, production build, and the complete automated suite pass `357/357`. The release candidate is local only pending owner approval to commit and push; no deployment or production configuration change is needed for this documentation-only increment.
+
+Next action:
+
+1. Obtain owner approval to commit and push the validated counsel-packet release candidate.
+2. Send the packet and response worksheet to qualified counsel through an approved channel; do not place privileged advice or customer secrets in the repository.
+3. Convert counsel-required changes into engineering acceptance items. Keep the tenant disabled until the legal record, customer authorization, vendor/account requirements, and real-handoff gate are complete.

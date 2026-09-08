@@ -1,8 +1,9 @@
 # Pilot Legal and Privacy Review Packet
 
-Prepared: 2026-08-16  
-Product: LanternBell Voice  
-Scope: proposed owner-operated, low-volume funeral-home pilot in the United States
+- Prepared: 2026-08-16
+- Last engineering refresh: 2026-09-08
+- Product: LanternBell Voice
+- Scope: proposed owner-operated, low-volume funeral-home pilot in the United States
 
 ## Purpose and limits
 
@@ -12,34 +13,62 @@ Current launch decision: **no real customer data** until the open legal/privacy 
 
 ## Executive summary
 
-- The service answers inbound calls to a funeral home's Twilio number with an automated voice workflow.
+- The service answers inbound calls to a funeral home's Twilio number with an automated voice workflow. The prospective first pilot is a Texas funeral home, but callers may be located in other states.
 - The pilot does not initiate outbound marketing or artificial-voice calls.
 - Call recording is disabled, and LanternBell does not retain audio or full transcript text.
-- Twilio processes caller speech to return transient speech-recognition text to the application.
+- Twilio ConversationRelay processes live audio and supplies transient Deepgram speech-recognition text to the application; it converts application text to speech using ElevenLabs.
 - LanternBell retains structured intake facts and operational events for 30 days, with shorter or longer periods for limited security/operations records as documented below.
 - The production service runs on Render with managed PostgreSQL. Twilio and Render process or host personal data; Cloudflare is currently DNS-only for the Voice hostname.
-- The OpenAI extraction fallback is disabled in production; the approved pilot uses the deterministic TypeScript extractor.
-- Handoffs remain simulated, and `fh-demo` is not a real customer tenant.
+- The OpenAI extraction fallback is disabled in production; the pilot candidate uses the deterministic TypeScript extractor. The active reviewed caller-language bundle is a versioned source artifact and makes no OpenAI request.
+- Handoffs remain simulated. The prospective tenant configuration is local, disabled, has no destination number, and is not deployed.
+- The prospective pilot is bounded to five simultaneous inbound calls and the seven currently tested lanes. Outbound calling, live transfers, payments, medical or legal advice, automated dispatch, and production CRM/Dispatch transmission remain excluded.
 - The pricing lane now has deployed automated and real-phone evidence that it fails closed without requesting contact information or running downstream tools. The final demo call ended after explaining that pricing and a staff transfer were unavailable, with no further gather or dial. This is containment, not an approved real-customer pricing procedure; automated pricing remains a launch blocker.
 
 ## Current data flow
 
 1. A person places an inbound call to the funeral home's Twilio number.
-2. Twilio plays LanternBell's TwiML prompts and uses speech recognition to create a `SpeechResult`.
-3. Twilio sends a signed HTTPS webhook containing provider metadata and the current speech result to `voice.lanternbell.com`.
-4. The Render-hosted TypeScript service verifies the Twilio signature, determines intent, extracts structured facts, and selects the next controlled prompt or workflow action.
-5. Managed PostgreSQL stores the tenant-scoped call session, structured facts, safe operational events, operator access audits, and maintenance receipts.
-6. The operator console exposes only redacted operational categories and outcomes to a named, tenant-scoped user.
-7. UptimeRobot requests only the aggregate public `/health/calls` endpoint. It does not receive caller, tenant, transcript, or case data.
+2. Twilio sends a signed HTTPS webhook to `voice.lanternbell.com`; LanternBell verifies it and returns TwiML that opens a ConversationRelay connection.
+3. Twilio sends live audio through its selected ConversationRelay speech-recognition path (currently Deepgram Flux) and delivers transient recognized text over a signed WebSocket. LanternBell does not receive or store an audio stream.
+4. The Render-hosted TypeScript service determines intent, extracts structured facts, and selects the next controlled prompt or workflow action. State transitions, tool permissions, pricing containment, and handoffs are deterministic.
+5. LanternBell sends response text to ConversationRelay, which currently uses an ElevenLabs voice to speak it. The active reviewed bundle contains eight generic, pre-reviewed phrases; prompts containing recognized names or addresses remain deterministic. No OpenAI or generative language-model request occurs during a production turn; ConversationRelay still uses its configured speech-recognition and text-to-speech models.
+6. Managed PostgreSQL stores the tenant-scoped call session, structured facts, safe operational events, operator access audits, and maintenance receipts.
+7. The operator console exposes only redacted operational categories and outcomes to a named, tenant-scoped user.
+8. UptimeRobot requests only the aggregate public `/health/calls` endpoint. It does not receive caller, tenant, transcript, or case data.
 
 Current production Voice does not send caller data to a production CRM or Dispatch product. Those products are scheduled for a later audit/rebuild and integration phase.
+
+## Bounded pilot assumptions for review
+
+The requested first-pilot review is limited to one Texas funeral home, inbound calls, no more than five simultaneous sessions, and these seven tested categories:
+
+1. Hospice or nursing-facility death report.
+2. Medical-examiner death report.
+3. Hospital release or death report.
+4. Police-reported residence death.
+5. Family-reported residence death requiring authority verification.
+6. Pricing or service-cost inquiry.
+7. Existing-family or office-hours follow-up inquiry.
+
+These categories describe routing tests, not legal approval. Counsel may exclude or condition any category. The pilot must not use the selected funeral home's identity, credentials, phone destinations, or caller data until the launch record is complete and the corresponding tenant remains disabled.
+
+## Known open launch blockers
+
+- No counsel response, approved pilot agreement, data-processing terms, or legal go/no-go has been recorded.
+- The current automated-assistant opening has engineering acceptance but no recorded legal approval.
+- The interstate communications/consent analysis is incomplete; inbound callers may be outside Texas.
+- The HIPAA/BAA and consumer-health-data determination is incomplete. The current Render workspace is not documented as HIPAA enabled, and the Twilio account/project BAA configuration has not been verified.
+- Deepgram and ElevenLabs provider-path terms and any required coverage or agreements have not been approved for real caller data.
+- The current pricing lane is safe demo containment only; it does not yet give the caller required available price information or an approved live route.
+- The funeral home's privacy/request procedure, incident-notification ownership, and required customer-facing notices have not been approved.
+- The real-handoff drill and customer destination configuration remain incomplete.
 
 ## Data inventory and retention
 
 | Data | Where processed or stored | Current rule |
 | --- | --- | --- |
-| Live caller audio | Twilio telephony/speech-recognition path | LanternBell recording disabled; no LanternBell audio storage. Confirm Twilio processing and diagnostic retention contractually. |
-| Speech-recognition text | Twilio and transient LanternBell request processing | Processed to determine intent and facts; not stored as durable transcript text. |
+| Live caller audio | Twilio ConversationRelay and its selected speech provider | LanternBell recording disabled; LanternBell receives no audio stream and stores no audio. Confirm Twilio, Deepgram-path, and diagnostic processing/retention contractually. |
+| Speech-recognition text | Twilio ConversationRelay/Deepgram path and transient LanternBell WebSocket processing | Processed to determine intent and facts; not stored as durable transcript text. |
+| Spoken application response | LanternBell, Twilio ConversationRelay, and ElevenLabs path | Application text is converted to audio for the caller. Reviewed generic wording is versioned in source; dynamic response text is not retained as transcript text. Confirm provider processing/retention contractually. |
 | Caller and decedent names | Render PostgreSQL structured facts | 30 days from last call-session update. |
 | Callback numbers and pickup/contact addresses | Render PostgreSQL structured facts | 30 days from last call-session update. |
 | Relationship, place-of-death type, facility, case reference, requested funeral home, urgency, and workflow state | Render PostgreSQL structured facts | 30 days from last call-session update. |
@@ -71,6 +100,8 @@ Deletion/restore procedure: [`data-lifecycle-operations.md`](../runbooks/data-li
 - Production health monitoring with down and recovery notifications.
 - Real handoffs disabled until a separate controlled-phone drill and customer configuration are complete.
 - Intent-first automated-assistant opening and a fail-closed pricing design. The initial live recognition failures are pinned in automated regressions, and the corrected guard passed a final signed real-phone call against deployed commit `f34e848` with no contact prompt, gather, dial, CRM, or dispatch action.
+- Signed ConversationRelay WebSocket validation across all seven lanes passed in batches of up to five simultaneously open calls under run `render-conversation-relay-concurrency-5-1788907443`; handoffs remained simulated and no real customer data was used.
+- Current deployed application release: `d9f8d284007da9238022ccefc33bffbdf6242ea3`, with the selected Eric ElevenLabs voice and reviewed caller-language bundle. Later repository-only test/documentation commits do not change the deployed runtime.
 
 ## Confirmed operating constraint: telephone pricing
 
@@ -113,6 +144,12 @@ Draft for counsel review only; do not deploy without approval:
 
 The final sentence must match the tenant's actual staffing and after-hours routing; the system must not promise an immediate person when none is available.
 
+Current deployed generic opening, provided for comparison and not yet legally approved:
+
+> I am an automated assistant helping the funeral director. How may I help you today?
+
+The current opening discloses automation before collecting facts but does not identify the funeral home, describe transient speech processing, or promise a human/message option. Counsel should approve either this exact form or replacement wording. Any approved replacement requires automated, phone-free, and real-audio verification before customer traffic.
+
 ### 3. Texas and other state privacy law
 
 - Determine whether the Texas Data Privacy and Security Act applies to LanternBell, the funeral home, or both, including processor/controller terms, sensitive-data treatment, notices, consumer rights, deletion, appeals, assessments, and small-business provisions.
@@ -131,7 +168,9 @@ The final sentence must match the tenant's actual staffing and after-hours routi
 - Determine whether LanternBell or a pilot funeral home is a HIPAA covered entity or business associate for any intended call lane. Do not assume that all funeral-home data is or is not PHI.
 - Consider calls from hospitals, hospices, nursing facilities, medical examiners, coroners, police, and families. Federal rules allow covered entities to disclose certain PHI to funeral directors as necessary for their duties, but counsel must decide whether LanternBell's processing changes the contractual or business-associate analysis.
 - If a HIPAA-regulated workflow is possible, determine whether LanternBell must execute a BAA with the funeral home and whether Twilio and Render must provide BAAs before that lane is enabled.
-- Confirm whether the current Twilio account/edition, speech-recognition configuration, and Render workspace/plan are eligible. They are not presently documented as HIPAA-enabled.
+- Twilio currently identifies ConversationRelay as HIPAA eligible when properly configured and used under a signed Twilio BAA. That product eligibility is not itself proof that this account, project, provider path, or application is HIPAA compliant.
+- Render currently requires a Scale or Enterprise plan, a signed BAA, and explicit irreversible HIPAA workspace enablement. Render instructs customers never to process or store PHI outside a HIPAA-enabled workspace. The current workspace is not documented as HIPAA enabled.
+- If counsel classifies an intended lane as involving PHI, that lane remains blocked until the Twilio account/project and every used Twilio service are verified against the signed BAA, the Render workspace is appropriately upgraded and enabled, the application's shared-responsibility controls are verified, and any other required vendor agreements are complete.
 - Determine whether the FTC Health Breach Notification Rule or state consumer-health-data laws apply if HIPAA does not.
 
 No HIPAA-regulated real-data pilot should begin unless counsel resolves this section and engineering verifies every required vendor plan, BAA, workspace, product feature, and configuration.
@@ -145,12 +184,13 @@ No HIPAA-regulated real-data pilot should begin unless counsel resolves this sec
 
 ### 7. Vendor and subprocessor review
 
-- Review and approve the Twilio Terms, Data Protection Addendum, subprocessor list, product-specific terms, retention behavior, deletion limits, speech-recognition configuration, and any required BAA/edition.
+- Review and approve the Twilio Terms, Data Protection Addendum, subprocessor list, Predictive and Generative AI/ML Features Addendum, product-specific terms, retention behavior, deletion limits, ConversationRelay configuration, and any required BAA/account configuration.
+- Review the current Deepgram Flux speech-recognition and ElevenLabs text-to-speech routes exposed through Twilio ConversationRelay. Confirm the contractual roles, data-use and retention terms, geographic processing, and whether the selected routes fall within the required BAA coverage or require separate agreements. Do not infer coverage merely because Twilio lists ConversationRelay as HIPAA eligible.
 - Review and approve the Render Terms, Data Processing Addendum, region, backup/log retention, support access, subprocessor list, security documents, and any required HIPAA-enabled workspace/BAA.
 - Confirm Cloudflare's DNS-only role and re-review it if proxying, tunnels, WAF, analytics, or other processing is enabled later.
 - Confirm that UptimeRobot receives only content-free health status and re-review if monitoring scope changes.
 - Keep OpenAI disabled for real call data unless counsel and the customer approve the OpenAI contractual/data-processing path and engineering completes a separate privacy review.
-- The reviewed caller-language production candidate makes no OpenAI request and sends no caller, tenant, transcript, collected-fact, or prompt data to a model. Its eight generic prompts are versioned source artifacts validated at startup; prompts containing dynamic recognized names or addresses stay deterministic. It remains disabled by default and still requires the documented controlled activation review before production use. OpenAI caller-language generation is limited to controlled non-production experiments.
+- The active reviewed caller-language production bundle makes no OpenAI request and sends no caller, tenant, transcript, collected-fact, or prompt data to a model. Its eight generic prompts are versioned source artifacts validated at startup; prompts containing dynamic recognized names or addresses stay deterministic. OpenAI caller-language generation is limited to controlled non-production experiments and is not an approved real-data path.
 
 ### 8. Funeral-home operating rules
 
@@ -161,7 +201,7 @@ No HIPAA-regulated real-data pilot should begin unless counsel resolves this sec
 
 ## Counsel response record
 
-For each item, record: `approved`, `approved with required change`, `not applicable`, or `blocked`, with the reviewer, date, jurisdiction assumptions, contract/version reviewed, required wording, and follow-up owner.
+Use [`pilot-legal-privacy-counsel-response.md`](pilot-legal-privacy-counsel-response.md) to record each determination as `approved`, `approved with required change`, `not applicable`, or `blocked`, with the reviewer, date, jurisdiction assumptions, contract/version reviewed, required wording, and follow-up owner.
 
 Minimum written launch record:
 
@@ -180,7 +220,7 @@ Minimum written launch record:
 
 ## Official sources for reviewer verification
 
-These links were checked on 2026-08-16. Counsel should confirm current versions and applicability.
+These links were refreshed on 2026-09-08. Counsel should confirm current versions and applicability.
 
 ### Texas
 
@@ -195,7 +235,7 @@ These links were checked on 2026-08-16. Counsel should confirm current versions 
 - [FTC: Complying with the Funeral Rule](https://www.ftc.gov/business-guidance/resources/complying-funeral-rule)
 - [HHS: Covered entities and business associates](https://www.hhs.gov/hipaa/for-professionals/covered-entities/index.html)
 - [HHS: Health information of deceased individuals](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/health-information-of-deceased-individuals/index.html)
-- [45 CFR 164.512(g): disclosures to funeral directors](https://www.law.cornell.edu/cfr/text/45/164.512)
+- [eCFR 45 CFR 164.512(g): disclosures to funeral directors](https://www.ecfr.gov/current/title-45/subtitle-A/subchapter-C/part-164/subpart-E/section-164.512)
 - [FTC Health Breach Notification Rule](https://www.ftc.gov/legal-library/browse/rules/health-breach-notification-rule)
 - [FCC declaratory ruling on outbound AI-generated artificial voice calls](https://docs.fcc.gov/public/attachments/FCC-24-17A1_Rcd.pdf) — relevant if LanternBell later initiates outbound AI-voice calls; the current pilot is inbound only.
 
@@ -203,7 +243,9 @@ These links were checked on 2026-08-16. Counsel should confirm current versions 
 
 - [Twilio Data Protection Addendum](https://www.twilio.com/en-us/legal/data-protection-addendum)
 - [Twilio Call resource retention and deletion](https://www.twilio.com/docs/voice/api/call-resource)
-- [Twilio HIPAA account requirements](https://www.twilio.com/docs/iam/twilio-editions/hippa)
+- [Twilio ConversationRelay reference and HIPAA configuration note](https://www.twilio.com/docs/voice/twiml/connect/conversationrelay)
+- [Twilio Predictive and Generative AI/ML Features Addendum](https://www.twilio.com/en-us/legal/ai-terms/predictive-generative-ai-features)
+- [Twilio Architecting for HIPAA](https://www.twilio.com/content/dam/twilio-com/global/en/other/hipaa/pdf/Architecting-for-HIPAA.pdf)
 - [Twilio HIPAA-eligible services](https://www.twilio.com/content/dam/twilio-com/global/en/other/hipaa/pdf/HIPAA-Eligible-Services.pdf)
 - [Render Data Processing Addendum](https://render.com/dpa)
 - [Render HIPAA-enabled workspace requirements](https://render.com/docs/hipaa-compliance)

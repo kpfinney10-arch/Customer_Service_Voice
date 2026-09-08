@@ -1,6 +1,6 @@
 # Controlled Pilot Readiness
 
-- Review date: 2026-08-16
+- Review date: 2026-09-08
 - Scope: LanternBell Voice only
 - Target: one low-volume, actively monitored funeral-home pilot
 
@@ -9,7 +9,7 @@
 - **Go:** continued owner-operated demo calls using the production Render deployment, managed PostgreSQL, signed Twilio webhook, simulated handoffs, and the named operator console.
 - **No-go:** accepting real funeral-home customer data or enabling live handoffs today.
 
-The service is technically stable enough for continued controlled testing. The no-go is caused by a small set of explicit launch gates, not by unfinished core call orchestration.
+The service is technically stable enough for continued controlled testing. A counsel-ready review packet and response worksheet are prepared, but no legal determination has been recorded. The no-go is caused by explicit launch gates, not by unfinished core call orchestration.
 
 ## Evidence Review
 
@@ -27,7 +27,8 @@ The service is technically stable enough for continued controlled testing. The n
 | Operator privacy boundary | Pass | The browser receives operational categories and outcomes only, with no transcript text, captured values, raw event payloads, or browser-stored API key. |
 | Release identification | Pass | Production `/version` reports exact Render commit `d9f8d284007da9238022ccefc33bffbdf6242ea3` and build time `2026-09-08T22:33:07.212Z`. |
 | Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
-| Data retention and deletion | Engineering and owner activation passed; legal review blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. Kyle Finney is assigned as the manual daily retention owner during any real-data pilot; the successful production dry-run verified access. Appropriate legal/privacy review remains required. |
+| Data retention and deletion | Engineering and owner activation passed; legal review blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. Kyle Finney is assigned as the manual daily retention owner during any real-data pilot; the successful production dry-run verified access. The 2026-09-08 packet refresh covers the active ConversationRelay/Deepgram/ElevenLabs path. Appropriate legal/privacy review remains required. |
+| Legal/privacy review | Packet ready; external review blocked | `pilot-legal-privacy-review-packet.md` describes the current architecture, bounded pilot, known blockers, pricing constraint, and official sources. `pilot-legal-privacy-counsel-response.md` provides a structured written decision record. No counsel response, approved agreements, or legal go/no-go is recorded. |
 | First customer onboarding | Preparation complete; activation blocked | `first-pilot-tenant-onboarding.md`, `config/examples/pilot-tenant.example.json`, and `schemas/tenants/tenant-config.schema.json` define the disabled configuration, secure inputs, validation, tenant-isolation checks, activation gates, and rollback. No real customer data, secret, or destination has been added. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
@@ -41,7 +42,10 @@ Acceptance criteria:
 
 - [x] Inventory the stored session facts, transcript events, tool outcomes, operator access audits, request logs, idempotency records, provider records, and backups.
 - [x] Record owner-approved retention periods, disabled recording, no durable transcript text, access boundaries, and deletion handling in `pilot-data-handling-policy.md`.
-- [ ] Obtain appropriate legal/privacy review for the selected policy using `docs/legal/pilot-legal-privacy-review-packet.md`; this engineering checklist does not make that legal determination. The packet identifies automated telephone pricing as a confirmed pre-pilot engineering/legal gap.
+- [x] Prepare a counsel-ready description of the current ConversationRelay/Deepgram/ElevenLabs flow, bounded pilot, safeguards, known blockers, and official-source starting points in `docs/legal/pilot-legal-privacy-review-packet.md`.
+- [x] Prepare `docs/legal/pilot-legal-privacy-counsel-response.md` so counsel can record scope, agreements, exact notice, privacy/AI/communications analysis, HIPAA/BAA decisions, pricing disposition, incident ownership, required changes, and an explicit bounded-pilot decision.
+- [ ] Obtain the completed written response from qualified counsel; this engineering checklist does not make that legal determination. Automated telephone pricing, interstate caller treatment, vendor/BAA configuration, and the exact opening remain open.
+- [ ] If any approved lane may contain PHI, verify every required agreement and control before traffic. The current Render workspace is not documented as HIPAA enabled, and the current Twilio account/project BAA configuration is not verified.
 - [x] Prove the intent-first opening and fail-closed pricing guard requires no contact details and runs no CRM, dispatch, gather, or dial action. Automated regressions cover the initial failures, and final real-phone call `CAb263deda9817bf9960c6720c11cce0d8` passed against deployed commit `f34e848` with no follow-up gather or dial. This verifies demo containment only; approved price data or an approved live human route is still required for a real tenant.
 - [x] Implement a tenant-scoped, idempotent, audited purge process with a safe dry-run mode and tests proving it cannot delete another tenant's data.
 - [x] Implement fixed retention cleanup and a Twilio call-resource deletion boundary.
@@ -80,9 +84,10 @@ Acceptance criteria:
 
 - [x] Create a reusable disabled tenant example, machine-readable schema, secure-input checklist, activation sequence, and rollback procedure in `first-pilot-tenant-onboarding.md`.
 - [x] Add fail-fast application validation for tenant id/key agreement, tenant and queue naming, IANA timezone, and E.164 destinations.
-- [ ] Create a stable non-demo tenant identifier, display name, timezone, real on-call routing, and approved feature flags.
+- [x] Create a stable non-demo tenant identifier, display name, timezone, queues, and disabled feature flags in an ignored local profile; do not deploy it yet.
+- [ ] Add approved real on-call routing and activate only the counsel- and customer-approved feature flags.
 - [ ] Create tenant-specific machine secrets and named staff accounts with least-privilege roles.
-- [ ] Record the customer support contact, LanternBell incident owner, pilot hours, call-volume limit, and stop-traffic procedure outside source control.
+- [ ] Record the customer support contact, LanternBell incident owner, customer authorization, pilot hours, call-volume limit, and stop-traffic procedure in the approved secure operational system. The non-secret schedule and five-call ceiling are currently held only in the ignored local preparation profile.
 - [ ] Verify tenant isolation for call activity, call detail, access audit, configuration, API keys, and webhook routing.
 - [ ] Run signed readiness without exposing secrets or caller data.
 

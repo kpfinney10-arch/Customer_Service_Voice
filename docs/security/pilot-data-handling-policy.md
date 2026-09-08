@@ -1,6 +1,6 @@
 # Pilot Data Handling Policy
 
-Status: owner-approved engineering baseline as of 2026-08-16. Appropriate legal and privacy review is still required before accepting real customer data.
+Status: owner-approved engineering baseline as of 2026-08-16; ConversationRelay data-flow refresh completed 2026-09-08. Appropriate legal and privacy review is still required before accepting real customer data.
 
 ## Purpose
 
@@ -9,12 +9,16 @@ This policy minimizes the sensitive information retained by the LanternBell Voic
 ## Recording and Transcript Decision
 
 - Call recording is disabled. The application does not issue Twilio recording instructions or store audio.
-- Each speech result is processed transiently by the application for intent and structured fact extraction. Twilio necessarily processes speech to produce `SpeechResult`; provider-side processing and contractual retention must be included in the pre-pilot legal/privacy review.
+- Twilio ConversationRelay currently processes caller audio through its selected Deepgram Flux speech-recognition path and sends transient recognized text to the application over a signed WebSocket. LanternBell does not receive or store the caller audio stream.
+- Each recognized utterance is processed transiently by the application for intent and structured fact extraction. It is not written as durable transcript text. Twilio, Deepgram-path, and diagnostic processing and retention must be included in the pre-pilot vendor/legal review.
+- Application response text is sent to ConversationRelay and currently rendered as speech through its selected ElevenLabs path. The active reviewed bundle contains eight generic versioned phrases and makes no OpenAI request; dynamic prompts containing recognized names or addresses stay on the deterministic TypeScript path.
 - Durable `TRANSCRIPT_RECEIVED` events store only `transcriptRetained: false` and redaction-category metadata. They do not store transcript text.
 - Migration `004_pilot_data_lifecycle` replaces text in existing transcript events with the same safe metadata.
 - Enabling recording or durable transcript text later requires a new documented decision, tenant-specific configuration, access controls, retention rules, caller-notice review, and appropriate legal/privacy approval.
 
-Twilio still maintains provider call-resource metadata even when recording is disabled. Twilio documents normal Calls API retrieval for 13 months and supports deleting past call records. Tenant purge and retention therefore include the corresponding Twilio Call SIDs: <https://www.twilio.com/docs/voice/api/call-resource>. This application policy does not replace review of Twilio's data-processing terms, account settings, and any provider-side diagnostic data associated with speech gathering.
+Twilio still maintains provider call-resource metadata even when recording is disabled. Twilio documents normal Calls API retrieval for 13 months and supports deleting past call records. Tenant purge and retention therefore include the corresponding Twilio Call SIDs: <https://www.twilio.com/docs/voice/api/call-resource>. This application policy does not replace review of Twilio's data-processing terms, AI/ML addendum, account settings, ConversationRelay configuration, the Deepgram and ElevenLabs routes, or provider-side diagnostic data.
+
+Twilio describes ConversationRelay as HIPAA eligible when properly configured under a signed BAA. Render requires a Scale or Enterprise plan, signed BAA, and explicit HIPAA workspace enablement for PHI. Neither product statement proves that the present account/workspace or application is compliant. If counsel determines an approved lane may contain PHI, real traffic remains blocked until the required agreements, account/workspace enablement, service eligibility, and configuration are independently verified.
 
 ## Approved Retention Schedule
 
