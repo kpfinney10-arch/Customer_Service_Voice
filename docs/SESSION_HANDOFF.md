@@ -1499,3 +1499,16 @@ Next action:
 1. Obtain separate owner approval to activate candidate C (Eric) by changing only `TWILIO_CONVERSATION_RELAY_VOICE` to `cjVigY5qzO86Huf0OWal-flash_v2_5-0.95_0.50_0.80`.
 2. Require exact voice readiness, the candidate-C phone-free smoke, and green call health before its separately approved fictional benchmark call.
 3. Compare candidate C directly with accepted candidate B, then keep the owner's preferred technically clean voice as the production selection.
+
+Candidate C activation update:
+
+- Owner approved the configuration-only activation. The first concealed-field edit triggered deployment `dep-dag8a89t0dsc73eb8neg` on commit `fab38300ae078facc369f831190ddafe71c1b372` but retained Sarah's value. Exact post-deploy configuration inspection caught the no-op before any candidate-C smoke or phone call.
+- The corrected edit changed only `TWILIO_CONVERSATION_RELAY_VOICE` to `cjVigY5qzO86Huf0OWal-flash_v2_5-0.95_0.50_0.80`. Render deployment `dep-dag8huv40ujc738ifp90` reached Live on the same commit with build time `2026-09-08T22:15:32.153Z`; the exact Eric value was independently re-read after cutover.
+- Phone-free run `conversation-relay-1788905817313` required the exact Eric voice and passed authenticated readiness, pricing containment, reviewed caller language, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window. No real call or transfer was placed.
+
+Next action:
+
+1. Obtain separate owner approval before placing one non-sensitive controlled candidate-C listening call using the frozen fictional benchmark script.
+2. Record Eric's technical result and owner score, then compare it directly with Sarah's accepted `3.5/5` result.
+3. Keep the preferred technically clean voice as production; candidate B remains the configuration-only rollback while candidate C is being evaluated.
