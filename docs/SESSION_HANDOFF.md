@@ -1541,3 +1541,16 @@ Next action:
 1. Complete local release validation and obtain owner approval before committing or pushing this onboarding increment.
 2. Collect the first customer's non-secret business and pilot decisions; keep contacts, credentials, and phone destinations in approved secure systems outside source control.
 3. Preserve simulated handoffs and disabled pilot feature flags until the legal/privacy and real-handoff gates are complete.
+
+Deployment completion:
+
+- Owner approved and Render deployment `dep-dag8q5uk1f9s73897ujg` reached Live on exact commit `d9f8d284007da9238022ccefc33bffbdf6242ea3` in 38.1 seconds. No environment value was changed.
+- Production `/version` reported build time `2026-09-08T22:33:07.212Z`; `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
+- Phone-free run `conversation-relay-1788906893664` passed authenticated readiness, exact Eric voice verification, reviewed caller language, pricing containment, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- No phone call, real transfer, real customer data, customer secret, or live destination was used.
+
+Next action:
+
+1. Collect the prospective pilot customer's non-secret business name, desired tenant id, timezone, operating hours, approved call lanes, and expected volume/concurrency.
+2. Prepare—but do not activate—the disabled pilot tenant entry while keeping contacts, credentials, and phone destinations outside source control.
+3. Complete legal/privacy review and the real-handoff drill before enabling customer traffic.
