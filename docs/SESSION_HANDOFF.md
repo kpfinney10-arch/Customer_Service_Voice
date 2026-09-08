@@ -1512,3 +1512,18 @@ Next action:
 1. Obtain separate owner approval before placing one non-sensitive controlled candidate-C listening call using the frozen fictional benchmark script.
 2. Record Eric's technical result and owner score, then compare it directly with Sarah's accepted `3.5/5` result.
 3. Keep the preferred technically clean voice as production; candidate B remains the configuration-only rollback while candidate C is being evaluated.
+
+Candidate C controlled-call acceptance and selection:
+
+- Owner approved and completed the fixed fictional benchmark call `CA3e48be12d8a9d026a14094cdfff2c46e` with candidate C (Eric), reviewed caller language, and simulated handoffs.
+- Four caller turns captured all expected fact categories and reached the urgent first-call escalation with retry count zero. No `CALL_INTERRUPTED`, `PROMPT_REPEATED`, or `TOOL_FAILED` event occurred.
+- The reviewed callback-number, decedent-name, and pickup-location prompts were immediate bundle cache hits with zero model tokens. CRM intake completed successfully; the handoff remained simulated and no real transfer occurred.
+- Post-call `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
+- Owner listening feedback: Eric scored `4.0–4.5/5` and sounded pretty close to a real human. This exceeds Sarah's accepted `3.5/5` while preserving equally clean workflow behavior, so Eric is the selected production voice.
+- Production remains pinned to `cjVigY5qzO86Huf0OWal-flash_v2_5-0.95_0.50_0.80`. Sarah remains the exact configuration-only fallback, and the unset Twilio default remains the secondary baseline.
+
+Next action:
+
+1. Keep Eric pinned with reviewed caller language and simulated handoffs; the controlled voice-quality benchmark is complete.
+2. Resume the ordered pilot-readiness gates, beginning with first-customer onboarding preparation that does not yet enter customer data or enable a real destination.
+3. Keep real customer data and live transfers blocked until the documented legal/privacy review and real-handoff drill gates are satisfied.

@@ -74,7 +74,7 @@ Score each item from 1 (poor) through 5 (excellent):
 | Clear over a phone line |  |  |  |
 | Natural pace and pauses |  |  |  |
 | Does not sound theatrical or cheerful |  |  |  |
-| Overall preference |  | 3.5 |  |
+| Overall preference |  | 3.5 | 4.0–4.5 |
 
 Also record any cutoffs, delayed silence, mispronunciations, repeated questions, or provider disconnects. Voice quality cannot override a workflow or health failure.
 
