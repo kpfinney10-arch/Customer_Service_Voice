@@ -1485,3 +1485,17 @@ Next action:
 1. Obtain separate owner approval before placing one non-sensitive controlled candidate-B listening call using the frozen benchmark script.
 2. Record naturalness, warmth, clarity, interruption handling, latency, and intake completion without changing any other configuration.
 3. Preserve candidate A as the immediate configuration-only rollback; do not activate candidate C until candidate B has a recorded listening result.
+
+Candidate B controlled-call acceptance:
+
+- Owner approved and completed the fixed fictional benchmark call `CA6214b6877924bc5463c2f802e04ff95e` with candidate B (Sarah), reviewed caller language, and simulated handoffs.
+- Four caller turns captured all expected fact categories and reached the urgent first-call escalation with retry count zero. No `CALL_INTERRUPTED`, `PROMPT_REPEATED`, or `TOOL_FAILED` event occurred.
+- The reviewed callback-number, decedent-name, and pickup-location prompts were immediate bundle cache hits with zero model tokens. CRM intake completed successfully; the handoff remained simulated and no real transfer occurred.
+- Post-call `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
+- Owner listening feedback: Sarah sounded pretty natural, with no noticed cutoff, delay, repetition, mispronunciation, or other issue. Candidate B passes technical and qualitative acceptance and remains the current provisional leader.
+
+Next action:
+
+1. Obtain separate owner approval to activate candidate C (Eric) by changing only `TWILIO_CONVERSATION_RELAY_VOICE` to `cjVigY5qzO86Huf0OWal-flash_v2_5-0.95_0.50_0.80`.
+2. Require exact voice readiness, the candidate-C phone-free smoke, and green call health before its separately approved fictional benchmark call.
+3. Compare candidate C directly with accepted candidate B, then keep the owner's preferred technically clean voice as the production selection.
