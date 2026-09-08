@@ -1429,3 +1429,18 @@ Next action:
 1. Obtain separate owner approval before placing one non-sensitive controlled phone call against reviewed caller language.
 2. Confirm the approved wording sounds natural across the standard intake path while handoffs remain simulated.
 3. If wording or voice latency is unacceptable, change only `CALLER_LANGUAGE_MODE` back to `deterministic`, redeploy the same code, and rerun the deterministic phone-free smoke.
+
+## 2026-09-08 reviewed-language controlled-call acceptance
+
+- Owner approved and completed non-sensitive controlled call `CAad17206e5608da4492cdb625198085e6` against production commit `05ed03814ad40b819e0da8b5f151724d8b5b6315` with reviewed caller language and simulated handoffs.
+- Four caller turns captured the caller identity, naturally grouped callback number, relationship, decedent identity, death-at-home context, and pickup address on the first attempt. The session recorded zero retries and zero interruptions.
+- Reviewed bundle `lanternbell-en-us-2026-09-08-v1` supplied the generic callback-number, decedent-name, and pickup-location questions. Every lookup was an immediate cache hit with zero model attempts, tokens, or cost, and no canonical or generated text was retained.
+- CRM intake completed successfully with no tool failure. The workflow correctly escalated the urgent death report and kept the handoff simulated. Dispatch was not created because death verification and the remaining operational facts were intentionally outside this short language-acceptance script.
+- All four transcript events recorded `transcriptRetained=false`. Final `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
+- Owner accepted the wording and turn-taking as clean, with no reported cutting off or confusion. The voice still sounds recognizably computer-generated; voice realism remains an optimization target rather than a blocker for the reviewed-language workflow.
+
+Next action:
+
+1. Keep reviewed caller language active and simulated handoffs in place.
+2. Establish a repeatable voice-quality benchmark before changing the current voice provider or tuning, so realism improvements do not regress interruption handling, latency, or intake completion.
+3. Continue the remaining pilot-readiness work while treating voice realism as a tracked product-quality item.
