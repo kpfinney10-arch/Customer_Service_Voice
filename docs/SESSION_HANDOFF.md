@@ -1492,7 +1492,7 @@ Candidate B controlled-call acceptance:
 - Four caller turns captured all expected fact categories and reached the urgent first-call escalation with retry count zero. No `CALL_INTERRUPTED`, `PROMPT_REPEATED`, or `TOOL_FAILED` event occurred.
 - The reviewed callback-number, decedent-name, and pickup-location prompts were immediate bundle cache hits with zero model tokens. CRM intake completed successfully; the handoff remained simulated and no real transfer occurred.
 - Post-call `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
-- Owner listening feedback: Sarah sounded pretty natural, with no noticed cutoff, delay, repetition, mispronunciation, or other issue. Candidate B passes technical and qualitative acceptance and remains the current provisional leader.
+- Owner listening feedback: Sarah sounded pretty natural, with no noticed cutoff, delay, repetition, mispronunciation, or other issue. The owner assigned an overall score of `3.5/5`; the detailed scorecard categories remain unscored. Candidate B passes technical and qualitative acceptance and remains the current provisional leader.
 
 Next action:
 
