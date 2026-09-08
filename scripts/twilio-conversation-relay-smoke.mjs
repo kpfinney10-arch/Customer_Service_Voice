@@ -282,11 +282,9 @@ async function main() {
     }));
     const groupedPhoneResponse = JSON.parse(await onceMessage(groupedPhoneSocket));
     assertEqual(groupedPhoneResponse.type, "text", "grouped-phone response type");
-    assertIncludes(
-      String(groupedPhoneResponse.token).toLowerCase(),
-      "person who passed away",
-      "grouped-phone workflow advance",
-    );
+    const groupedPhoneResponseText = String(groupedPhoneResponse.token).toLowerCase();
+    assertIncludes(groupedPhoneResponseText, "name", "grouped-phone workflow field");
+    assertIncludes(groupedPhoneResponseText, "passed away", "grouped-phone workflow advance");
   } finally {
     await closeWebSocket(groupedPhoneSocket);
   }

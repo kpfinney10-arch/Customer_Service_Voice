@@ -1397,3 +1397,20 @@ Next action:
 1. Obtain separate owner approval for the configuration-only reviewed-language activation.
 2. Change only `CALLER_LANGUAGE_MODE` to `reviewed`, deploy the same code, and require reviewed readiness for bundle `lanternbell-en-us-2026-09-08-v1` with all eight prompts ready and zero model activity.
 3. Run the reviewed phone-free smoke before requesting separate approval for a non-sensitive controlled phone call.
+
+## 2026-09-08 reviewed-language activation smoke correction
+
+- Owner approved the configuration-only reviewed-language activation. The first dashboard edit did not replace the concealed environment value, so deployment `dep-dag1qg5bedkc738d94s0` safely remained deterministic.
+- The corrected edit changed only `CALLER_LANGUAGE_MODE` to `reviewed`. Deployment `dep-dag1rh1594qs73e0enrg` reached Live on commit `050d1a5a038e034578365366ca5d5f350eaec4c5`.
+- Reviewed readiness passed for bundle `lanternbell-en-us-2026-09-08-v1`: all eight prompts prepared, zero failures, zero provider attempts, zero tokens, zero cost, and all model/privacy isolation flags intact. Signed public Twilio readiness and simulated handoffs remained unchanged.
+- Phone-free run `conversation-relay-1788878372134` stopped at a stale smoke assertion. The application correctly advanced grouped callback capture to the reviewed decedent prompt, but the smoke required the old exact phrase `person who passed away` and rejected the reviewed phrase `loved one who passed away`.
+- No production caller behavior failed, no real call or transfer occurred, and the smoke did not expose or retain raw transcript text. Because the complete release gate did not pass, the language-only rollback was executed immediately.
+- Rollback deployment `dep-dag1sln40ujc73df406g` reached Live on the same commit with `CALLER_LANGUAGE_MODE=deterministic`.
+- The local correction verifies the semantic workflow target by requiring both `name` and `passed away`, independent of the approved wording variant. TypeScript typecheck, production build, all `351/351` tests, and `git diff --check` pass.
+- The correction is local only. Production is healthy in deterministic caller-language mode pending a new owner-approved commit, push, and repeat of the reviewed phone-free activation drill.
+
+Next action:
+
+1. After owner approval, commit and push the smoke correction and activation record.
+2. Deploy the exact correction commit in deterministic mode and confirm health/readiness.
+3. Change only `CALLER_LANGUAGE_MODE` to `reviewed`, deploy, and rerun the reviewed phone-free smoke before any controlled phone call.
