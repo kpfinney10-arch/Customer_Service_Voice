@@ -1444,3 +1444,17 @@ Next action:
 1. Keep reviewed caller language active and simulated handoffs in place.
 2. Establish a repeatable voice-quality benchmark before changing the current voice provider or tuning, so realism improvements do not regress interruption handling, latency, or intake completion.
 3. Continue the remaining pilot-readiness work while treating voice realism as a tracked product-quality item.
+
+## 2026-09-08 controlled voice-quality benchmark release candidate
+
+- Added optional `TWILIO_CONVERSATION_RELAY_VOICE` support so production can pin a provider voice instead of relying on Twilio's changing default.
+- ElevenLabs voice identifiers are structurally validated, including the supported Flash/Turbo model suffixes and Twilio's `speed_stability_similarity` ranges. Invalid values stop application startup rather than failing during a caller session.
+- The authenticated Twilio readiness response now reports the active non-secret ConversationRelay voice configuration. The phone-free production smoke can require the exact expected voice and verifies the opening TwiML contains it.
+- Added a controlled benchmark runbook that freezes every other production setting and compares the accepted current default against Sarah (`EXAVITQu4vr4xnSDxMaL`) and Eric (`cjVigY5qzO86Huf0OWal`) using the same Flash 2.5 tuning and fictional call script.
+- The candidate set remains entirely within the already accepted ElevenLabs-through-Twilio architecture. Handoffs remain simulated, reviewed language remains active, and no real-customer data is authorized.
+
+Next action:
+
+1. Complete the automated release checks, then obtain owner approval before committing, pushing, or deploying the configuration feature.
+2. Deploy the exact release in current-default candidate A mode first and require version, health, readiness, and phone-free smoke acceptance.
+3. Test candidate B and candidate C as separate configuration-only deployments and separately approved non-sensitive calls. Select a winner only after both technical and owner listening acceptance.

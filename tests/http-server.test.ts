@@ -276,6 +276,9 @@ test("Twilio readiness endpoint returns tenant and provider preflight status", a
   assert.equal(response.body.twilioReadiness.handoffMode, "simulate");
   assert.equal(response.body.twilioReadiness.readyForPublicTraffic, true);
   assert.equal(response.body.twilioReadiness.checks[0].name, "webhook_signature_configured");
+  assert.equal(response.body.conversationRelayConfiguration.ttsProvider, "ElevenLabs");
+  assert.equal(response.body.conversationRelayConfiguration.voice, null);
+  assert.equal(response.body.conversationRelayConfiguration.transcriptionProvider, "Deepgram");
   assert.equal(response.body.callerLanguageReadiness.mode, "deterministic");
   assert.equal(response.body.callerLanguageReadiness.ready, true);
   assert.equal(response.body.callerLanguageReadiness.callerDataSentToModel, false);

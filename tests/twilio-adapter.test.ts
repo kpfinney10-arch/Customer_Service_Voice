@@ -41,6 +41,7 @@ test("Twilio adapter creates a natural-voice ConversationRelay connection withou
       publicBaseUrl: "wss://voice.lanternbell.com",
       language: "en-US",
       ttsProvider: "ElevenLabs",
+      voice: "EXAVITQu4vr4xnSDxMaL-flash_v2_5-0.92_0.45_0.80",
       transcriptionProvider: "Deepgram",
       speechModel: "flux",
       eotThreshold: "0.85",
@@ -51,6 +52,7 @@ test("Twilio adapter creates a natural-voice ConversationRelay connection withou
   assert.match(twiml, /<Connect action="[^"]+" method="POST">/);
   assert.match(twiml, /<ConversationRelay /);
   assert.match(twiml, /ttsProvider="ElevenLabs"/);
+  assert.match(twiml, /voice="EXAVITQu4vr4xnSDxMaL-flash_v2_5-0.92_0.45_0.80"/);
   assert.match(twiml, /transcriptionProvider="Deepgram"/);
   assert.match(twiml, /speechModel="flux"/);
   assert.match(twiml, /eotThreshold="0.85"/);

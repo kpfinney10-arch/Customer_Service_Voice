@@ -12,10 +12,36 @@ test("ConversationRelay remains disabled by default", () => {
   assert.equal(config.mode, "gather");
   assert.equal(config.publicBaseUrl, undefined);
   assert.equal(config.ttsProvider, "ElevenLabs");
+  assert.equal(config.voice, undefined);
   assert.equal(config.transcriptionProvider, "Deepgram");
   assert.equal(config.speechModel, "flux");
   assert.equal(config.eotThreshold, "0.85");
   assert.equal(config.interruptSensitivity, "medium");
+});
+
+test("ConversationRelay validates an optional provider voice", () => {
+  const sarahVoice = "EXAVITQu4vr4xnSDxMaL-flash_v2_5-0.92_0.45_0.80";
+  const config = createTwilioConversationRelayConfigFromEnv({
+    TWILIO_CONVERSATION_RELAY_TTS_PROVIDER: "ElevenLabs",
+    TWILIO_CONVERSATION_RELAY_VOICE: sarahVoice,
+  });
+  assert.equal(config.voice, sarahVoice);
+
+  for (const invalidVoice of [
+    "too-short",
+    "EXAVITQu4vr4xnSDxMaL-unknown_model",
+    "EXAVITQu4vr4xnSDxMaL-flash_v2_5-0.6_0.5_0.75",
+    "EXAVITQu4vr4xnSDxMaL-flash_v2_5-1.0_1.1_0.75",
+    "EXAVITQu4vr4xnSDxMaL-flash_v2_5-1.0_0.5_0.75-extra",
+  ]) {
+    assert.throws(
+      () => createTwilioConversationRelayConfigFromEnv({
+        TWILIO_CONVERSATION_RELAY_TTS_PROVIDER: "ElevenLabs",
+        TWILIO_CONVERSATION_RELAY_VOICE: invalidVoice,
+      }),
+      TwilioConversationRelayConfigError,
+    );
+  }
 });
 
 test("ConversationRelay validates patient Deepgram Flux turn detection", () => {

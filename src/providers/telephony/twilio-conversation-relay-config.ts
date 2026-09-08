@@ -5,6 +5,7 @@ export type TwilioConversationRelayConfig = {
   publicBaseUrl?: string;
   language: string;
   ttsProvider: "Google" | "Amazon" | "ElevenLabs";
+  voice?: string;
   transcriptionProvider: "Google" | "Deepgram";
   speechModel?: "flux";
   eotThreshold?: string;
@@ -22,18 +23,22 @@ export function createTwilioConversationRelayConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): TwilioConversationRelayConfig {
   const mode = parseVoiceMode(env.TWILIO_VOICE_MODE);
+  const ttsProvider = parseTtsProvider(env.TWILIO_CONVERSATION_RELAY_TTS_PROVIDER);
   const transcriptionProvider = parseTranscriptionProvider(
     env.TWILIO_CONVERSATION_RELAY_TRANSCRIPTION_PROVIDER,
   );
   const config: TwilioConversationRelayConfig = {
     mode,
     language: env.TWILIO_CONVERSATION_RELAY_LANGUAGE?.trim() || "en-US",
-    ttsProvider: parseTtsProvider(env.TWILIO_CONVERSATION_RELAY_TTS_PROVIDER),
+    ttsProvider,
     transcriptionProvider,
     interruptSensitivity: parseInterruptSensitivity(
       env.TWILIO_CONVERSATION_RELAY_INTERRUPT_SENSITIVITY,
     ),
   };
+
+  const voice = parseVoice(env.TWILIO_CONVERSATION_RELAY_VOICE, ttsProvider);
+  if (voice) config.voice = voice;
 
   if (transcriptionProvider === "Deepgram") {
     config.speechModel = parseSpeechModel(env.TWILIO_CONVERSATION_RELAY_SPEECH_MODEL);
@@ -120,6 +125,56 @@ function parseTtsProvider(
   throw new TwilioConversationRelayConfigError(
     "TWILIO_CONVERSATION_RELAY_TTS_PROVIDER must be Google, Amazon, or ElevenLabs.",
   );
+}
+
+function parseVoice(
+  value: string | undefined,
+  provider: TwilioConversationRelayConfig["ttsProvider"],
+): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (normalized.length > 160 || !/^[A-Za-z0-9._-]+$/.test(normalized)) {
+    throw new TwilioConversationRelayConfigError(
+      "TWILIO_CONVERSATION_RELAY_VOICE must be a supported provider voice identifier.",
+    );
+  }
+  if (provider !== "ElevenLabs") return normalized;
+
+  const parts = normalized.split("-");
+  const voiceId = parts.shift();
+  if (!voiceId || !/^[A-Za-z0-9]{20}$/.test(voiceId)) {
+    throw new TwilioConversationRelayConfigError(
+      "An ElevenLabs ConversationRelay voice must start with a 20-character voice ID.",
+    );
+  }
+  if (parts[0] && ["flash_v2", "flash_v2_5", "turbo_v2", "turbo_v2_5"].includes(parts[0])) {
+    parts.shift();
+  }
+  if (parts.length > 1) {
+    throw new TwilioConversationRelayConfigError(
+      "An ElevenLabs ConversationRelay voice may include one model and one tuning tuple.",
+    );
+  }
+  if (parts[0]) validateElevenLabsTuning(parts[0]);
+  return normalized;
+}
+
+function validateElevenLabsTuning(value: string): void {
+  const values = value.split("_").map(Number);
+  if (
+    values.length !== 3 ||
+    values.some((item) => !Number.isFinite(item)) ||
+    values[0]! < 0.7 ||
+    values[0]! > 1.2 ||
+    values[1]! < 0 ||
+    values[1]! > 1 ||
+    values[2]! < 0 ||
+    values[2]! > 1
+  ) {
+    throw new TwilioConversationRelayConfigError(
+      "ElevenLabs voice tuning must be speed_stability_similarity with speed 0.7-1.2 and stability/similarity 0-1.",
+    );
+  }
 }
 
 function parseTranscriptionProvider(

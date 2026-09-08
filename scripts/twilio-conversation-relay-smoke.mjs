@@ -23,6 +23,7 @@ const languagePrompt = "My father passed away at home.";
 const groupedPhonePrompt = "My name is Morgan Parker. My callback number is 603, 731, 5845.";
 const expectedLanguageStatus = env("CALLER_LANGUAGE_EXPECT_STATUS", "deterministic");
 const expectedLanguageMode = languageModeForStatus(expectedLanguageStatus);
+const expectedVoice = process.env.TWILIO_CONVERSATION_RELAY_EXPECT_VOICE?.trim() || "";
 const timeoutMs = positiveInteger(env("TWILIO_CONVERSATION_RELAY_TIMEOUT_MS", "5000"));
 
 await main();
@@ -39,6 +40,11 @@ async function main() {
   );
   assertEqual(readiness.twilioReadiness?.readyForPublicTraffic, true, "Twilio public readiness");
   assertEqual(readiness.twilioReadiness?.handoffMode, "simulate", "Twilio handoff mode");
+  assertEqual(
+    readiness.conversationRelayConfiguration?.voice,
+    expectedVoice || null,
+    "ConversationRelay voice readiness",
+  );
   assertEqual(
     readiness.callerLanguageReadiness?.mode,
     expectedLanguageMode,
@@ -100,6 +106,11 @@ async function main() {
   });
   assertIncludes(openingTwiml, "<ConversationRelay", "ConversationRelay opening TwiML");
   assertIncludes(openingTwiml, 'ttsProvider="ElevenLabs"', "ElevenLabs TTS configuration");
+  if (expectedVoice) {
+    assertIncludes(openingTwiml, `voice="${xmlEscape(expectedVoice)}"`, "ConversationRelay voice configuration");
+  } else {
+    assertExcludes(openingTwiml, ' voice="', "default ConversationRelay voice configuration");
+  }
   assertIncludes(openingTwiml, 'transcriptionProvider="Deepgram"', "Deepgram transcription configuration");
   assertIncludes(openingTwiml, 'speechModel="flux"', "Deepgram Flux speech model");
   assertIncludes(openingTwiml, 'eotThreshold="0.85"', "patient end-of-turn threshold");

@@ -268,6 +268,7 @@ export function createTwilioConversationRelayTwiMl(input: {
     interruptible: "speech",
     interruptSensitivity: input.config.interruptSensitivity,
   };
+  addIfPresent(relayAttributes, "voice", input.config.voice);
   addIfPresent(relayAttributes, "speechModel", input.config.speechModel);
   addIfPresent(relayAttributes, "eotThreshold", input.config.eotThreshold);
   return xmlResponse(

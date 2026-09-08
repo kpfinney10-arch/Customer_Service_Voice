@@ -8,6 +8,7 @@ Use this runbook only after the account owner accepts Twilio's Predictive and Ge
 - `TWILIO_HANDOFF_MODE=simulate` remains set. Application startup rejects any other handoff mode while ConversationRelay is enabled.
 - `TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL=wss://voice.lanternbell.com` is configured.
 - `TWILIO_CONVERSATION_RELAY_SPEECH_MODEL=flux` and `TWILIO_CONVERSATION_RELAY_EOT_THRESHOLD=0.85` are configured.
+- `TWILIO_CONVERSATION_RELAY_VOICE` is optional and must remain unchanged during workflow acceptance. Use the separate [controlled voice-quality benchmark](voice-quality-benchmark.md) for voice comparisons.
 - The Twilio Auth Token and tenant API key remain in approved secret stores and are never pasted into logs or source control.
 - The owner is available to place one controlled inbound call after the digital smoke passes.
 

@@ -423,6 +423,7 @@ export async function handleApiRequest(
       response = jsonResponse(200, {
         tenantReadiness: evaluateTenantReadiness(config),
         twilioReadiness,
+        conversationRelayConfiguration: publicConversationRelayConfiguration(twilioConversationRelayConfig),
         callerLanguageReadiness: getCallerLanguageReadiness(callerLanguageRuntime),
       });
       response.headers.set("x-request-id", requestId);
@@ -1065,6 +1066,7 @@ async function routeRequest(
     sendJson(response, 200, {
       tenantReadiness: evaluateTenantReadiness(config),
       twilioReadiness,
+      conversationRelayConfiguration: publicConversationRelayConfiguration(twilioConversationRelayConfig),
       callerLanguageReadiness: getCallerLanguageReadiness(callerLanguageRuntime),
     });
     return;
@@ -1478,6 +1480,28 @@ async function routeRequest(
     error: "ROUTE_NOT_FOUND",
     message: "No route matched the request.",
   });
+}
+
+function publicConversationRelayConfiguration(config: TwilioConversationRelayConfig): {
+  mode: TwilioConversationRelayConfig["mode"];
+  language: string;
+  ttsProvider: TwilioConversationRelayConfig["ttsProvider"];
+  voice: string | null;
+  transcriptionProvider: TwilioConversationRelayConfig["transcriptionProvider"];
+  speechModel: TwilioConversationRelayConfig["speechModel"] | null;
+  eotThreshold: string | null;
+  interruptSensitivity: TwilioConversationRelayConfig["interruptSensitivity"];
+} {
+  return {
+    mode: config.mode,
+    language: config.language,
+    ttsProvider: config.ttsProvider,
+    voice: config.voice ?? null,
+    transcriptionProvider: config.transcriptionProvider,
+    speechModel: config.speechModel ?? null,
+    eotThreshold: config.eotThreshold ?? null,
+    interruptSensitivity: config.interruptSensitivity,
+  };
 }
 
 async function handleTelnyxWebhook(
