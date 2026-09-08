@@ -1458,3 +1458,16 @@ Next action:
 1. Complete the automated release checks, then obtain owner approval before committing, pushing, or deploying the configuration feature.
 2. Deploy the exact release in current-default candidate A mode first and require version, health, readiness, and phone-free smoke acceptance.
 3. Test candidate B and candidate C as separate configuration-only deployments and separately approved non-sensitive calls. Select a winner only after both technical and owner listening acceptance.
+
+Baseline deployment update:
+
+- Owner approved the release. Commit `ad0cb122e50653df67696aed202a57d7c0eb50ad` was pushed to `main`; Render deployment `dep-dag77pek1f9s7389smh0` reached Live with build time `2026-09-08T20:45:32.927Z`.
+- Candidate A preserved the accepted production control: authenticated readiness reported `voice=null`, ElevenLabs TTS, Deepgram Flux transcription, reviewed caller language, and simulated handoffs.
+- Phone-free run `conversation-relay-1788900406770` required the default-voice configuration and passed pricing containment, reviewed caller language, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window. No real call or transfer was placed.
+
+Next action:
+
+1. Obtain separate owner approval to activate candidate B (Sarah) by changing only `TWILIO_CONVERSATION_RELAY_VOICE`.
+2. Require exact voice readiness, the candidate-B phone-free smoke, and green call health before its separately approved non-sensitive call.
+3. Preserve candidate A as the configuration-only rollback.
