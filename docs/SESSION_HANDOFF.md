@@ -1382,3 +1382,18 @@ Next action:
 2. Deploy the exact commit with caller language still deterministic, then require exact version, core health, call health, signed Twilio readiness, and the deterministic phone-free smoke.
 3. In a separate configuration-only step, change `CALLER_LANGUAGE_MODE` to `reviewed`, deploy, and run the reviewed phone-free smoke. Keep handoffs simulated.
 4. Obtain separate approval before a non-sensitive controlled phone call; roll back only the language mode to `deterministic` if wording or readiness is unacceptable.
+
+Deployment update:
+
+- Owner approved the release. Commit `7a5414289b60fbeb5bb74128e8462abdaf58d542` was pushed to `main` and manually deployed because automatic deployments remain disabled.
+- Render deployment `dep-dag0gsgn74is73c0af3g` reached Live after its build, PostgreSQL pre-deploy migration, health check, and zero-downtime cutover.
+- Production `/version` returned the exact commit and build time `2026-09-08T13:07:07.687Z`; `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window.
+- Authenticated readiness passed with signed public Twilio webhooks, ConversationRelay active, simulated handoffs, deterministic caller language, eight approved purposes, and zero model attempts, tokens, or cost.
+- Phone-free run `conversation-relay-1788873155183` passed pricing containment, deterministic language, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Post-smoke call health remained green with zero failures. No real call or transfer was placed.
+
+Next action:
+
+1. Obtain separate owner approval for the configuration-only reviewed-language activation.
+2. Change only `CALLER_LANGUAGE_MODE` to `reviewed`, deploy the same code, and require reviewed readiness for bundle `lanternbell-en-us-2026-09-08-v1` with all eight prompts ready and zero model activity.
+3. Run the reviewed phone-free smoke before requesting separate approval for a non-sensitive controlled phone call.
