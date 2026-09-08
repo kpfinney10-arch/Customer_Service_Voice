@@ -63,6 +63,8 @@ The first implementation target is inbound funeral home customer service intake:
 - `docs/architecture/twilio-handoff-outcomes.md`: signed human-transfer outcome and failure behavior.
 - `docs/architecture/mvp-roadmap.md`: staged build plan.
 - `docs/PROJECT_SCOPE.md`: active Voice scope and agreed future LanternBell product boundaries.
+- `docs/runbooks/first-pilot-tenant-onboarding.md`: privacy-safe first-customer preparation, activation, and rollback checklist.
+- `config/examples/pilot-tenant.example.json`: disabled fictional tenant template; never use its reserved phone placeholders for live routing.
 - `schemas`: JSON schema placeholders for shared contracts.
 - `docs`: architecture notes and ADRs.
 
@@ -158,6 +160,8 @@ Tenant routes are protected by a fixed-window in-memory rate limiter. The local 
 Tenant POST routes support `Idempotency-Key`. A matching retry returns the original JSON response with `x-idempotency-status: replayed`; the first successful request returns `x-idempotency-status: stored`. Reusing the same key with a different request returns `409 IDEMPOTENCY_KEY_CONFLICT`.
 
 `TENANT_CONFIGS_JSON` is optional for local development because the server includes an `fh-demo` default. In staging or production, set it to a JSON object keyed by tenant id so each funeral home can own its display name, timezone, handoff queues, phone routing, and feature flags without a code change.
+
+Tenant configuration is validated at startup: object keys and `tenantId` values must match and use lower-kebab-case, queue names must use lower-kebab-case, phone destinations must use E.164 format, and timezones must be valid IANA names. Use `schemas/tenants/tenant-config.schema.json` and the disabled fictional example under `config/examples` when preparing a tenant. Follow the first-pilot onboarding runbook before adding any real customer values.
 
 The tenant config endpoint returns the authenticated tenant's loaded display name, timezone, handoff routing, and feature flags. It is intended for deployment verification and operator debugging; it never returns tenant API keys.
 

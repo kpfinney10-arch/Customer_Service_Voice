@@ -28,6 +28,10 @@ export class TenantConfigParseError extends Error {
   }
 }
 
+const TENANT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const QUEUE_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const E164_PHONE_PATTERN = /^\+[1-9][0-9]{7,14}$/;
+
 export class InMemoryTenantConfigStore implements TenantConfigStore {
   private readonly configs: Map<string, TenantConfig>;
 
@@ -92,9 +96,7 @@ function defaultTenantConfigs(): Record<string, TenantConfig> {
 }
 
 function normalizeTenantConfig(tenantId: string, value: unknown): TenantConfig {
-  if (!tenantId.trim()) {
-    throw new TenantConfigParseError("Tenant config keys must be non-empty tenant ids.");
-  }
+  validateTenantId(tenantId, "Tenant config keys must use lower-kebab-case tenant ids.");
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TenantConfigParseError(`Tenant config for ${tenantId} must be an object.`);
   }
@@ -102,13 +104,26 @@ function normalizeTenantConfig(tenantId: string, value: unknown): TenantConfig {
   const handoff = requiredObject(record.handoff, `Tenant config for ${tenantId} must include handoff.`);
   const features = requiredObject(record.features, `Tenant config for ${tenantId} must include features.`);
 
+  const configuredTenantId = validateTenantId(
+    requiredString(record.tenantId, `Tenant config for ${tenantId} must include tenantId.`),
+    `Tenant config for ${tenantId} has an invalid tenantId. Use lower-kebab-case.`,
+  );
+  if (configuredTenantId !== tenantId) {
+    throw new TenantConfigParseError(
+      `Tenant config key ${tenantId} must match its tenantId value ${configuredTenantId}.`,
+    );
+  }
+
   return {
-    tenantId: requiredString(record.tenantId ?? tenantId, `Tenant config for ${tenantId} must include tenantId.`),
-    displayName: requiredString(
-      record.displayName,
-      `Tenant config for ${tenantId} must include displayName.`,
+    tenantId: configuredTenantId,
+    displayName: validateDisplayName(
+      requiredString(record.displayName, `Tenant config for ${tenantId} must include displayName.`),
+      tenantId,
     ),
-    timezone: requiredString(record.timezone, `Tenant config for ${tenantId} must include timezone.`),
+    timezone: validateTimezone(
+      requiredString(record.timezone, `Tenant config for ${tenantId} must include timezone.`),
+      tenantId,
+    ),
     handoff: normalizeHandoffConfig(tenantId, handoff),
     features: {
       crmHandoff: requiredBoolean(features.crmHandoff, `Tenant config for ${tenantId} must include features.crmHandoff.`),
@@ -123,14 +138,41 @@ function normalizeTenantConfig(tenantId: string, value: unknown): TenantConfig {
 
 function normalizeHandoffConfig(tenantId: string, value: Record<string, unknown>): TenantHandoffConfig {
   const handoff: TenantHandoffConfig = {
-    defaultQueue: requiredString(
-      value.defaultQueue,
-      `Tenant config for ${tenantId} must include handoff.defaultQueue.`,
+    defaultQueue: validateQueueName(
+      requiredString(
+        value.defaultQueue,
+        `Tenant config for ${tenantId} must include handoff.defaultQueue.`,
+      ),
+      `Tenant config for ${tenantId} has an invalid handoff.defaultQueue. Use lower-kebab-case.`,
     ),
   };
-  addIfPresent(handoff, "onCallPhone", optionalString(value.onCallPhone));
-  addIfPresent(handoff, "dispatchDeskPhone", optionalString(value.dispatchDeskPhone));
-  addIfPresent(handoff, "afterHoursQueue", optionalString(value.afterHoursQueue));
+  addIfPresent(
+    handoff,
+    "onCallPhone",
+    optionalE164Phone(value.onCallPhone, `Tenant config for ${tenantId} has an invalid handoff.onCallPhone.`),
+  );
+  addIfPresent(
+    handoff,
+    "dispatchDeskPhone",
+    optionalE164Phone(
+      value.dispatchDeskPhone,
+      `Tenant config for ${tenantId} has an invalid handoff.dispatchDeskPhone.`,
+    ),
+  );
+  const afterHoursQueue = optionalString(
+    value.afterHoursQueue,
+    `Tenant config for ${tenantId} has an invalid handoff.afterHoursQueue.`,
+  );
+  addIfPresent(
+    handoff,
+    "afterHoursQueue",
+    afterHoursQueue === undefined
+      ? undefined
+      : validateQueueName(
+          afterHoursQueue,
+          `Tenant config for ${tenantId} has an invalid handoff.afterHoursQueue. Use lower-kebab-case.`,
+        ),
+  );
   return handoff;
 }
 
@@ -148,10 +190,50 @@ function requiredString(value: unknown, message: string): string {
   return value.trim();
 }
 
-function optionalString(value: unknown): string | undefined {
+function optionalString(value: unknown, message: string): string | undefined {
   if (value == null) return undefined;
-  if (typeof value !== "string" || value.trim() === "") return undefined;
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new TenantConfigParseError(message);
+  }
   return value.trim();
+}
+
+function validateTenantId(value: string, message: string): string {
+  if (!TENANT_ID_PATTERN.test(value)) {
+    throw new TenantConfigParseError(message);
+  }
+  return value;
+}
+
+function validateDisplayName(value: string, tenantId: string): string {
+  if (value.length > 120) {
+    throw new TenantConfigParseError(`Tenant config for ${tenantId} displayName cannot exceed 120 characters.`);
+  }
+  return value;
+}
+
+function validateTimezone(value: string, tenantId: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+  } catch {
+    throw new TenantConfigParseError(`Tenant config for ${tenantId} has an invalid IANA timezone.`);
+  }
+  return value;
+}
+
+function validateQueueName(value: string, message: string): string {
+  if (!QUEUE_NAME_PATTERN.test(value)) {
+    throw new TenantConfigParseError(message);
+  }
+  return value;
+}
+
+function optionalE164Phone(value: unknown, message: string): string | undefined {
+  const phone = optionalString(value, message);
+  if (phone !== undefined && !E164_PHONE_PATTERN.test(phone)) {
+    throw new TenantConfigParseError(`${message} Use E.164 format, for example +15555550100.`);
+  }
+  return phone;
 }
 
 function requiredBoolean(value: unknown, message: string): boolean {

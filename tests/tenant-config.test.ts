@@ -66,3 +66,84 @@ test("tenant config parser rejects missing required handoff queue", () => {
     TenantConfigParseError,
   );
 });
+
+test("tenant config parser rejects a tenant id that does not match its object key", () => {
+  assert.throws(
+    () =>
+      parseTenantConfigsJson(
+        JSON.stringify({
+          "fh-alpha": {
+            tenantId: "fh-beta",
+            displayName: "Alpha Funeral Care",
+            timezone: "America/Chicago",
+            handoff: { defaultQueue: "alpha-first-call" },
+            features: { crmHandoff: false, dispatchHandoff: false, voiceIntake: false },
+          },
+        }),
+      ),
+    /must match its tenantId value/,
+  );
+});
+
+test("tenant config parser rejects invalid tenant ids", () => {
+  assert.throws(
+    () =>
+      parseTenantConfigsJson(
+        JSON.stringify({
+          "FH Alpha": {
+            tenantId: "FH Alpha",
+            displayName: "Alpha Funeral Care",
+            timezone: "America/Chicago",
+            handoff: { defaultQueue: "Alpha First Call" },
+            features: { crmHandoff: false, dispatchHandoff: false, voiceIntake: false },
+          },
+        }),
+      ),
+    /lower-kebab-case tenant ids/,
+  );
+});
+
+test("tenant config parser rejects invalid queue names", () => {
+  assert.throws(
+    () =>
+      parseTenantConfigsJson(
+        JSON.stringify({
+          "fh-alpha": {
+            tenantId: "fh-alpha",
+            displayName: "Alpha Funeral Care",
+            timezone: "America/Chicago",
+            handoff: { defaultQueue: "Alpha First Call" },
+            features: { crmHandoff: false, dispatchHandoff: false, voiceIntake: false },
+          },
+        }),
+      ),
+    /invalid handoff.defaultQueue/,
+  );
+});
+
+test("tenant config parser rejects invalid timezones and phone numbers", () => {
+  const baseConfig = {
+    tenantId: "fh-alpha",
+    displayName: "Alpha Funeral Care",
+    timezone: "America/Chicago",
+    handoff: { defaultQueue: "alpha-first-call", onCallPhone: "+15555551000" },
+    features: { crmHandoff: false, dispatchHandoff: false, voiceIntake: false },
+  };
+
+  assert.throws(
+    () =>
+      parseTenantConfigsJson(
+        JSON.stringify({ "fh-alpha": { ...baseConfig, timezone: "Central Time" } }),
+      ),
+    /invalid IANA timezone/,
+  );
+  assert.throws(
+    () =>
+      parseTenantConfigsJson(
+        JSON.stringify({
+          "fh-alpha": { ...baseConfig, handoff: { ...baseConfig.handoff, onCallPhone: "555-555-1000" } },
+        }),
+      ),
+    /E\.164 format/,
+  );
+});

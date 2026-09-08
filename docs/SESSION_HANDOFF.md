@@ -1527,3 +1527,17 @@ Next action:
 1. Keep Eric pinned with reviewed caller language and simulated handoffs; the controlled voice-quality benchmark is complete.
 2. Resume the ordered pilot-readiness gates, beginning with first-customer onboarding preparation that does not yet enter customer data or enable a real destination.
 3. Keep real customer data and live transfers blocked until the documented legal/privacy review and real-handoff drill gates are satisfied.
+
+## 2026-09-08 first-pilot onboarding preparation
+
+- Added a scoped first-pilot onboarding runbook covering secure information gathering, the present product boundary, disabled configuration, provisioning, tenant-isolation acceptance, activation gates, and stop-traffic rollback.
+- Added a fictional disabled tenant JSON example and a machine-readable tenant configuration schema. Reserved `+1555...` placeholders are explicitly simulation-only.
+- Hardened the TypeScript tenant loader to fail startup on mismatched tenant keys and ids, invalid tenant or queue naming, invalid IANA timezones, malformed optional values, and non-E.164 phone destinations.
+- Reviewed the broader companion funeral-home onboarding material and deliberately narrowed this packet to the currently implemented pilot surface. Pricing, payments, SMS, sensitive identity/medical collection, and unapproved CRM or Dispatch integrations remain outside this pilot.
+- No real customer identity, contact, credential, caller data, or live transfer destination was added. Production configuration and traffic were not changed.
+
+Next action:
+
+1. Complete local release validation and obtain owner approval before committing or pushing this onboarding increment.
+2. Collect the first customer's non-secret business and pilot decisions; keep contacts, credentials, and phone destinations in approved secure systems outside source control.
+3. Preserve simulated handoffs and disabled pilot feature flags until the legal/privacy and real-handoff gates are complete.

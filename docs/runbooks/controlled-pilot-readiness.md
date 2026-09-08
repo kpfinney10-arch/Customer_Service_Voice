@@ -28,7 +28,7 @@ The service is technically stable enough for continued controlled testing. The n
 | Release identification | Pass | Production `/version` reports exact Render commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`. |
 | Long-latency and repeated-prompt alerting | Pass | Persisted orchestration turns at or above 1,500 ms and three consecutive no-progress or empty-speech prompts are classified by `/health/calls` without public caller or tenant data. Automated coverage passed, and the controlled `repeated_prompt` external down/recovery drill completed. |
 | Data retention and deletion | Engineering and owner activation passed; legal review blocked | The owner approved the pilot policy on 2026-08-16. Commit `b5a0525` is deployed, migration `004` completed, the three protected lifecycle variables are configured, and production purge/retention dry-runs completed without deletion. Kyle Finney is assigned as the manual daily retention owner during any real-data pilot; the successful production dry-run verified access. Appropriate legal/privacy review remains required. |
-| First customer onboarding | Blocked | `fh-demo` uses environment-loaded demo configuration and simulated destinations. A real pilot requires customer-specific routing, secrets, feature flags, staff users, support contacts, and approved data settings. |
+| First customer onboarding | Preparation complete; activation blocked | `first-pilot-tenant-onboarding.md`, `config/examples/pilot-tenant.example.json`, and `schemas/tenants/tenant-config.schema.json` define the disabled configuration, secure inputs, validation, tenant-isolation checks, activation gates, and rollback. No real customer data, secret, or destination has been added. |
 | Incident response | Pass | `pilot-incident-response.md` defines ownership, severity, safe evidence, traffic stop, rollback, database recovery, communications, verification, and closure. |
 
 ## Ordered Launch Gates
@@ -78,11 +78,13 @@ Acceptance criteria:
 
 Acceptance criteria:
 
-- Create a stable non-demo tenant identifier, display name, timezone, real on-call routing, and approved feature flags.
-- Create tenant-specific machine secrets and named staff accounts with least-privilege roles.
-- Record the customer support contact, LanternBell incident owner, pilot hours, call-volume limit, and stop-traffic procedure.
-- Verify tenant isolation for call activity, call detail, access audit, configuration, API keys, and webhook routing.
-- Run signed readiness without exposing secrets or caller data.
+- [x] Create a reusable disabled tenant example, machine-readable schema, secure-input checklist, activation sequence, and rollback procedure in `first-pilot-tenant-onboarding.md`.
+- [x] Add fail-fast application validation for tenant id/key agreement, tenant and queue naming, IANA timezone, and E.164 destinations.
+- [ ] Create a stable non-demo tenant identifier, display name, timezone, real on-call routing, and approved feature flags.
+- [ ] Create tenant-specific machine secrets and named staff accounts with least-privilege roles.
+- [ ] Record the customer support contact, LanternBell incident owner, pilot hours, call-volume limit, and stop-traffic procedure outside source control.
+- [ ] Verify tenant isolation for call activity, call detail, access audit, configuration, API keys, and webhook routing.
+- [ ] Run signed readiness without exposing secrets or caller data.
 
 ### 5. Rebaseline the release and make the go/no-go decision
 

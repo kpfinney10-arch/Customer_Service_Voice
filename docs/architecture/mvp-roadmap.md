@@ -19,6 +19,7 @@
 - Human handoff summary for escalated first-call death reports.
 - Tenant handoff routing for on-call phone, dispatch desk, queue, or manual review.
 - Environment-loadable tenant configuration for adding funeral home customers without code edits.
+- Reusable first-pilot tenant onboarding template, schema, activation checklist, and rollback procedure.
 - Tenant config lookup endpoint for deployment verification.
 - Tenant readiness endpoint for first-call traffic go/no-go checks.
 - Tenant diagnostics activity endpoint for early human testing.

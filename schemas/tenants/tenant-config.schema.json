@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lanternbell.com/schemas/tenant-config.schema.json",
+  "title": "LanternBell tenant configuration collection",
+  "description": "Deployment configuration keyed by stable lower-kebab-case tenant id. The application also requires each object key to equal its tenantId value.",
+  "type": "object",
+  "minProperties": 1,
+  "propertyNames": {
+    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+  },
+  "additionalProperties": {
+    "$ref": "#/$defs/tenant"
+  },
+  "$defs": {
+    "queueName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "phone": {
+      "type": "string",
+      "pattern": "^\\+[1-9][0-9]{7,14}$"
+    },
+    "tenant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenantId", "displayName", "timezone", "handoff", "features"],
+      "properties": {
+        "tenantId": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "A valid IANA timezone such as America/Chicago; validated by the application at startup."
+        },
+        "handoff": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["defaultQueue"],
+          "properties": {
+            "defaultQueue": { "$ref": "#/$defs/queueName" },
+            "onCallPhone": { "$ref": "#/$defs/phone" },
+            "dispatchDeskPhone": { "$ref": "#/$defs/phone" },
+            "afterHoursQueue": { "$ref": "#/$defs/queueName" }
+          }
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["crmHandoff", "dispatchHandoff", "voiceIntake"],
+          "properties": {
+            "crmHandoff": { "type": "boolean" },
+            "dispatchHandoff": { "type": "boolean" },
+            "voiceIntake": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

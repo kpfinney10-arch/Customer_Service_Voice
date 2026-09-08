@@ -1,0 +1,18 @@
+{
+  "pilot-example": {
+    "tenantId": "pilot-example",
+    "displayName": "Example Funeral Home",
+    "timezone": "America/Chicago",
+    "handoff": {
+      "defaultQueue": "pilot-example-first-call",
+      "onCallPhone": "+15555550110",
+      "dispatchDeskPhone": "+15555550111",
+      "afterHoursQueue": "pilot-example-after-hours"
+    },
+    "features": {
+      "crmHandoff": false,
+      "dispatchHandoff": false,
+      "voiceIntake": false
+    }
+  }
+}
