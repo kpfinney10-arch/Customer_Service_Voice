@@ -43,10 +43,17 @@ export type CallerLanguagePricing = {
   version: string;
 };
 
+export type ReviewedCallerLanguageBundle = {
+  version: string;
+  language: "en-US";
+  entries: Readonly<Partial<Record<CallerLanguagePurpose, string>>>;
+};
+
 type PreparedCallerLanguage = {
   text: string;
-  provider: "openai";
-  model: string;
+  provider: "openai" | "reviewed_bundle";
+  model?: string;
+  bundleVersion?: string;
   purpose: CallerLanguagePurpose;
   preparedAtMs: number;
   generationLatencyMs: number;
@@ -81,9 +88,20 @@ export type CallerLanguageRuntime =
       pricing: CallerLanguagePricing;
       cache: CallerLanguageCache;
       nowMs?: () => number;
+    }
+  | {
+      mode: "reviewed";
+      bundle: ReviewedCallerLanguageBundle;
+      cache: CallerLanguageCache;
+      nowMs?: () => number;
     };
 
-export type CallerLanguageStatus = "deterministic" | "generated" | "skipped" | "fallback";
+export type CallerLanguageStatus =
+  | "deterministic"
+  | "generated"
+  | "reviewed"
+  | "skipped"
+  | "fallback";
 
 export type CallerLanguageFallbackReason =
   | "unapproved_canonical_text"
@@ -96,9 +114,10 @@ export type CallerLanguageOutcome = {
   text: string;
   mode: CallerLanguageRuntime["mode"];
   status: CallerLanguageStatus;
-  provider: "deterministic" | "openai";
+  provider: "deterministic" | "openai" | "reviewed_bundle";
   purpose?: CallerLanguagePurpose;
   model?: string;
+  bundleVersion?: string;
   fallbackReason?: CallerLanguageFallbackReason;
   latencyMs: number;
   usage: CallerLanguageUsage;
@@ -123,6 +142,7 @@ export type CallerLanguageReadiness = {
   preparationEstimatedCostMicrousd: number;
   preparationAttemptCount: number;
   retriedPromptCount: number;
+  bundleVersion?: string;
   canonicalTextSentToModel: boolean;
   callerDataSentToModel: false;
   generatedTextDurablyRetained: false;
@@ -221,7 +241,9 @@ export async function prepareCallerLanguageRuntime(
   }
 
   runtime.cache.status = "preparing";
-  const preparation = prepareApprovedPrompts(runtime);
+  const preparation = runtime.mode === "reviewed"
+    ? prepareReviewedBundle(runtime)
+    : prepareApprovedPrompts(runtime);
   runtime.cache.preparationPromise = preparation;
   try {
     return await preparation;
@@ -257,8 +279,8 @@ export function getCallerLanguageReadiness(
   const failures = [...runtime.cache.failures.entries()]
     .map(([purpose, reason]) => ({ purpose, reason }))
     .sort((left, right) => left.purpose.localeCompare(right.purpose));
-  return {
-    mode: "openai",
+  const readiness: CallerLanguageReadiness = {
+    mode: runtime.mode,
     ready: runtime.cache.status === "ready",
     preparationStatus: runtime.cache.status,
     approvedPromptCount: approvedCanonicalText.size,
@@ -269,10 +291,13 @@ export function getCallerLanguageReadiness(
     preparationEstimatedCostMicrousd: runtime.cache.preparationEstimatedCostMicrousd,
     preparationAttemptCount: runtime.cache.preparationAttemptCount,
     retriedPromptCount: runtime.cache.retriedPromptCount,
-    canonicalTextSentToModel: runtime.cache.status !== "not_started",
+    canonicalTextSentToModel:
+      runtime.mode === "openai" && runtime.cache.status !== "not_started",
     callerDataSentToModel: false,
     generatedTextDurablyRetained: false,
   };
+  if (runtime.mode === "reviewed") readiness.bundleVersion = runtime.bundle.version;
+  return readiness;
 }
 
 export async function generateCallerLanguage(
@@ -280,13 +305,19 @@ export async function generateCallerLanguage(
   input: { tenantId: string; callId: string; canonicalText: string },
 ): Promise<CallerLanguageOutcome> {
   if (runtime.mode === "deterministic") {
-    return deterministicOutcome(input.canonicalText, "deterministic", 0);
+    return deterministicOutcome(
+      input.canonicalText,
+      "deterministic",
+      "deterministic",
+      0,
+    );
   }
 
   const purpose = approvedCanonicalText.get(input.canonicalText);
   if (!purpose) {
     return deterministicOutcome(
       input.canonicalText,
+      runtime.mode,
       "skipped",
       0,
       "unapproved_canonical_text",
@@ -299,6 +330,7 @@ export async function generateCallerLanguage(
   if (!prepared) {
     return deterministicOutcome(
       input.canonicalText,
+      runtime.mode,
       "fallback",
       Math.max(0, nowMs() - startedAt),
       runtime.cache.failures.get(purpose) ?? "cache_not_ready",
@@ -306,20 +338,67 @@ export async function generateCallerLanguage(
     );
   }
 
-  return {
+  const outcome: CallerLanguageOutcome = {
     text: prepared.text,
-    mode: "openai",
-    status: "generated",
+    mode: runtime.mode,
+    status: prepared.provider === "reviewed_bundle" ? "reviewed" : "generated",
     provider: prepared.provider,
     purpose,
-    model: prepared.model,
     latencyMs: Math.max(0, nowMs() - startedAt),
     usage: { ...zeroUsage },
     estimatedCostMicrousd: 0,
-    pricingVersion: runtime.pricing.version,
     cacheHit: true,
     preparationLatencyMs: prepared.generationLatencyMs,
   };
+  if (prepared.model) outcome.model = prepared.model;
+  if (runtime.mode === "openai") outcome.pricingVersion = runtime.pricing.version;
+  if (prepared.bundleVersion) outcome.bundleVersion = prepared.bundleVersion;
+  return outcome;
+}
+
+async function prepareReviewedBundle(
+  runtime: Extract<CallerLanguageRuntime, { mode: "reviewed" }>,
+): Promise<CallerLanguageReadiness> {
+  const entries = new Map<CallerLanguagePurpose, PreparedCallerLanguage>();
+  const failures = new Map<CallerLanguagePurpose, CallerLanguageFallbackReason>();
+  const nowMs = runtime.nowMs ?? Date.now;
+  const bundleVersionValid = /^[a-z0-9][a-z0-9._-]{2,79}$/i.test(runtime.bundle.version);
+
+  for (const purpose of new Set(approvedCanonicalText.values())) {
+    const bundledText = runtime.bundle.entries[purpose];
+    try {
+      if (!bundleVersionValid || runtime.bundle.language !== "en-US" || !bundledText) {
+        throw new CallerLanguageGenerationError(
+          "invalid_output",
+          "Reviewed caller-language bundle metadata or entry was invalid.",
+        );
+      }
+      entries.set(purpose, {
+        text: validateApprovedText(bundledText, purpose),
+        provider: "reviewed_bundle",
+        bundleVersion: runtime.bundle.version,
+        purpose,
+        preparedAtMs: nowMs(),
+        generationLatencyMs: 0,
+      });
+    } catch (error) {
+      failures.set(
+        purpose,
+        error instanceof CallerLanguageGenerationError ? error.code : "invalid_output",
+      );
+    }
+  }
+
+  runtime.cache.entries = entries;
+  runtime.cache.failures = failures;
+  runtime.cache.preparationUsage = { ...zeroUsage };
+  runtime.cache.preparationEstimatedCostMicrousd = 0;
+  runtime.cache.preparationAttemptCount = 0;
+  runtime.cache.retriedPromptCount = 0;
+  runtime.cache.status = failures.size === 0 && entries.size === approvedCanonicalText.size
+    ? "ready"
+    : "degraded";
+  return getCallerLanguageReadiness(runtime);
 }
 
 async function prepareApprovedPrompts(
@@ -418,11 +497,18 @@ function validateGeneratedText(
   generated: CallerLanguageModelResponse,
   purpose: CallerLanguagePurpose,
 ): string {
-  const text = generated.text.trim().replace(/\s+/g, " ");
   if (generated.purpose !== purpose) {
     throw new CallerLanguageGenerationError("invalid_output", "Purpose did not match the request.");
   }
-  if (!text || text.length > 280 || /[\r\n]/.test(generated.text)) {
+  return validateApprovedText(generated.text, purpose);
+}
+
+function validateApprovedText(
+  candidate: string,
+  purpose: CallerLanguagePurpose,
+): string {
+  const text = candidate.trim().replace(/\s+/g, " ");
+  if (!text || text.length > 280 || /[\r\n]/.test(candidate)) {
     throw new CallerLanguageGenerationError("invalid_output", "Generated language length was invalid.");
   }
   if ((text.match(/\?/g) ?? []).length !== 1) {
@@ -452,6 +538,7 @@ function validateGeneratedText(
 
 function deterministicOutcome(
   text: string,
+  mode: CallerLanguageRuntime["mode"],
   status: Exclude<CallerLanguageStatus, "generated">,
   latencyMs: number,
   fallbackReason?: CallerLanguageFallbackReason,
@@ -459,7 +546,7 @@ function deterministicOutcome(
 ): CallerLanguageOutcome {
   const outcome: CallerLanguageOutcome = {
     text,
-    mode: status === "deterministic" ? "deterministic" : "openai",
+    mode,
     status,
     provider: "deterministic",
     latencyMs,

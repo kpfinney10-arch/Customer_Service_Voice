@@ -1,6 +1,6 @@
 # ADR 0002: Staged ConversationRelay Adoption
 
-Status: Accepted for implementation behind a disabled production flag  
+Status: Accepted for implementation behind a disabled production flag
 Decision date: 2026-08-18
 
 ## Context
@@ -22,9 +22,9 @@ Adopt ConversationRelay in stages:
 5. Do not store raw prompt text in durable events. Existing structured-fact retention and redacted transcript-event rules remain unchanged.
 6. Treat interruptions as explicit orchestrator events and serialize prompts per connection.
 7. Fail terminal, invalid, or provider-error paths closed through a small allowlisted `reasonCode`; never place caller data, transcript text, or structured facts in `handoffData`.
-8. Add a constrained OpenAI response-generation layer only after the transport passes digital and real-phone tests. The application validates the complete wording before it can be spoken. After live latency testing, ADR 0003 moved these rewrites to a release-scoped startup cache so no live caller turn awaits the provider. The LLM may rewrite only exact allowlisted generic prompts; it may not receive caller transcripts or collected facts, choose state transitions, invoke integrations directly, bypass pricing policy, or authorize handoffs. Dynamic prompts containing a recognized name or address remain deterministic.
-9. Keep caller-language generation behind `CALLER_LANGUAGE_MODE=deterministic|openai`, default it to `deterministic`, and fall back to the canonical TypeScript prompt on timeout, provider error, schema failure, semantic-anchor failure, extra questions, or prohibited content.
-10. Record content-free caller-language operational metadata without retaining canonical or generated wording. ADR 0003 records one-time generation usage and cost during startup preparation; per-call `TTS_STARTED` events record cache-hit lookup latency and do not duplicate that cost.
+8. Add constrained caller-language alternatives only after the transport passes digital and real-phone tests. The application validates complete wording before it can be spoken. ADR 0003 moved OpenAI rewrites to a release-scoped startup cache; ADR 0004 later replaced that production approach with a reviewed, versioned bundle that makes no model request. Neither path may receive caller transcripts or collected facts, choose state transitions, invoke integrations directly, bypass pricing policy, or authorize handoffs. Dynamic prompts containing a recognized name or address remain deterministic.
+9. Keep caller-language selection behind `CALLER_LANGUAGE_MODE=deterministic|reviewed|openai`, default it to `deterministic`, and use `reviewed` as the production candidate for natural wording. Keep `openai` limited to controlled non-production generation experiments. Fall back to the canonical TypeScript prompt for any invalid or unavailable entry.
+10. Record content-free caller-language operational metadata without retaining canonical, reviewed, or generated wording. ADR 0004 records the reviewed bundle version and zero model usage; per-call `TTS_STARTED` events record cache-hit lookup latency without prompt text.
 
 ## Initial Voice Configuration
 
@@ -48,7 +48,7 @@ ConversationRelay may not be enabled on the production number until all of the f
 - Call health and operator replay remain green and free of transcript text.
 - Rollback to `gather` is timed and verified.
 - The measured ConversationRelay and model usage is added to the pricing model.
-- The OpenAI caller-language path passes a phone-free production smoke with `languageStatus=generated`; its timeout/fallback path is also verified before a controlled call.
+- The reviewed caller-language path passes a phone-free production smoke with `languageStatus=reviewed`, a versioned bundle, zero model usage, and a verified invalid-entry fallback before a controlled call.
 
 Live handoffs and real customer data retain their existing separate approval gates.
 

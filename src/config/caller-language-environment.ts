@@ -4,6 +4,7 @@ import type {
 } from "../orchestrator/caller-language.js";
 import { createCallerLanguageCache } from "../orchestrator/caller-language.js";
 import { createOpenAiCallerLanguageAdapter } from "../providers/model/openai-caller-language-adapter.js";
+import { REVIEWED_CALLER_LANGUAGE_BUNDLE } from "../orchestrator/reviewed-caller-language-bundle.js";
 
 export const DEFAULT_CALLER_LANGUAGE_MODEL = "gpt-5.6-luna";
 
@@ -32,6 +33,15 @@ export function createCallerLanguageRuntimeFromEnv(
   const mode = parseMode(env.CALLER_LANGUAGE_MODE);
   if (mode === "deterministic") {
     const runtime: CallerLanguageRuntime = { mode };
+    if (dependencies.nowMs) runtime.nowMs = dependencies.nowMs;
+    return runtime;
+  }
+  if (mode === "reviewed") {
+    const runtime: CallerLanguageRuntime = {
+      mode,
+      bundle: REVIEWED_CALLER_LANGUAGE_BUNDLE,
+      cache: createCallerLanguageCache(),
+    };
     if (dependencies.nowMs) runtime.nowMs = dependencies.nowMs;
     return runtime;
   }
@@ -66,10 +76,10 @@ export function createCallerLanguageRuntimeFromEnv(
 function parseMode(value: string | undefined): CallerLanguageRuntime["mode"] {
   const normalized = value?.trim().toLowerCase();
   if (!normalized || normalized === "deterministic") return "deterministic";
-  if (normalized === "openai") return normalized;
+  if (normalized === "openai" || normalized === "reviewed") return normalized;
   throw new CallerLanguageEnvironmentError(
     "INVALID_CALLER_LANGUAGE_MODE",
-    "CALLER_LANGUAGE_MODE must be deterministic or openai.",
+    "CALLER_LANGUAGE_MODE must be deterministic, reviewed, or openai.",
   );
 }
 

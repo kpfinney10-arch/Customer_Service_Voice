@@ -70,6 +70,14 @@ The first implementation target is inbound funeral home customer service intake:
 
 This scaffold is dependency-light on purpose. Provider-specific telephony, STT, TTS, LLM, CRM, and dispatch adapters should be added behind the existing typed interfaces rather than coupled directly into orchestration code.
 
+Caller-facing workflow prompts support three explicit modes:
+
+- `deterministic`: speak the canonical TypeScript prompt.
+- `reviewed`: validate and serve the versioned reviewed prompt bundle with no model request, tokens, or model cost. This is the recommended natural-language production path.
+- `openai`: generate a release-scoped in-memory cache during startup. This mode is retained for controlled non-production experiments and is not the recommended production path.
+
+All modes leave state transitions, fact requirements, pricing containment, tools, and handoffs under deterministic orchestration. Dynamic prompts containing caller-specific details bypass the reviewed and generated allowlist.
+
 ## Local API
 
 Build and run:

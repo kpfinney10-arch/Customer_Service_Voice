@@ -10,6 +10,18 @@ test("caller-language environment defaults to deterministic mode", () => {
   assert.deepEqual(runtime, { mode: "deterministic" });
 });
 
+test("caller-language environment loads the reviewed bundle without an OpenAI key", () => {
+  const runtime = createCallerLanguageRuntimeFromEnv({
+    CALLER_LANGUAGE_MODE: "reviewed",
+  });
+
+  assert.equal(runtime.mode, "reviewed");
+  if (runtime.mode !== "reviewed") assert.fail("Expected reviewed runtime.");
+  assert.match(runtime.bundle.version, /^lanternbell-en-us-/);
+  assert.equal(runtime.bundle.language, "en-US");
+  assert.equal(Object.keys(runtime.bundle.entries).length, 8);
+});
+
 test("caller-language environment enables OpenAI with current Luna pricing", () => {
   const runtime = createCallerLanguageRuntimeFromEnv({
     CALLER_LANGUAGE_MODE: "openai",

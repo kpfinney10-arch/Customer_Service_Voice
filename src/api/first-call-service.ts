@@ -683,6 +683,7 @@ export function createFirstCallService(options: CreateFirstCallServiceOptions): 
       };
       addIfPresent(payload, "purpose", input.outcome.purpose);
       addIfPresent(payload, "model", input.outcome.model);
+      addIfPresent(payload, "bundleVersion", input.outcome.bundleVersion);
       addIfPresent(payload, "fallbackReason", input.outcome.fallbackReason);
       addIfPresent(payload, "pricingVersion", input.outcome.pricingVersion);
       addIfPresent(payload, "cacheHit", input.outcome.cacheHit);

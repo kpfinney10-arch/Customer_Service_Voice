@@ -1,6 +1,6 @@
 # ADR 0003: Release-Scoped Caller-Language Cache
 
-Status: Accepted for implementation behind the existing disabled production flag  
+Status: Superseded for production by ADR 0004; retained for non-production generation experiments
 Decision date: 2026-08-23
 
 ## Context
@@ -33,4 +33,3 @@ The eligible prompts are a small, exact allowlist of generic questions. They con
 - Unit tests cover full preparation, validation failure, provider timeout, cache-not-ready fallback, dynamic-prompt bypass, one-time cost accounting, and zero provider calls from the live path.
 - The signed ConversationRelay integration test verifies a cache hit, content-free per-call metering, provider-failure fallback, and no caller transcript in the preparation request.
 - The phone-free production smoke requires complete caller-language readiness before opening the WebSocket and requires a generated cache hit within 100 milliseconds.
-

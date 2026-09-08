@@ -11,6 +11,10 @@ import type {
   CallerLanguageGenerator,
   CallerLanguageRuntime,
 } from "../src/orchestrator/caller-language.js";
+import {
+  REVIEWED_CALLER_LANGUAGE_BUNDLE,
+  REVIEWED_CALLER_LANGUAGE_BUNDLE_VERSION,
+} from "../src/orchestrator/reviewed-caller-language-bundle.js";
 
 const canonicalDecedentPrompt = "May I have the name of the person who passed away?";
 
@@ -29,6 +33,80 @@ test("caller language remains deterministic when the feature is disabled", async
   assert.equal(output.status, "deterministic");
   assert.equal(output.estimatedCostMicrousd, 0);
   assert.equal(output.usage.totalTokens, 0);
+});
+
+test("reviewed caller language validates a versioned bundle without model usage", async () => {
+  const runtime: CallerLanguageRuntime = {
+    mode: "reviewed",
+    bundle: REVIEWED_CALLER_LANGUAGE_BUNDLE,
+    cache: createCallerLanguageCache(),
+  };
+
+  const readiness = await prepareCallerLanguageRuntime(runtime);
+  const output = await generateCallerLanguage(runtime, {
+    tenantId: "fh-demo",
+    callId: "CAreviewedcallerlanguage0001",
+    canonicalText: canonicalDecedentPrompt,
+  });
+
+  assert.equal(readiness.mode, "reviewed");
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.preparationStatus, "ready");
+  assert.equal(readiness.preparedPromptCount, 8);
+  assert.equal(readiness.failedPromptCount, 0);
+  assert.equal(readiness.preparationAttemptCount, 0);
+  assert.equal(readiness.retriedPromptCount, 0);
+  assert.equal(readiness.preparationUsage.totalTokens, 0);
+  assert.equal(readiness.preparationEstimatedCostMicrousd, 0);
+  assert.equal(readiness.bundleVersion, REVIEWED_CALLER_LANGUAGE_BUNDLE_VERSION);
+  assert.equal(readiness.canonicalTextSentToModel, false);
+  assert.equal(readiness.callerDataSentToModel, false);
+  assert.equal(readiness.generatedTextDurablyRetained, false);
+  assert.equal(output.text, REVIEWED_CALLER_LANGUAGE_BUNDLE.entries.collect_decedent);
+  assert.equal(output.mode, "reviewed");
+  assert.equal(output.status, "reviewed");
+  assert.equal(output.provider, "reviewed_bundle");
+  assert.equal(output.bundleVersion, REVIEWED_CALLER_LANGUAGE_BUNDLE_VERSION);
+  assert.equal(output.cacheHit, true);
+  assert.equal(output.usage.totalTokens, 0);
+  assert.equal(output.estimatedCostMicrousd, 0);
+});
+
+test("reviewed caller language degrades safely when a bundled prompt is invalid", async () => {
+  const runtime: CallerLanguageRuntime = {
+    mode: "reviewed",
+    bundle: {
+      ...REVIEWED_CALLER_LANGUAGE_BUNDLE,
+      version: "test-invalid-bundle",
+      entries: {
+        ...REVIEWED_CALLER_LANGUAGE_BUNDLE.entries,
+        collect_decedent: "May I have their name and callback number?",
+      },
+    },
+    cache: createCallerLanguageCache(),
+  };
+
+  const readiness = await prepareCallerLanguageRuntime(runtime);
+  const output = await generateCallerLanguage(runtime, {
+    tenantId: "fh-demo",
+    callId: "CAreviewedcallerlanguage0002",
+    canonicalText: canonicalDecedentPrompt,
+  });
+
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.preparationStatus, "degraded");
+  assert.equal(readiness.preparedPromptCount, 7);
+  assert.equal(readiness.failedPromptCount, 1);
+  assert.deepEqual(readiness.failures, [
+    { purpose: "collect_decedent", reason: "invalid_output" },
+  ]);
+  assert.equal(readiness.preparationAttemptCount, 0);
+  assert.equal(readiness.canonicalTextSentToModel, false);
+  assert.equal(output.text, canonicalDecedentPrompt);
+  assert.equal(output.mode, "reviewed");
+  assert.equal(output.status, "fallback");
+  assert.equal(output.provider, "deterministic");
+  assert.equal(output.fallbackReason, "invalid_output");
 });
 
 test("caller language accepts a bounded rewrite and meters its estimated cost", async () => {

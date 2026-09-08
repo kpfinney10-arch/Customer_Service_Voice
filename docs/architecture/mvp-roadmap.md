@@ -62,7 +62,7 @@
 - TTS adapter contract and fake adapter.
 - Barge-in and cancellation model.
 - LLM structured-output adapter contract and fake fallback extractor.
-- Constrained caller-language generation after ConversationRelay transport acceptance: the buffered, structured, allowlisted foundation is complete behind a default-off switch with deterministic fallback and content-free usage/cost metering. Direct token streaming remains a later latency optimization; state, rules, tools, pricing policy, and handoffs remain deterministic.
+- Reviewed caller-language delivery after ConversationRelay transport acceptance: eight generic prompts are stored in a versioned source bundle, validated at startup, and served without a model call, token usage, or model cost. OpenAI generation remains available only for controlled non-production experiments; state, rules, tools, pricing policy, and handoffs remain deterministic.
 
 ## Phase 3: Funeral Home Workflow
 

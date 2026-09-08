@@ -1349,3 +1349,36 @@ Deployment update:
 - Production `/version` returned the exact commit and build time `2026-08-27T17:09:18.240Z`.
 - Production run `conversation-relay-1787850638728` passed pricing containment, deterministic language, grouped-number capture on the first attempt, the bounded phone-retry path, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
 - Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window.
+
+## 2026-09-08 grouped callback-number controlled-call acceptance
+
+- Controlled call `CA6e5c963d2bdc87c1fa353ed01d9125fd` ran against production commit `a5041b4b711f4e0bace73f7c8b4826cc8de1a266` with deterministic caller language and simulated handoffs.
+- The first caller turn captured the caller name and correctly requested only the missing callback number. The next turn captured the naturally grouped callback number and advanced immediately to `collect_decedent`; no digit-by-digit clarification or phone retry occurred.
+- Four caller turns completed caller identity, callback number, decedent collection, and pickup-address collection. The workflow escalated normally for an urgent death report with session retry count zero.
+- CRM intake and simulated dispatch both completed successfully. There were no failed tools, no real transfer, and no repeated-prompt event.
+- The redacted operator detail reported four redacted transcript events and did not expose transcript text, names, phone numbers, or addresses. Caller-language events used deterministic text with zero model tokens and no retained generated text.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window.
+
+Next action:
+
+1. Replace deployment-time generative prompt preparation with a reviewed, versioned prompt bundle so production startup no longer depends on nondeterministic model output.
+2. Validate the bundle against the existing semantic and privacy rules, then run the full phone-free ConversationRelay matrix before enabling it.
+3. Keep deterministic caller language and simulated handoffs active until that release passes repeatable deployment and controlled-call acceptance.
+
+## 2026-09-08 reviewed caller-language bundle release candidate
+
+- Added `CALLER_LANGUAGE_MODE=reviewed` with versioned bundle `lanternbell-en-us-2026-09-08-v1` containing all eight approved generic caller prompts.
+- Reviewed mode validates the bundle at startup with the existing purpose, one-question, length, and prohibited-content rules. A missing or invalid entry degrades readiness and falls back immediately to the canonical deterministic TypeScript prompt.
+- Reviewed mode makes no provider request, uses zero model tokens, incurs zero model cost, and does not require or read `OPENAI_API_KEY`. OpenAI mode remains available only for controlled non-production generation experiments.
+- Readiness and `TTS_STARTED` events expose only content-free bundle version, provider, cache-hit, latency, and zero-usage metadata. Canonical and reviewed wording are not durably retained.
+- The phone-free ConversationRelay smoke now accepts `CALLER_LANGUAGE_EXPECT_STATUS=reviewed` and requires all eight prompts ready, zero model attempts/tokens/cost, model isolation, a bundle cache hit within 100 milliseconds, and no retained text.
+- ADR 0004 records the production architecture decision and supersedes ADR 0003 for production caller language. The activation runbook, roadmap, legal/privacy packet, and README now describe the reviewed path.
+- TypeScript typecheck, production build, all `351/351` automated tests, and `git diff --check` pass.
+- The release candidate is local only. Production remains unchanged on commit `a5041b4b711f4e0bace73f7c8b4826cc8de1a266` with deterministic caller language and simulated handoffs.
+
+Next action:
+
+1. After owner approval, commit and push the reviewed-bundle release candidate.
+2. Deploy the exact commit with caller language still deterministic, then require exact version, core health, call health, signed Twilio readiness, and the deterministic phone-free smoke.
+3. In a separate configuration-only step, change `CALLER_LANGUAGE_MODE` to `reviewed`, deploy, and run the reviewed phone-free smoke. Keep handoffs simulated.
+4. Obtain separate approval before a non-sensitive controlled phone call; roll back only the language mode to `deterministic` if wording or readiness is unacceptable.

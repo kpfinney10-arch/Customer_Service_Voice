@@ -22,6 +22,7 @@ const pricingPrompt = "No one has passed away. I need cremation pricing.";
 const languagePrompt = "My father passed away at home.";
 const groupedPhonePrompt = "My name is Morgan Parker. My callback number is 603, 731, 5845.";
 const expectedLanguageStatus = env("CALLER_LANGUAGE_EXPECT_STATUS", "deterministic");
+const expectedLanguageMode = languageModeForStatus(expectedLanguageStatus);
 const timeoutMs = positiveInteger(env("TWILIO_CONVERSATION_RELAY_TIMEOUT_MS", "5000"));
 
 await main();
@@ -40,7 +41,7 @@ async function main() {
   assertEqual(readiness.twilioReadiness?.handoffMode, "simulate", "Twilio handoff mode");
   assertEqual(
     readiness.callerLanguageReadiness?.mode,
-    expectedLanguageStatus === "generated" ? "openai" : "deterministic",
+    expectedLanguageMode,
     "caller-language readiness mode",
   );
   assertEqual(readiness.callerLanguageReadiness?.ready, true, "caller-language readiness");
@@ -57,6 +58,36 @@ async function main() {
     );
     if (!(readiness.callerLanguageReadiness?.preparationUsage?.totalTokens > 0)) {
       throw new Error("OpenAI caller-language preparation must include positive one-time token usage.");
+    }
+  }
+  if (expectedLanguageStatus === "reviewed") {
+    assertEqual(
+      readiness.callerLanguageReadiness?.preparedPromptCount,
+      readiness.callerLanguageReadiness?.approvedPromptCount,
+      "reviewed caller-language prompt count",
+    );
+    assertEqual(
+      readiness.callerLanguageReadiness?.preparationUsage?.totalTokens,
+      0,
+      "reviewed caller-language preparation tokens",
+    );
+    assertEqual(
+      readiness.callerLanguageReadiness?.preparationEstimatedCostMicrousd,
+      0,
+      "reviewed caller-language preparation cost",
+    );
+    assertEqual(
+      readiness.callerLanguageReadiness?.preparationAttemptCount,
+      0,
+      "reviewed caller-language model attempts",
+    );
+    assertEqual(
+      readiness.callerLanguageReadiness?.canonicalTextSentToModel,
+      false,
+      "reviewed caller-language model isolation",
+    );
+    if (!readiness.callerLanguageReadiness?.bundleVersion) {
+      throw new Error("Reviewed caller language must report a bundle version.");
     }
   }
 
@@ -192,8 +223,8 @@ async function main() {
       false,
       "generated language retention",
     );
-    if (expectedLanguageStatus === "generated") {
-      assertEqual(languageEvent.payload?.languageMode, "openai", "caller-language mode");
+    if (expectedLanguageStatus !== "deterministic") {
+      assertEqual(languageEvent.payload?.languageMode, expectedLanguageMode, "caller-language mode");
       assertEqual(languageEvent.payload?.cacheHit, true, "caller-language cache hit");
       assertEqual(languageEvent.payload?.totalTokens, 0, "per-call caller-language tokens");
       assertEqual(
@@ -203,6 +234,16 @@ async function main() {
       );
       if (!(languageEvent.payload?.latencyMs >= 0 && languageEvent.payload?.latencyMs <= 100)) {
         throw new Error("cached caller language must be served within 100 milliseconds.");
+      }
+    }
+    if (expectedLanguageStatus === "reviewed") {
+      assertEqual(
+        languageEvent.payload?.languageProvider,
+        "reviewed_bundle",
+        "reviewed caller-language provider",
+      );
+      if (!languageEvent.payload?.bundleVersion) {
+        throw new Error("Reviewed caller-language event must report a bundle version.");
       }
     }
   } finally {
@@ -505,6 +546,13 @@ function positiveInteger(value) {
     throw new Error("TWILIO_CONVERSATION_RELAY_TIMEOUT_MS must be a positive integer.");
   }
   return parsed;
+}
+
+function languageModeForStatus(status) {
+  if (status === "deterministic") return "deterministic";
+  if (status === "generated") return "openai";
+  if (status === "reviewed") return "reviewed";
+  throw new Error("CALLER_LANGUAGE_EXPECT_STATUS must be deterministic, generated, or reviewed.");
 }
 
 function requiredEnv(name) {
