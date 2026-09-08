@@ -1414,3 +1414,18 @@ Next action:
 1. After owner approval, commit and push the smoke correction and activation record.
 2. Deploy the exact correction commit in deterministic mode and confirm health/readiness.
 3. Change only `CALLER_LANGUAGE_MODE` to `reviewed`, deploy, and rerun the reviewed phone-free smoke before any controlled phone call.
+
+Activation completion:
+
+- Owner approved the correction. Commit `05ed03814ad40b819e0da8b5f151724d8b5b6315` was pushed to `main`.
+- Deterministic baseline deployment `dep-dag29t740ujc73dgp1n0` reached Live on the exact correction commit with core health, call health, signed public Twilio readiness, simulated handoffs, and deterministic readiness green.
+- Changed only `CALLER_LANGUAGE_MODE` to `reviewed`. Deployment `dep-dag2anp594qs73e27vlg` cut production over to the same commit; `/version` reported build time `2026-09-08T15:10:30.915Z`.
+- Reviewed readiness passed for bundle `lanternbell-en-us-2026-09-08-v1`: all eight prompts prepared, zero failures, zero provider attempts, zero tokens, zero cost, canonical and caller data were not sent to a model, and generated text was not durably retained.
+- Phone-free run `conversation-relay-1788880446948` passed pricing containment, reviewed caller language, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window. No real call or transfer was placed.
+
+Next action:
+
+1. Obtain separate owner approval before placing one non-sensitive controlled phone call against reviewed caller language.
+2. Confirm the approved wording sounds natural across the standard intake path while handoffs remain simulated.
+3. If wording or voice latency is unacceptable, change only `CALLER_LANGUAGE_MODE` back to `deterministic`, redeploy the same code, and rerun the deterministic phone-free smoke.
