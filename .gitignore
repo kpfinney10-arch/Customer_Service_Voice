@@ -6,3 +6,4 @@ dist
 *.log
 .DS_Store
 .voice-ai-data*/
+.pilot-private/

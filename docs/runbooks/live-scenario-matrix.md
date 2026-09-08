@@ -24,7 +24,9 @@ To run a bounded concurrency check, set the maximum number of active scenario co
 TWILIO_SCENARIO_CONCURRENCY=3 TWILIO_SCENARIO_MAX_RESPONSE_MS=5000 npm run smoke:twilio-scenarios
 ```
 
-The concurrency value defaults to `1` and cannot exceed the seven defined scenarios. The response ceiling applies to each Twilio webhook POST and defaults to 5,000 milliseconds. Production runs should also confirm `/health/calls` remains green because its stricter persisted latency threshold is evaluated independently.
+The concurrency value defaults to `1` and cannot exceed the seven defined scenarios. The response ceiling applies to each Twilio webhook or ConversationRelay response and defaults to 5,000 milliseconds. The script detects the active Twilio transport: it preserves the `<Gather>` path for local/legacy tests and uses signed WebSockets plus the completion callback when ConversationRelay is active. In relay mode, each batch waits until every signed socket is open before sending caller turns, proving the requested simultaneous-connection ceiling rather than merely starting scenarios close together. Production runs should also confirm `/health/calls` remains green because its stricter persisted latency threshold is evaluated independently.
+
+All built-in caller names, callback numbers, inbound numbers, and destination numbers are fictional test fixtures. The defaults use the reserved `202-555-01xx` range and must not be overridden with real personal data for smoke testing.
 
 The script validates:
 
@@ -49,6 +51,7 @@ Latest permanent-host validation:
 - Final real-phone pricing call `CAb263deda9817bf9960c6720c11cce0d8` passed on 2026-08-16 against `f34e848`: Twilio returned the difficult `No 1 has passed away` variant, the application gave the demo-only pricing closure, and the final TwiML contained a hangup with no gather or dial. The owner accepted the revised caller wording.
 - Production `/version` reported commit `f34e848046f4e91a71ed55c123f5674dfa0ad894` and build time `2026-08-16T23:38:23.985Z`. On 2026-08-18, the full signed production matrix passed `7/7` against that exact release under run ID `render-pricing-rebaseline-1787066802`, using reserved test numbers and simulated handoffs. Post-run call health remained HTTP 200 with zero failures.
 - The bounded production concurrency run then passed all `7/7` lanes under run ID `render-concurrency-3-1787067168`, with at most three active conversations, independent replay assertions for every session, a maximum observed Twilio webhook response of 217 milliseconds, and post-run call health still green with zero failures.
+- After ConversationRelay activation, run `render-conversation-relay-concurrency-5-1788907443` passed all `7/7` lanes in batches of up to five simultaneously open signed WebSockets. Independent fact, tool, safety, terminal-state, and completion-callback assertions passed; all handoffs remained simulated, the maximum observed webhook or relay response was 627 milliseconds, and post-run call health remained HTTP 200 with zero failures.
 
 ## Scenario Coverage
 

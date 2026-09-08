@@ -1,14 +1,23 @@
 import crypto from "node:crypto";
+import { WebSocket } from "ws";
 
 const baseUrl = env("API_BASE_URL", "http://127.0.0.1:3000").replace(/\/+$/, "");
+const relayPublicBaseUrl = env(
+  "TWILIO_CONVERSATION_RELAY_PUBLIC_BASE_URL",
+  baseUrl.replace(/^http/, "ws"),
+).replace(/\/+$/, "");
+const relayConnectBaseUrl = env(
+  "TWILIO_CONVERSATION_RELAY_CONNECT_BASE_URL",
+  relayPublicBaseUrl,
+).replace(/\/+$/, "");
 const tenantId = env("TENANT_ID", "fh-demo");
 const apiKey = env("TENANT_API_KEY", "replace-with-local-dev-key");
 const authToken = env("TWILIO_AUTH_TOKEN", "");
 const signedExpected = env("TWILIO_EXPECT_SIGNED_WEBHOOK", "false").toLowerCase() === "true";
 const handoffModeExpected = env("TWILIO_EXPECT_HANDOFF_MODE", "live").toLowerCase();
 const runId = env("TWILIO_SCENARIO_RUN_ID", `twilio-scenario-${Date.now()}`);
-const fromNumber = env("TWILIO_SCENARIO_FROM", "+16037315845");
-const toNumber = env("TWILIO_SCENARIO_TO", "+15559870000");
+const fromNumber = env("TWILIO_SCENARIO_FROM", "+12025550100");
+const toNumber = env("TWILIO_SCENARIO_TO", "+12025550101");
 const scenarioConcurrency = parsePositiveInteger(
   env("TWILIO_SCENARIO_CONCURRENCY", "1"),
   "TWILIO_SCENARIO_CONCURRENCY",
@@ -18,6 +27,7 @@ const maxResponseMs = parsePositiveInteger(
   "TWILIO_SCENARIO_MAX_RESPONSE_MS",
 );
 const twilioResponseDurationsMs = [];
+const relayResponseDurationsMs = [];
 
 const scenarios = [
   {
@@ -26,7 +36,7 @@ const scenarios = [
     turns: [
       {
         speech:
-          "Hi, this is Nurse. Emily. Johnson with Gentle Care. Hospice. I'm at the family's home with a Mr. Robert Jones. He has passed away in the family's. Requested Smith. Family Funeral Home my call back. Number is 214-639-5723. The address here is 636 Commerce Avenue. Keller Texas.",
+          "Hi, this is Nurse. Emily. Johnson with Gentle Care. Hospice. I'm at the family's home with a Mr. Robert Jones. He has passed away in the family's. Requested Smith. Family Funeral Home my call back. Number is 202-555-0101. The address here is 636 Commerce Avenue. Keller Texas.",
         includes: ["<Dial "],
         excludes: ["May I have the name of the person who passed away", "Where is your loved one located right now"],
       },
@@ -34,7 +44,7 @@ const scenarios = [
     expectedState: "ESCALATE",
     expectedFacts: {
       caller_name: "Emily Johnson",
-      caller_phone: "214-639-5723",
+      caller_phone: "202-555-0101",
       facility_contact_role: "nurse",
       facility_name: "Gentle Care Hospice",
       decedent_name: "Robert Jones",
@@ -53,7 +63,7 @@ const scenarios = [
         includes: ["What is the best phone number"],
       },
       {
-        speech: "I'm at 214-639-5723.",
+        speech: "I'm at 202-555-0102.",
         includes: ["May I have the name of the person who passed away"],
       },
       {
@@ -73,7 +83,7 @@ const scenarios = [
     expectedState: "ESCALATE",
     expectedFacts: {
       caller_name: "Sarah Miller",
-      caller_phone: "214-639-5723",
+      caller_phone: "202-555-0102",
       facility_contact_role: "investigator",
       facility_name: "Tarrant County Medical Examiner's Office",
       decedent_name: "Robert Jones",
@@ -93,7 +103,7 @@ const scenarios = [
     turns: [
       {
         speech:
-          "Hi. This is David Carter from Sunrise Hospital. We have Helen. Brooks ready for release. The family has requested. Your funeral home. Pick up. Address is 500. Medical Center. Drive in Fort Worth Texas. My call back is 214 6395723.",
+          "Hi. This is David Carter from Sunrise Hospital. We have Helen. Brooks ready for release. The family has requested. Your funeral home. Pick up. Address is 500. Medical Center. Drive in Fort Worth Texas. My call back is 202 5550103.",
         includes: ["<Dial "],
         excludes: ["May I have the name of the person who passed away", "Where is your loved one located right now"],
       },
@@ -101,7 +111,7 @@ const scenarios = [
     expectedState: "ESCALATE",
     expectedFacts: {
       caller_name: "David Carter",
-      caller_phone: "214-639-5723",
+      caller_phone: "202-555-0103",
       caller_relationship_to_decedent: "facility_staff",
       facility_name: "Sunrise Hospital",
       decedent_name: "Helen Brooks",
@@ -121,7 +131,7 @@ const scenarios = [
         includes: ["best phone number"],
       },
       {
-        speech: "Officer Mendes at 817-632-4211.",
+        speech: "Officer Mendes at 202-555-0104.",
         includes: ["May I have the name of the person who passed away"],
       },
       {
@@ -136,7 +146,7 @@ const scenarios = [
     expectedState: "ESCALATE",
     expectedFacts: {
       caller_name: "Officer Mendes",
-      caller_phone: "817-632-4211",
+      caller_phone: "202-555-0104",
       caller_relationship_to_decedent: "facility_staff",
       facility_contact_role: "officer",
       facility_name: "Fort Worth Police Department",
@@ -152,7 +162,7 @@ const scenarios = [
     title: "Family residence death report escalates without dispatch request",
     turns: [
       {
-        speech: "My name is Kyle Finney and my phone number is 603-731-5845.",
+        speech: "My name is Morgan Parker and my phone number is 202-555-0105.",
         includes: ["May I have the name of the person who passed away"],
       },
       {
@@ -167,8 +177,8 @@ const scenarios = [
     ],
     expectedState: "ESCALATE",
     expectedFacts: {
-      caller_name: "Kyle Finney",
-      caller_phone: "603-731-5845",
+      caller_name: "Morgan Parker",
+      caller_phone: "202-555-0105",
       caller_relationship_to_decedent: "father",
       decedent_name: "Robert Jones",
       pickup_address: "636 Commerce Avenue Keller Texas",
@@ -211,7 +221,7 @@ const scenarios = [
     turns: [
       {
         speech:
-          "Uh, hi. My name's Kyle finny. I'm calling about my father. Robert, finny funeral home is already helping our family. This is not a new death call, not an emergency. Just want to know what time the office opens up tomorrow, whether I can drop off clothing for him in the morning, my call back number is 603-731-5845.",
+          "Uh, hi. My name's Morgan Parker. I'm calling about my father. Robert Parker. The funeral home is already helping our family. This is not a new death call, not an emergency. Just want to know what time the office opens up tomorrow, whether I can drop off clothing for him in the morning, my call back number is 202-555-0106.",
         includes: ["follow up during office hours", "<Hangup/>"],
         excludes: ["person who passed away", "located right now", "<Dial"],
       },
@@ -219,9 +229,9 @@ const scenarios = [
     expectedState: "WRAPUP",
     expectedIntent: "service_schedule_question",
     expectedFacts: {
-      caller_name: "Kyle Finny",
-      caller_phone: "603-731-5845",
-      decedent_name: "Robert Finny",
+      caller_name: "Morgan Parker",
+      caller_phone: "202-555-0106",
+      decedent_name: "Robert Parker",
       reasonForCall: "service_schedule_question",
       death_reported: false,
       urgency: "routine",
@@ -256,21 +266,23 @@ async function main() {
   }
 
   for (let index = 0; index < scenarios.length; index += scenarioConcurrency) {
-    await Promise.all(scenarios.slice(index, index + scenarioConcurrency).map(runScenario));
+    const batch = scenarios.slice(index, index + scenarioConcurrency);
+    const relayConnectionBarrier = createBarrier(batch.length);
+    await Promise.all(batch.map((scenario) => runScenario(scenario, relayConnectionBarrier)));
   }
 
-  const maximumObservedResponseMs = Math.max(...twilioResponseDurationsMs);
+  const maximumObservedResponseMs = Math.max(...twilioResponseDurationsMs, ...relayResponseDurationsMs);
   if (maximumObservedResponseMs > maxResponseMs) {
     throw new Error(
-      `Maximum Twilio webhook response ${maximumObservedResponseMs}ms exceeded ${maxResponseMs}ms.`,
+      `Maximum Twilio or ConversationRelay response ${maximumObservedResponseMs}ms exceeded ${maxResponseMs}ms.`,
     );
   }
 
-  console.log(`Maximum Twilio webhook response: ${maximumObservedResponseMs}ms`);
+  console.log(`Maximum Twilio or ConversationRelay response: ${maximumObservedResponseMs}ms`);
   console.log(`Twilio scenario matrix smoke passed: ${scenarios.length}/${scenarios.length} scenarios.`);
 }
 
-async function runScenario(scenario) {
+async function runScenario(scenario, relayConnectionBarrier) {
   const callSid = `${runId}-${scenario.id}`;
   const initial = await postTwilioForm("/webhook", {
     CallSid: callSid,
@@ -278,6 +290,19 @@ async function runScenario(scenario) {
     To: toNumber,
     CallStatus: "ringing",
   });
+  if (initial.includes("<ConversationRelay")) {
+    await runConversationRelayScenario(scenario, callSid, relayConnectionBarrier);
+  } else {
+    await runGatherScenario(scenario, callSid, initial);
+  }
+
+  await assertScenarioReplay(scenario, callSid);
+
+  console.log(`PASS ${scenario.title}`);
+  console.log(`  Call SID: ${callSid}`);
+}
+
+async function runGatherScenario(scenario, callSid, initial) {
   assertIncludes(initial, "<Gather ", `${scenario.id} initial gather`);
 
   for (const [index, turn] of scenario.turns.entries()) {
@@ -306,7 +331,75 @@ async function runScenario(scenario) {
       assertExcludes(twiml, unexpected, `${scenario.id} turn ${index + 1}`);
     }
   }
+}
 
+async function runConversationRelayScenario(scenario, callSid, relayConnectionBarrier) {
+  if (!authToken) {
+    throw new Error("ConversationRelay scenario smoke requires TWILIO_AUTH_TOKEN.");
+  }
+  if (handoffModeExpected !== "simulate") {
+    throw new Error("ConversationRelay scenario smoke requires simulated handoffs.");
+  }
+
+  const relayPath = `/v1/tenants/${tenantId}/telephony/twilio/conversation-relay`;
+  const relayUrl = `${relayPublicBaseUrl}${relayPath}`;
+  const relayConnectUrl = `${relayConnectBaseUrl}${relayPath}`;
+  const webSocket = new WebSocket(relayConnectUrl, {
+    headers: {
+      "x-twilio-signature": createTwilioSignature({
+        authToken,
+        url: relayUrl,
+        rawBody: "",
+      }),
+    },
+  });
+
+  try {
+    await onceOpen(webSocket);
+    webSocket.send(JSON.stringify({
+      type: "setup",
+      callSid,
+      customParameters: { tenantId },
+    }));
+    await relayConnectionBarrier();
+
+    let terminal;
+    for (const [index, turn] of scenario.turns.entries()) {
+      const responsePromise = onceMessage(webSocket);
+      const requestStartedAt = Date.now();
+      webSocket.send(JSON.stringify({
+        type: "prompt",
+        voicePrompt: turn.speech,
+        lang: "en-US",
+        last: true,
+      }));
+      const message = JSON.parse(await responsePromise);
+      relayResponseDurationsMs.push(Date.now() - requestStartedAt);
+      const isFinalTurn = index === scenario.turns.length - 1;
+      assertEqual(message.type, isFinalTurn ? "end" : "text", `${scenario.id} relay message type`);
+      if (isFinalTurn) terminal = message;
+    }
+
+    const reasonCode = JSON.parse(terminal.handoffData).reasonCode;
+    const expectedReasonCode = scenario.expectedState === "ESCALATE"
+      ? "handoff"
+      : scenario.expectedIntent === "pricing_or_billing"
+        ? "pricing_blocked"
+        : "completed";
+    assertEqual(reasonCode, expectedReasonCode, `${scenario.id} relay terminal reason`);
+
+    const completionTwiml = await postTwilioForm("/conversation-relay/complete", {
+      CallSid: callSid,
+      HandoffData: terminal.handoffData,
+    });
+    assertIncludes(completionTwiml, "<Hangup/>", `${scenario.id} simulated relay hangup`);
+    assertExcludes(completionTwiml, "<Dial", `${scenario.id} simulated relay dial`);
+  } finally {
+    await closeWebSocket(webSocket);
+  }
+}
+
+async function assertScenarioReplay(scenario, callSid) {
   const replay = await expectTenantJson(
     "GET",
     `/v1/tenants/${tenantId}/first-call/sessions/${encodeURIComponent(callSid)}/replay`,
@@ -345,9 +438,6 @@ async function runScenario(scenario) {
   for (const unexpected of scenario.expectedRecommendedActionsExclude ?? []) {
     assertExcludes(recommendedActions.join(" "), unexpected, `${scenario.id} recommended action`);
   }
-
-  console.log(`PASS ${scenario.title}`);
-  console.log(`  Call SID: ${callSid}`);
 }
 
 async function postTwilioForm(pathSuffix, fields) {
@@ -412,6 +502,67 @@ function twilioSortedFormPayload(rawBody) {
     .sort()
     .map((key) => `${key}${params.getAll(key).join("")}`)
     .join("");
+}
+
+function onceOpen(webSocket) {
+  return withTimeout(new Promise((resolve, reject) => {
+    webSocket.once("open", resolve);
+    webSocket.once("error", reject);
+    webSocket.once("unexpected-response", (_request, response) => {
+      reject(new Error(`WebSocket upgrade failed with HTTP ${response.statusCode}.`));
+    });
+  }), "ConversationRelay WebSocket open");
+}
+
+function onceMessage(webSocket) {
+  return withTimeout(new Promise((resolve, reject) => {
+    webSocket.once("message", (data) => resolve(data.toString()));
+    webSocket.once("error", reject);
+    webSocket.once("close", (code, reason) => {
+      reject(new Error(`WebSocket closed before a response (${code}: ${reason.toString()}).`));
+    });
+  }), "ConversationRelay message");
+}
+
+async function closeWebSocket(webSocket) {
+  if (webSocket.readyState === WebSocket.CLOSED) return;
+  if (webSocket.readyState === WebSocket.CONNECTING) {
+    webSocket.terminate();
+    return;
+  }
+  await withTimeout(new Promise((resolve) => {
+    webSocket.once("close", resolve);
+    webSocket.close();
+  }), "ConversationRelay close");
+}
+
+function createBarrier(size) {
+  let arrived = 0;
+  let release;
+  const released = new Promise((resolve) => {
+    release = resolve;
+  });
+  return async () => {
+    arrived += 1;
+    if (arrived === size) release();
+    await withTimeout(released, "ConversationRelay concurrency barrier");
+  };
+}
+
+function withTimeout(promise, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${maxResponseMs}ms.`)), maxResponseMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 function assertEqual(actual, expected, label) {

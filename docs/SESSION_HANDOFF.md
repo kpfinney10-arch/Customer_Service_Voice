@@ -1554,3 +1554,18 @@ Next action:
 1. Collect the prospective pilot customer's non-secret business name, desired tenant id, timezone, operating hours, approved call lanes, and expected volume/concurrency.
 2. Prepare—but do not activate—the disabled pilot tenant entry while keeping contacts, credentials, and phone destinations outside source control.
 3. Complete legal/privacy review and the real-handoff drill before enabling customer traffic.
+
+## 2026-09-08 first-pilot operating profile and five-call concurrency acceptance
+
+- The owner supplied the prospective pilot's non-sensitive operating profile. The identity, schedule, volume, and lane selection are held only in an ignored `.pilot-private` local profile; no customer identity or relationship was committed to source control.
+- Prepared and runtime-validated a tenant entry with a stable lower-kebab-case id, Central timezone, named queues, all feature flags disabled, and no phone destination. The local profile is not deployed and cannot accept traffic.
+- The prospective pilot requires a ceiling of five simultaneous calls, exceeding the prior three-call acceptance. Updated the existing seven-lane scenario matrix to detect ConversationRelay, coordinate each batch so every signed WebSocket is open simultaneously, exercise the completion callback, preserve the legacy `<Gather>` path, and measure both webhook and relay responses.
+- Replaced older personal-looking smoke identities and line values with fictional names and reserved `202-555-01xx` fixtures before sending any new production scenario traffic.
+- Signed production run `render-conversation-relay-concurrency-5-1788907443` passed all `7/7` lanes with up to five simultaneously open relay sessions. All fact, tool, routing-safety, terminal-state, simulated-handoff, completion-callback, and tenant-isolation assertions passed. Maximum observed response time was 627 milliseconds.
+- Post-run `/health` and `/health/calls` returned HTTP 200 with zero failures in the active 1,800-second window. No phone call or real transfer was placed.
+
+Next action:
+
+1. Complete local validation and obtain owner approval before committing or pushing the privacy and ConversationRelay concurrency-harness changes.
+2. Keep the customer profile ignored and the tenant undeployed until customer authorization and remaining launch gates are complete.
+3. Continue with the legal/privacy review and real-handoff drill; both remain blockers for real customer traffic.
