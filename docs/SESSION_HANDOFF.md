@@ -1471,3 +1471,17 @@ Next action:
 1. Obtain separate owner approval to activate candidate B (Sarah) by changing only `TWILIO_CONVERSATION_RELAY_VOICE`.
 2. Require exact voice readiness, the candidate-B phone-free smoke, and green call health before its separately approved non-sensitive call.
 3. Preserve candidate A as the configuration-only rollback.
+
+Candidate B activation update:
+
+- Owner approved the configuration-only activation. `TWILIO_CONVERSATION_RELAY_VOICE` is now `EXAVITQu4vr4xnSDxMaL-flash_v2_5-0.95_0.50_0.80`; reviewed caller language and simulated handoffs remain unchanged.
+- Render deployment `dep-dag799lg1s2s73bc2rpg` reached Live on commit `73e5c97e98f8bdc0f4c5577bab478db6b3c8bce5` with build time `2026-09-08T20:48:45.596Z`. That commit adds only the candidate-A release record; application code remains the approved voice-benchmark implementation from `ad0cb122e50653df67696aed202a57d7c0eb50ad`.
+- Authenticated readiness reported the exact Sarah voice, ElevenLabs TTS, Deepgram Flux transcription, reviewed bundle `lanternbell-en-us-2026-09-08-v1`, all eight prompts ready, zero model attempts or tokens, and simulated handoffs.
+- Phone-free run `conversation-relay-1788900592796` required the exact Sarah voice and passed pricing containment, reviewed caller language, grouped-number capture, bounded phone retry, signed public WebSocket validation, simulated handoffs, and raw-transcript non-retention.
+- Final `/health` and `/health/calls` returned HTTP 200; call health reported zero failures in the active 1,800-second window. No real call or transfer was placed.
+
+Next action:
+
+1. Obtain separate owner approval before placing one non-sensitive controlled candidate-B listening call using the frozen benchmark script.
+2. Record naturalness, warmth, clarity, interruption handling, latency, and intake completion without changing any other configuration.
+3. Preserve candidate A as the immediate configuration-only rollback; do not activate candidate C until candidate B has a recorded listening result.
